@@ -7,10 +7,9 @@ node_modules/
 .next/
 out/
 
-# env — NUNCA commitear
+# env — NUNCA commitear valores reales
 .env.local
 .env.*.local
-.env.example
 
 # vercel
 .vercel
