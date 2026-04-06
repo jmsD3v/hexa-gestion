@@ -40,10 +40,10 @@ export const mockSalesData = [
 ];
 
 export const mockOrdersDistribution = [
-  { label: 'Completadas', value: 45, color: '#4ade80' },
-  { label: 'En Progreso', value: 28, color: '#60a5fa' },
-  { label: 'Pendientes', value: 18, color: '#f59e0b' },
-  { label: 'Rechazadas', value: 9, color: '#f87171' },
+  { label: 'Completadas', value: 45, color: '#4ade80', colorCls: 'bg-green-400' },
+  { label: 'En Progreso', value: 28, color: '#60a5fa', colorCls: 'bg-blue-400' },
+  { label: 'Pendientes', value: 18, color: '#f59e0b', colorCls: 'bg-amber-500' },
+  { label: 'Rechazadas', value: 9, color: '#f87171', colorCls: 'bg-red-400' },
 ];
 
 export const mockTopClients = [

@@ -11,10 +11,19 @@ import {
   useCallback,
   useEffect,
   useRef,
-  type CSSProperties,
   type ReactNode,
   type ChangeEvent,
 } from 'react';
+import {
+  Wrench,
+  Package,
+  ClipboardList,
+  BarChart3,
+  PenLine,
+  FileText,
+  Briefcase,
+  User,
+} from 'lucide-react';
 import type {
   TipoOperacion,
   TipoIncidencia,
@@ -33,11 +42,11 @@ import { obtenerClientes } from '@/app/actions/clientes';
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
 
-const TIPOS_OPERACION: { value: TipoOperacion; label: string; icon: string }[] =
+const TIPOS_OPERACION: { value: TipoOperacion; label: string; icon: ReactNode }[] =
   [
-    { value: 'SERVICIO', label: 'Servicio', icon: '🔧' },
-    { value: 'PRODUCTO', label: 'Producto', icon: '📦' },
-    { value: 'PRODUCTO_SERVICIO', label: 'Producto + Servicio', icon: '🔧📦' },
+    { value: 'SERVICIO', label: 'Servicio', icon: <Wrench className="w-3.5 h-3.5" /> },
+    { value: 'PRODUCTO', label: 'Producto', icon: <Package className="w-3.5 h-3.5" /> },
+    { value: 'PRODUCTO_SERVICIO', label: 'Producto + Servicio', icon: <span className="flex items-center gap-0.5"><Wrench className="w-3 h-3" /><Package className="w-3 h-3" /></span> },
   ];
 
 const UNIDADES = [
@@ -55,84 +64,18 @@ const UNIDADES = [
 
 const INCIDENCIA_CONFIG: Record<
   TipoIncidencia,
-  {
-    label: string;
-    icon: string;
-    color: string;
-    usaDias: boolean;
-    usaKm: boolean;
-  }
+  { label: string; icon: ReactNode; textCls: string; badgeCls: string; usaDias: boolean; usaKm: boolean }
 > = {
-  traslado: {
-    label: 'Traslado',
-    icon: '🚗',
-    color: '#60a5fa',
-    usaDias: false,
-    usaKm: true,
-  },
-  viatico: {
-    label: 'Viático',
-    icon: '💼',
-    color: '#f59e0b',
-    usaDias: true,
-    usaKm: false,
-  },
-  hospedaje: {
-    label: 'Hospedaje',
-    icon: '🏨',
-    color: '#a78bfa',
-    usaDias: true,
-    usaKm: false,
-  },
-  combustible: {
-    label: 'Combustible',
-    icon: '⛽',
-    color: '#f97316',
-    usaDias: false,
-    usaKm: true,
-  },
-  vianda: {
-    label: 'Vianda',
-    icon: '🍱',
-    color: '#34d399',
-    usaDias: true,
-    usaKm: false,
-  },
-  equipamiento: {
-    label: 'Equipamiento',
-    icon: '🛠',
-    color: '#94a3b8',
-    usaDias: false,
-    usaKm: false,
-  },
-  sanidad: {
-    label: 'Sanidad / Seguros',
-    icon: '🏥',
-    color: '#f87171',
-    usaDias: false,
-    usaKm: false,
-  },
-  honorario_externo: {
-    label: 'Honorario Externo',
-    icon: '👤',
-    color: '#e879f9',
-    usaDias: false,
-    usaKm: false,
-  },
-  pago_tercero: {
-    label: 'Pago a Tercero',
-    icon: '💸',
-    color: '#fbbf24',
-    usaDias: false,
-    usaKm: false,
-  },
-  otro: {
-    label: 'Otro',
-    icon: '📎',
-    color: '#64748b',
-    usaDias: false,
-    usaKm: false,
-  },
+  traslado:          { label: 'Traslado',           icon: '🚗', textCls: 'text-blue-400',    badgeCls: 'bg-blue-400/[0.07] border-blue-400/15',     usaDias: false, usaKm: true  },
+  viatico:           { label: 'Viático',             icon: <Briefcase className="w-3.5 h-3.5" />, textCls: 'text-amber-500',   badgeCls: 'bg-amber-500/[0.07] border-amber-500/15',   usaDias: true,  usaKm: false },
+  hospedaje:         { label: 'Hospedaje',           icon: '🏨', textCls: 'text-violet-400',  badgeCls: 'bg-violet-400/[0.07] border-violet-400/15', usaDias: true,  usaKm: false },
+  combustible:       { label: 'Combustible',         icon: '⛽', textCls: 'text-orange-500',  badgeCls: 'bg-orange-500/[0.07] border-orange-500/15', usaDias: false, usaKm: true  },
+  vianda:            { label: 'Vianda',              icon: '🍱', textCls: 'text-emerald-400', badgeCls: 'bg-emerald-400/[0.07] border-emerald-400/15', usaDias: true, usaKm: false },
+  equipamiento:      { label: 'Equipamiento',        icon: '🛠', textCls: 'text-slate-400',   badgeCls: 'bg-slate-400/[0.06] border-slate-400/15',   usaDias: false, usaKm: false },
+  sanidad:           { label: 'Sanidad / Seguros',   icon: '🏥', textCls: 'text-red-400',     badgeCls: 'bg-red-400/[0.07] border-red-400/15',       usaDias: false, usaKm: false },
+  honorario_externo: { label: 'Honorario Externo',   icon: <User className="w-3.5 h-3.5" />, textCls: 'text-fuchsia-400', badgeCls: 'bg-fuchsia-400/[0.07] border-fuchsia-400/15', usaDias: false, usaKm: false },
+  pago_tercero:      { label: 'Pago a Tercero',      icon: '💸', textCls: 'text-yellow-400',  badgeCls: 'bg-yellow-400/[0.07] border-yellow-400/15', usaDias: false, usaKm: false },
+  otro:              { label: 'Otro',                icon: '📎', textCls: 'text-slate-500',   badgeCls: 'bg-slate-500/[0.06] border-slate-500/15',   usaDias: false, usaKm: false },
 };
 
 const IVA_OPCIONES = [0, 10.5, 21, 27];
@@ -242,45 +185,17 @@ function uid(): string {
   return crypto.randomUUID().slice(0, 8);
 }
 
-// ─── Estilos base ─────────────────────────────────────────────────────────────
+// ─── Estilos base (Tailwind class strings) ────────────────────────────────────
 
-const card: CSSProperties = {
-  background: 'rgba(15,23,42,0.7)',
-  border: '1px solid rgba(148,163,184,0.08)',
-  borderRadius: '12px',
-  backdropFilter: 'blur(12px)',
-};
+const cardClass =
+  'bg-slate-900/70 border border-slate-400/10 rounded-xl backdrop-blur-sm';
 
-const inputStyle: CSSProperties = {
-  width: '100%',
-  padding: '9px 12px',
-  background: 'rgba(8,16,35,0.6)',
-  border: '1px solid rgba(148,163,184,0.1)',
-  borderRadius: '8px',
-  color: '#e2e8f0',
-  fontSize: '13px',
-  fontFamily: "'DM Sans', sans-serif",
-  outline: 'none',
-  boxSizing: 'border-box' as const,
-  transition: 'border-color 0.2s',
-};
+// Base input Tailwind class used by textarea and direct inputs
+const inputClass =
+  'w-full px-3 py-[9px] bg-slate-950/60 border border-slate-400/10 rounded-lg text-slate-200 text-[13px] outline-none transition-colors';
 
-const monoInput: CSSProperties = {
-  ...inputStyle,
-  fontFamily: "'DM Mono', monospace",
-  fontSize: '12px',
-  textAlign: 'right' as const,
-};
-
-const labelStyle: CSSProperties = {
-  fontSize: '10px',
-  fontWeight: '600' as const,
-  letterSpacing: '0.08em',
-  textTransform: 'uppercase' as const,
-  color: '#475569',
-  marginBottom: '5px',
-  display: 'block',
-};
+const labelClass =
+  'text-xs font-semibold tracking-widest uppercase text-slate-600 mb-[5px] block';
 
 // ─── Subcomponentes de UI ─────────────────────────────────────────────────────
 
@@ -288,34 +203,33 @@ function Field({
   label,
   error,
   required,
+  hint,
   children,
 }: {
   label?: string;
   error?: string;
   required?: boolean;
+  hint?: string;
   children: ReactNode;
 }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+    <div className='flex flex-col gap-1'>
       {label && (
-        <label style={{ ...labelStyle, color: error ? '#f59e0b' : '#475569' }}>
+        <label
+          className={`${labelClass} ${error ? 'text-amber-500' : 'text-slate-600'}`}
+        >
           {label}
           {required && (
-            <span style={{ color: '#f59e0b', marginLeft: '3px' }}>●</span>
+            <span className='text-amber-500 ml-[3px]'>●</span>
           )}
         </label>
       )}
       {children}
+      {hint && !error && (
+        <span className='text-xs text-slate-400'>{hint}</span>
+      )}
       {error && (
-        <span
-          style={{
-            fontSize: '11px',
-            color: '#f59e0b',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '4px',
-          }}
-        >
+        <span className='text-xs text-amber-500 flex items-center gap-1'>
           <svg width='9' height='9' viewBox='0 0 9 9'>
             <circle cx='4.5' cy='4.5' r='4' stroke='#f59e0b' fill='none' />
             <line
@@ -341,7 +255,7 @@ function Inp({
   onChange,
   placeholder,
   type = 'text',
-  style: extraStyle,
+  className: extraClass,
   error,
   onFocus,
   onBlur,
@@ -351,7 +265,7 @@ function Inp({
   onChange: (e: ChangeEvent<HTMLInputElement>) => void;
   placeholder?: string;
   type?: string;
-  style?: CSSProperties;
+  className?: string;
   error?: string;
   onFocus?: () => void;
   onBlur?: () => void;
@@ -360,6 +274,12 @@ function Inp({
   step?: string;
 }) {
   const [focused, setFocused] = useState(false);
+  const borderColor = error
+    ? 'border-amber-500/50'
+    : focused
+      ? 'border-amber-500/35'
+      : 'border-slate-400/10';
+  const shadowClass = focused ? 'shadow-[0_0_0_3px_rgba(245,158,11,0.06)]' : '';
   return (
     <input
       type={type}
@@ -374,15 +294,7 @@ function Inp({
         setFocused(false);
         onBlur?.();
       }}
-      style={{
-        ...(extraStyle ?? inputStyle),
-        borderColor: error
-          ? 'rgba(245,158,11,0.5)'
-          : focused
-            ? 'rgba(245,158,11,0.35)'
-            : 'rgba(148,163,184,0.1)',
-        boxShadow: focused ? '0 0 0 3px rgba(245,158,11,0.06)' : 'none',
-      }}
+      className={`${inputClass} ${borderColor} ${shadowClass}${extraClass ? ` ${extraClass}` : ''}`}
       {...rest}
     />
   );
@@ -392,31 +304,23 @@ function Sel({
   value,
   onChange,
   children,
-  style: extraStyle,
+  className: extraClass,
 }: {
   value: string;
   onChange: (e: ChangeEvent<HTMLSelectElement>) => void;
   children: ReactNode;
-  style?: CSSProperties;
+  className?: string;
 }) {
   const [focused, setFocused] = useState(false);
+  const borderColor = focused ? 'border-amber-500/35' : 'border-slate-400/10';
   return (
-    <div style={{ position: 'relative' }}>
+    <div className='relative'>
       <select
         value={value}
         onChange={onChange}
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
-        style={{
-          ...(extraStyle ?? inputStyle),
-          appearance: 'none',
-          cursor: 'pointer',
-          paddingRight: '28px',
-          borderColor: focused
-            ? 'rgba(245,158,11,0.35)'
-            : 'rgba(148,163,184,0.1)',
-          boxSizing: 'border-box',
-        }}
+        className={`${inputClass} appearance-none cursor-pointer pr-7 ${borderColor}${extraClass ? ` ${extraClass}` : ''}`}
       >
         {children}
       </select>
@@ -425,14 +329,7 @@ function Sel({
         height='10'
         viewBox='0 0 10 10'
         fill='none'
-        style={{
-          position: 'absolute',
-          right: '9px',
-          top: '50%',
-          transform: 'translateY(-50%)',
-          pointerEvents: 'none',
-          color: '#475569',
-        }}
+        className='absolute right-[9px] top-1/2 -translate-y-1/2 pointer-events-none text-slate-600'
       >
         <path
           d='M2 4L5 7L8 4'
@@ -453,46 +350,21 @@ function SectionHeader({
   onAdd,
   addLabel,
 }: {
-  icon: string;
+  icon: ReactNode;
   title: string;
   count?: number;
   onAdd?: () => void;
   addLabel?: string;
 }) {
   return (
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        marginBottom: '16px',
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-        <span style={{ fontSize: '14px' }}>{icon}</span>
-        <span
-          style={{
-            fontSize: '13px',
-            fontWeight: '700',
-            color: '#94a3b8',
-            letterSpacing: '-0.01em',
-          }}
-        >
+    <div className='flex items-center justify-between mb-4'>
+      <div className='flex items-center gap-2'>
+        <span className='text-slate-500 flex items-center'>{icon}</span>
+        <span className='text-[13px] font-bold text-slate-400'>
           {title}
         </span>
         {count !== undefined && count > 0 && (
-          <span
-            style={{
-              fontSize: '10px',
-              fontWeight: '700',
-              color: '#475569',
-              background: 'rgba(148,163,184,0.08)',
-              border: '1px solid rgba(148,163,184,0.12)',
-              borderRadius: '20px',
-              padding: '1px 7px',
-              fontFamily: "'DM Mono',monospace",
-            }}
-          >
+          <span className='text-xs font-bold text-slate-600 bg-slate-400/[0.08] border border-slate-400/[0.12] rounded-[20px] px-[7px] py-[1px]'>
             {count}
           </span>
         )}
@@ -500,21 +372,7 @@ function SectionHeader({
       {onAdd && (
         <button
           onClick={onAdd}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '5px',
-            padding: '6px 12px',
-            borderRadius: '7px',
-            border: '1px solid rgba(245,158,11,0.25)',
-            background: 'rgba(245,158,11,0.06)',
-            color: '#f59e0b',
-            fontSize: '12px',
-            fontWeight: '600',
-            cursor: 'pointer',
-            fontFamily: "'DM Sans',sans-serif",
-            transition: 'all 0.15s',
-          }}
+          className='flex items-center gap-[5px] px-3 py-1.5 rounded-[7px] border border-amber-500/25 bg-amber-500/[0.06] text-amber-500 text-xs font-semibold cursor-pointer transition-all duration-150'
         >
           <svg width='11' height='11' viewBox='0 0 11 11'>
             <path
@@ -544,34 +402,26 @@ function MontoDisplay({
   accent?: boolean;
   total?: boolean;
 }) {
-  const sizes = { sm: '12px', md: '13px', lg: '16px' };
+  const sizeClass =
+    size === 'lg' ? 'text-base' : size === 'md' ? 'text-[13px]' : 'text-xs';
+  const labelColorClass = total ? 'text-slate-400' : 'text-slate-600';
+  const labelWeightClass = total ? 'font-semibold' : 'font-normal';
+  const valueColorClass = total
+    ? 'text-amber-500'
+    : accent
+      ? 'text-emerald-400'
+      : 'text-slate-500';
+  const valueWeightClass = total ? 'font-bold' : 'font-medium';
+  const paddingClass = total ? 'py-2.5' : 'py-[5px]';
+  const borderClass = total ? 'border-t border-slate-400/10' : '';
   return (
     <div
-      style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        padding: total ? '10px 0' : '5px 0',
-        borderTop: total ? '1px solid rgba(148,163,184,0.1)' : 'none',
-      }}
+      className={`flex justify-between items-center ${paddingClass} ${borderClass}`}
     >
-      <span
-        style={{
-          fontSize: '11px',
-          color: total ? '#94a3b8' : '#475569',
-          fontWeight: total ? '600' : '400',
-        }}
-      >
+      <span className={`text-xs ${labelColorClass} ${labelWeightClass}`}>
         {label}
       </span>
-      <span
-        style={{
-          fontSize: sizes[size],
-          fontFamily: "'DM Mono',monospace",
-          fontWeight: total ? '700' : '500',
-          color: total ? '#f59e0b' : accent ? '#4ade80' : '#64748b',
-        }}
-      >
+      <span className={`${sizeClass} ${valueColorClass} ${valueWeightClass}`}>
         {formatearMonto(value)}
       </span>
     </div>
@@ -606,35 +456,19 @@ function SeccionCabecera({
     <div className='flex flex-col gap-4'>
       {/* Tipo de operación */}
       <div>
-        <label style={labelStyle}>
-          Tipo de operación <span style={{ color: '#f59e0b' }}>●</span>
+        <label className={`${labelClass} text-slate-600`}>
+          Tipo de operación <span className='text-amber-500'>●</span>
         </label>
-        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+        <div className='flex gap-2 flex-wrap'>
           {TIPOS_OPERACION.map((t) => (
             <button
               key={t.value}
               onClick={() => onChange('tipo_operacion', t.value)}
-              style={{
-                padding: '8px 14px',
-                borderRadius: '8px',
-                cursor: 'pointer',
-                border:
-                  data.tipo_operacion === t.value
-                    ? '1px solid rgba(245,158,11,0.5)'
-                    : '1px solid rgba(148,163,184,0.1)',
-                background:
-                  data.tipo_operacion === t.value
-                    ? 'rgba(245,158,11,0.08)'
-                    : 'rgba(8,16,35,0.4)',
-                color: data.tipo_operacion === t.value ? '#f59e0b' : '#475569',
-                fontSize: '12px',
-                fontWeight: '600',
-                fontFamily: "'DM Sans',sans-serif",
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                transition: 'all 0.15s',
-              }}
+              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold cursor-pointer transition-all duration-150 ${
+                data.tipo_operacion === t.value
+                  ? 'border border-amber-500/50 bg-amber-500/[0.08] text-amber-500'
+                  : 'border border-slate-400/10 bg-slate-950/40 text-slate-600'
+              }`}
             >
               <span>{t.icon}</span>
               {t.label}
@@ -645,7 +479,7 @@ function SeccionCabecera({
 
       <div className='grid grid-cols-1 gap-4 sm:grid-cols-2'>
         {/* Cliente */}
-        <div style={{ gridColumn: '1 / -1' }}>
+        <div className='col-span-full'>
           <Field label='Cliente' required error={errors.cliente_id}>
             <Sel
               value={data.cliente_id}
@@ -665,7 +499,7 @@ function SeccionCabecera({
         </div>
 
         {/* Título */}
-        <div style={{ gridColumn: '1 / -1' }}>
+        <div className='col-span-full'>
           <Field label='Título del presupuesto' required error={errors.titulo}>
             <Inp
               value={data.titulo}
@@ -677,7 +511,7 @@ function SeccionCabecera({
         </div>
 
         {/* Objetivo */}
-        <div style={{ gridColumn: '1 / -1' }}>
+        <div className='col-span-full'>
           <Field
             label='Objetivo del servicio'
             required
@@ -688,30 +522,20 @@ function SeccionCabecera({
               onChange={set('objetivo_servicio')}
               placeholder='Descripción técnica del objetivo a cumplir...'
               rows={3}
-              style={{
-                ...inputStyle,
-                resize: 'vertical',
-                lineHeight: '1.6',
-                minHeight: '70px',
-              }}
+              className={`${inputClass} resize-y leading-relaxed min-h-[70px]`}
             />
           </Field>
         </div>
 
         {/* Descripción */}
-        <div style={{ gridColumn: '1 / -1' }}>
+        <div className='col-span-full'>
           <Field label='Descripción / Alcance'>
             <textarea
               value={data.descripcion}
               onChange={set('descripcion')}
               placeholder='Descripción detallada del alcance del trabajo...'
               rows={3}
-              style={{
-                ...inputStyle,
-                resize: 'vertical',
-                lineHeight: '1.6',
-                minHeight: '70px',
-              }}
+              className={`${inputClass} resize-y leading-relaxed min-h-[70px]`}
             />
           </Field>
         </div>
@@ -757,12 +581,7 @@ function SeccionCabecera({
             onChange={set('notas_cliente')}
             placeholder='Aclaraciones, condiciones especiales...'
             rows={3}
-            style={{
-              ...inputStyle,
-              resize: 'vertical',
-              lineHeight: '1.6',
-              fontSize: '12px',
-            }}
+            className={`${inputClass} resize-y leading-relaxed text-xs`}
           />
         </Field>
         <Field label='Notas internas' hint='Solo visible en el sistema'>
@@ -771,12 +590,7 @@ function SeccionCabecera({
             onChange={set('notas_internas')}
             placeholder='Notas de contexto, estrategia de precio...'
             rows={3}
-            style={{
-              ...inputStyle,
-              resize: 'vertical',
-              lineHeight: '1.6',
-              fontSize: '12px',
-            }}
+            className={`${inputClass} resize-y leading-relaxed text-xs`}
           />
         </Field>
       </div>
@@ -802,7 +616,7 @@ function SeccionItems({
   return (
     <div>
       <SectionHeader
-        icon='📋'
+        icon={<ClipboardList className="w-3.5 h-3.5" />}
         title='Ítems'
         count={items.length}
         onAdd={onAdd}
@@ -810,37 +624,20 @@ function SeccionItems({
       />
 
       {items.length === 0 && (
-        <div
-          style={{
-            padding: '32px',
-            textAlign: 'center',
-            border: '1px dashed rgba(148,163,184,0.12)',
-            borderRadius: '10px',
-          }}
-        >
-          <p style={{ margin: 0, fontSize: '13px', color: '#334155' }}>
+        <div className='p-8 text-center border border-dashed border-slate-400/[0.12] rounded-[10px]'>
+          <p className='m-0 text-[13px] text-slate-700'>
             Sin ítems aún — agregá el primer ítem de servicio o producto
           </p>
         </div>
       )}
 
       {errors.items && (
-        <div
-          style={{
-            padding: '10px 14px',
-            background: 'rgba(245,158,11,0.06)',
-            border: '1px solid rgba(245,158,11,0.2)',
-            borderRadius: '8px',
-            marginBottom: '12px',
-            fontSize: '12px',
-            color: '#f59e0b',
-          }}
-        >
+        <div className='px-3.5 py-2.5 bg-amber-500/[0.06] border border-amber-500/20 rounded-lg mb-3 text-xs text-amber-500'>
           {errors.items}
         </div>
       )}
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+      <div className='flex flex-col gap-2.5'>
         {items.map((item, idx) => (
           <FilaItem
             key={item._id}
@@ -853,25 +650,12 @@ function SeccionItems({
       </div>
 
       {items.length > 0 && (
-        <div
-          style={{
-            marginTop: '12px',
-            display: 'flex',
-            justifyContent: 'flex-end',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '11px', color: '#475569' }}>
+        <div className='mt-3 flex justify-end'>
+          <div className='flex items-center gap-2'>
+            <span className='text-xs text-slate-600'>
               Subtotal ítems:
             </span>
-            <span
-              style={{
-                fontSize: '14px',
-                fontWeight: '700',
-                color: '#e2e8f0',
-                fontFamily: "'DM Mono',monospace",
-              }}
-            >
+            <span className='text-sm font-bold text-slate-200'>
               {formatearMonto(items.reduce((a, it) => a + subtotalItem(it), 0))}
             </span>
           </div>
@@ -896,44 +680,14 @@ function FilaItem({
   const subtotal = subtotalItem(item);
 
   return (
-    <div
-      style={{
-        background: 'rgba(8,16,35,0.5)',
-        border: '1px solid rgba(148,163,184,0.08)',
-        borderRadius: '10px',
-        overflow: 'hidden',
-        transition: 'border-color 0.2s',
-      }}
-    >
+    <div className='bg-slate-950/50 border border-slate-400/[0.08] rounded-[10px] overflow-hidden transition-colors duration-200'>
       {/* Fila principal */}
-      <div style={{ overflowX: 'auto' }}>
+      <div className='overflow-x-auto'>
         <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'auto 1fr 80px 90px 90px 70px 80px 32px',
-            gap: '8px',
-            padding: '10px 12px',
-            alignItems: 'center',
-            minWidth: '520px',
-          }}
+          className='grid grid-cols-[auto_1fr_80px_90px_90px_70px_80px_32px] gap-2 px-3 py-2.5 items-center min-w-[520px]'
         >
           {/* Núm */}
-          <div
-            style={{
-              width: '22px',
-              height: '22px',
-              borderRadius: '6px',
-              background: 'rgba(245,158,11,0.08)',
-              border: '1px solid rgba(245,158,11,0.15)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '10px',
-              fontWeight: '700',
-              color: '#f59e0b',
-              fontFamily: "'DM Mono',monospace",
-            }}
-          >
+          <div className='w-[22px] h-[22px] rounded-md bg-amber-500/[0.08] border border-amber-500/15 flex items-center justify-center text-xs font-bold text-amber-500'>
             {idx + 1}
           </div>
 
@@ -942,7 +696,7 @@ function FilaItem({
             value={item.descripcion}
             onChange={(e) => onChange(idx, 'descripcion', e.target.value)}
             placeholder='Descripción del ítem...'
-            style={{ ...inputStyle, fontSize: '12px', padding: '7px 10px' }}
+            className='text-xs px-2.5 py-[7px]'
           />
 
           {/* Cantidad */}
@@ -953,18 +707,14 @@ function FilaItem({
             value={item.cantidad}
             onChange={(e) => onChange(idx, 'cantidad', e.target.value)}
             placeholder='Cant.'
-            style={{ ...monoInput, padding: '7px 8px', fontSize: '12px' }}
+            className='text-right text-xs px-2 py-[7px]'
           />
 
           {/* Unidad */}
           <Sel
             value={item.unidad_medida}
             onChange={(e) => onChange(idx, 'unidad_medida', e.target.value)}
-            style={{
-              ...inputStyle,
-              padding: '7px 24px 7px 8px',
-              fontSize: '11px',
-            }}
+            className='text-xs px-2 py-[7px] pr-6'
           >
             {UNIDADES.map((u) => (
               <option key={u} value={u}>
@@ -981,11 +731,11 @@ function FilaItem({
             value={item.precio_unitario}
             onChange={(e) => onChange(idx, 'precio_unitario', e.target.value)}
             placeholder='Precio'
-            style={{ ...monoInput, padding: '7px 8px', fontSize: '12px' }}
+            className='text-right text-xs px-2 py-[7px]'
           />
 
           {/* Descuento */}
-          <div style={{ position: 'relative' }}>
+          <div className='relative'>
             <Inp
               type='number'
               min='0'
@@ -994,47 +744,25 @@ function FilaItem({
               value={item.descuento_pct}
               onChange={(e) => onChange(idx, 'descuento_pct', e.target.value)}
               placeholder='0'
-              style={{
-                ...monoInput,
-                padding: '7px 20px 7px 8px',
-                fontSize: '12px',
-              }}
+              className='text-right text-xs px-2 py-[7px] pr-5'
             />
-            <span
-              style={{
-                position: 'absolute',
-                right: '7px',
-                top: '50%',
-                transform: 'translateY(-50%)',
-                fontSize: '10px',
-                color: '#475569',
-                pointerEvents: 'none',
-              }}
-            >
+            <span className='absolute right-[7px] top-1/2 -translate-y-1/2 text-xs text-slate-600 pointer-events-none'>
               %
             </span>
           </div>
 
           {/* Subtotal */}
           <div
-            style={{
-              textAlign: 'right',
-              fontSize: '12px',
-              fontWeight: '600',
-              color: subtotal > 0 ? '#94a3b8' : '#334155',
-              fontFamily: "'DM Mono',monospace",
-            }}
+            className={`text-right text-xs font-semibold ${subtotal > 0 ? 'text-slate-400' : 'text-slate-700'}`}
           >
             {subtotal > 0 ? formatearMonto(subtotal) : '—'}
           </div>
 
           {/* Acciones */}
-          <div
-            style={{ display: 'flex', gap: '3px', justifyContent: 'flex-end' }}
-          >
+          <div className='flex gap-[3px] justify-end'>
             <button
               onClick={() => setExpanded((p) => !p)}
-              style={{ ...btnIcon, color: expanded ? '#f59e0b' : '#334155' }}
+              className={`w-[26px] h-[26px] rounded-md border border-slate-400/[0.08] bg-transparent cursor-pointer flex items-center justify-center transition-all duration-[120ms] ${expanded ? 'text-amber-500' : 'text-slate-700'}`}
             >
               <svg width='12' height='12' viewBox='0 0 12 12'>
                 <path
@@ -1048,9 +776,7 @@ function FilaItem({
             </button>
             <button
               onClick={() => onRemove(idx)}
-              style={{ ...btnIcon, color: '#475569' }}
-              onMouseEnter={(e) => (e.currentTarget.style.color = '#f87171')}
-              onMouseLeave={(e) => (e.currentTarget.style.color = '#475569')}
+              className='w-[26px] h-[26px] rounded-md border border-slate-400/[0.08] bg-transparent cursor-pointer flex items-center justify-center transition-all duration-[120ms] text-slate-600 hover:text-red-400'
             >
               <svg width='12' height='12' viewBox='0 0 12 12'>
                 <path
@@ -1068,11 +794,7 @@ function FilaItem({
       {/* Detalle expandido */}
       {expanded && (
         <div
-          className='grid grid-cols-1 gap-2.5 sm:grid-cols-2'
-          style={{
-            padding: '0 12px 12px',
-            borderTop: '1px solid rgba(148,163,184,0.05)',
-          }}
+          className='grid grid-cols-1 gap-2.5 sm:grid-cols-2 px-3 pb-3 border-t border-slate-400/[0.05]'
         >
           <Field label='Detalle / especificaciones técnicas'>
             <textarea
@@ -1080,31 +802,15 @@ function FilaItem({
               onChange={(e) => onChange(idx, 'detalle', e.target.value)}
               placeholder='Especificaciones técnicas, marca, modelo...'
               rows={2}
-              style={{
-                ...inputStyle,
-                resize: 'vertical',
-                fontSize: '12px',
-                lineHeight: '1.5',
-              }}
+              className={`${inputClass} resize-y text-xs leading-normal`}
             />
           </Field>
           <Field
             label='Costo unitario interno'
             hint='Solo visible en el sistema'
           >
-            <div style={{ position: 'relative' }}>
-              <span
-                style={{
-                  position: 'absolute',
-                  left: '10px',
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  fontSize: '11px',
-                  color: '#334155',
-                  pointerEvents: 'none',
-                  fontFamily: "'DM Mono',monospace",
-                }}
-              >
+            <div className='relative'>
+              <span className='absolute left-[10px] top-1/2 -translate-y-1/2 text-xs text-slate-700 pointer-events-none'>
                 $
               </span>
               <Inp
@@ -1116,7 +822,7 @@ function FilaItem({
                   onChange(idx, 'costo_unitario', e.target.value)
                 }
                 placeholder='0.00'
-                style={{ ...monoInput, paddingLeft: '22px' }}
+                className='text-right text-xs pl-[22px]'
               />
             </div>
           </Field>
@@ -1125,20 +831,6 @@ function FilaItem({
     </div>
   );
 }
-
-const btnIcon: CSSProperties = {
-  width: '26px',
-  height: '26px',
-  borderRadius: '6px',
-  border: '1px solid rgba(148,163,184,0.08)',
-  background: 'transparent',
-  cursor: 'pointer',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  transition: 'all 0.12s',
-  color: '#475569',
-};
 
 // ─── Sección: Incidencias ─────────────────────────────────────────────────────
 
@@ -1161,55 +853,22 @@ function SeccionIncidencias({
 
   return (
     <div>
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          marginBottom: '16px',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ fontSize: '14px' }}>📊</span>
-          <span
-            style={{ fontSize: '13px', fontWeight: '700', color: '#94a3b8' }}
-          >
+      <div className='flex items-center justify-between mb-4'>
+        <div className='flex items-center gap-2'>
+          <BarChart3 className="w-3.5 h-3.5 text-slate-500" />
+          <span className='text-[13px] font-bold text-slate-400'>
             Incidencias
           </span>
           {incidencias.length > 0 && (
-            <span
-              style={{
-                fontSize: '10px',
-                fontWeight: '700',
-                color: '#475569',
-                background: 'rgba(148,163,184,0.08)',
-                border: '1px solid rgba(148,163,184,0.12)',
-                borderRadius: '20px',
-                padding: '1px 7px',
-                fontFamily: "'DM Mono',monospace",
-              }}
-            >
+            <span className='text-xs font-bold text-slate-600 bg-slate-400/[0.08] border border-slate-400/[0.12] rounded-[20px] px-[7px] py-[1px]'>
               {incidencias.length}
             </span>
           )}
         </div>
-        <div style={{ position: 'relative' }}>
+        <div className='relative'>
           <button
             onClick={() => setMenuAbierto((p) => !p)}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '5px',
-              padding: '6px 12px',
-              borderRadius: '7px',
-              border: '1px solid rgba(245,158,11,0.25)',
-              background: 'rgba(245,158,11,0.06)',
-              color: '#f59e0b',
-              fontSize: '12px',
-              fontWeight: '600',
-              cursor: 'pointer',
-              fontFamily: "'DM Sans',sans-serif",
-            }}
+            className='flex items-center gap-[5px] px-3 py-1.5 rounded-[7px] border border-amber-500/25 bg-amber-500/[0.06] text-amber-500 text-xs font-semibold cursor-pointer transition-all duration-150'
           >
             <svg width='11' height='11' viewBox='0 0 11 11'>
               <path
@@ -1222,22 +881,7 @@ function SeccionIncidencias({
             Agregar
           </button>
           {menuAbierto && (
-            <div
-              style={{
-                position: 'absolute',
-                right: 0,
-                top: '100%',
-                marginTop: '4px',
-                background: '#0f172a',
-                border: '1px solid rgba(148,163,184,0.12)',
-                borderRadius: '10px',
-                padding: '4px',
-                minWidth: '200px',
-                zIndex: 20,
-                boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
-                animation: 'scaleIn 0.12s ease',
-              }}
-            >
+            <div className='absolute right-0 top-full mt-1 bg-slate-900 border border-slate-400/[0.12] rounded-[10px] p-1 min-w-[200px] z-20 shadow-[0_8px_24px_rgba(0,0,0,0.4)] [animation:scaleIn_0.12s_ease]'>
               {(
                 Object.entries(INCIDENCIA_CONFIG) as [
                   TipoIncidencia,
@@ -1250,33 +894,10 @@ function SeccionIncidencias({
                     onAdd(tipo);
                     setMenuAbierto(false);
                   }}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    width: '100%',
-                    padding: '7px 10px',
-                    borderRadius: '7px',
-                    border: 'none',
-                    background: 'transparent',
-                    color: '#94a3b8',
-                    fontSize: '12px',
-                    cursor: 'pointer',
-                    fontFamily: "'DM Sans',sans-serif",
-                    textAlign: 'left',
-                    transition: 'background 0.1s',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = 'rgba(148,163,184,0.06)';
-                    e.currentTarget.style.color = '#e2e8f0';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = 'transparent';
-                    e.currentTarget.style.color = '#94a3b8';
-                  }}
+                  className='flex items-center gap-2 w-full px-2.5 py-[7px] rounded-[7px] border-none bg-transparent text-slate-400 text-xs cursor-pointer text-left transition-colors duration-100 hover:bg-slate-400/[0.06] hover:text-slate-200'
                 >
-                  <span style={{ fontSize: '13px' }}>{cfg.icon}</span>
-                  <span style={{ color: cfg.color, fontWeight: '500' }}>
+                  <span className='flex items-center'>{cfg.icon}</span>
+                  <span className={`font-medium ${cfg.textCls}`}>
                     {cfg.label}
                   </span>
                 </button>
@@ -1286,42 +907,24 @@ function SeccionIncidencias({
         </div>
       </div>
 
-      <div
-        style={{
-          marginBottom: '12px',
-          padding: '10px 14px',
-          background: 'rgba(99,102,241,0.04)',
-          border: '1px solid rgba(99,102,241,0.1)',
-          borderRadius: '8px',
-          fontSize: '11px',
-          color: '#475569',
-          lineHeight: '1.6',
-        }}
-      >
-        <span style={{ color: '#a5b4fc', fontWeight: '600' }}>Incidencias</span>{' '}
+      <div className='mb-3 px-3.5 py-2.5 bg-indigo-500/[0.04] border border-indigo-500/10 rounded-lg text-xs text-slate-600 leading-normal'>
+        <span className='text-violet-300 font-semibold'>Incidencias</span>{' '}
         — costos operativos del servicio: traslados, viáticos, hospedaje,
         combustible, etc. Las marcadas como{' '}
-        <span style={{ color: '#94a3b8' }}>internas</span> afectan el costo pero
+        <span className='text-slate-400'>internas</span> afectan el costo pero
         no se muestran al cliente.
       </div>
 
       {incidencias.length === 0 && (
-        <div
-          style={{
-            padding: '28px',
-            textAlign: 'center',
-            border: '1px dashed rgba(148,163,184,0.1)',
-            borderRadius: '10px',
-          }}
-        >
-          <p style={{ margin: 0, fontSize: '13px', color: '#334155' }}>
+        <div className='p-7 text-center border border-dashed border-slate-400/10 rounded-[10px]'>
+          <p className='m-0 text-[13px] text-slate-700'>
             Sin incidencias — el presupuesto no incluye costos operativos
             adicionales
           </p>
         </div>
       )}
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+      <div className='flex flex-col gap-2'>
         {incidencias.map((inc, idx) => (
           <FilaIncidencia
             key={inc._id}
@@ -1334,25 +937,12 @@ function SeccionIncidencias({
       </div>
 
       {incidencias.length > 0 && (
-        <div
-          style={{
-            marginTop: '12px',
-            display: 'flex',
-            justifyContent: 'flex-end',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '11px', color: '#475569' }}>
+        <div className='mt-3 flex justify-end'>
+          <div className='flex items-center gap-2'>
+            <span className='text-xs text-slate-600'>
               Subtotal incidencias:
             </span>
-            <span
-              style={{
-                fontSize: '14px',
-                fontWeight: '700',
-                color: '#e2e8f0',
-                fontFamily: "'DM Mono',monospace",
-              }}
-            >
+            <span className='text-sm font-bold text-slate-200'>
               {formatearMonto(
                 incidencias.reduce((a, i) => a + subtotalIncidencia(i), 0),
               )}
@@ -1380,68 +970,21 @@ function FilaIncidencia({
   const [expanded, setExpanded] = useState(true);
 
   return (
-    <div
-      style={{
-        background: 'rgba(8,16,35,0.5)',
-        border: `1px solid ${cfg.color}18`,
-        borderRadius: '10px',
-        overflow: 'hidden',
-      }}
-    >
-      <div style={{ overflowX: 'auto' }}>
+    <div className={`bg-slate-950/50 rounded-[10px] overflow-hidden border ${cfg.badgeCls}`}>
+      <div className='overflow-x-auto'>
         <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'auto 32px 1fr 80px 70px 70px 80px 80px 32px',
-            gap: '8px',
-            padding: '10px 12px',
-            alignItems: 'center',
-            minWidth: '600px',
-          }}
+          className='grid grid-cols-[auto_32px_1fr_80px_70px_70px_80px_80px_32px] gap-2 px-3 py-2.5 items-center min-w-[600px]'
         >
           {/* Tipo badge */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '5px',
-              padding: '3px 8px',
-              borderRadius: '6px',
-              background: `${cfg.color}12`,
-              border: `1px solid ${cfg.color}25`,
-              whiteSpace: 'nowrap',
-            }}
-          >
-            <span style={{ fontSize: '11px' }}>{cfg.icon}</span>
-            <span
-              style={{
-                fontSize: '10px',
-                fontWeight: '700',
-                color: cfg.color,
-                letterSpacing: '0.05em',
-              }}
-            >
+          <div className={`flex items-center gap-[5px] px-2 py-[3px] rounded-md whitespace-nowrap border ${cfg.badgeCls}`}>
+            <span className='flex items-center'>{cfg.icon}</span>
+            <span className={`text-xs font-bold tracking-wide ${cfg.textCls}`}>
               {cfg.label}
             </span>
           </div>
 
           {/* Núm */}
-          <div
-            style={{
-              width: '22px',
-              height: '22px',
-              borderRadius: '6px',
-              background: 'rgba(148,163,184,0.06)',
-              border: '1px solid rgba(148,163,184,0.1)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '10px',
-              fontWeight: '700',
-              color: '#475569',
-              fontFamily: "'DM Mono',monospace",
-            }}
-          >
+          <div className='w-[22px] h-[22px] rounded-md bg-slate-400/[0.06] border border-slate-400/10 flex items-center justify-center text-xs font-bold text-slate-600'>
             {idx + 1}
           </div>
 
@@ -1450,7 +993,7 @@ function FilaIncidencia({
             value={inc.descripcion}
             onChange={(e) => onChange(idx, 'descripcion', e.target.value)}
             placeholder='Descripción...'
-            style={{ ...inputStyle, fontSize: '12px', padding: '7px 10px' }}
+            className='text-xs px-2.5 py-[7px]'
           />
 
           {/* Cantidad */}
@@ -1462,14 +1005,14 @@ function FilaIncidencia({
               value={inc.cantidad}
               onChange={(e) => onChange(idx, 'cantidad', e.target.value)}
               placeholder='Cant.'
-              style={{ ...monoInput, padding: '7px 8px', fontSize: '12px' }}
+              className='text-right text-xs px-2 py-[7px]'
             />
           </div>
 
           {/* Días (si aplica) */}
           <div>
             {cfg.usaDias ? (
-              <div style={{ position: 'relative' }}>
+              <div className='relative'>
                 <Inp
                   type='number'
                   min='1'
@@ -1477,36 +1020,15 @@ function FilaIncidencia({
                   value={inc.dias}
                   onChange={(e) => onChange(idx, 'dias', e.target.value)}
                   placeholder='Días'
-                  style={{
-                    ...monoInput,
-                    padding: '7px 22px 7px 8px',
-                    fontSize: '12px',
-                  }}
+                  className='text-right text-xs px-2 py-[7px] pr-[22px]'
                 />
-                <span
-                  style={{
-                    position: 'absolute',
-                    right: '6px',
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    fontSize: '9px',
-                    color: '#475569',
-                    pointerEvents: 'none',
-                  }}
-                >
+                <span className='absolute right-[6px] top-1/2 -translate-y-1/2 text-[9px] text-slate-600 pointer-events-none'>
                   d
                 </span>
               </div>
             ) : (
-              <div
-                style={{
-                  height: '34px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <span style={{ fontSize: '11px', color: '#1e293b' }}>—</span>
+              <div className='h-[34px] flex items-center justify-center'>
+                <span className='text-xs text-slate-800'>—</span>
               </div>
             )}
           </div>
@@ -1514,7 +1036,7 @@ function FilaIncidencia({
           {/* Km (si aplica) */}
           <div>
             {cfg.usaKm ? (
-              <div style={{ position: 'relative' }}>
+              <div className='relative'>
                 <Inp
                   type='number'
                   min='0'
@@ -1524,54 +1046,22 @@ function FilaIncidencia({
                     onChange(idx, 'distancia_km', e.target.value)
                   }
                   placeholder='km'
-                  style={{
-                    ...monoInput,
-                    padding: '7px 22px 7px 8px',
-                    fontSize: '12px',
-                  }}
+                  className='text-right text-xs px-2 py-[7px] pr-[22px]'
                 />
-                <span
-                  style={{
-                    position: 'absolute',
-                    right: '6px',
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    fontSize: '9px',
-                    color: '#475569',
-                    pointerEvents: 'none',
-                  }}
-                >
+                <span className='absolute right-[6px] top-1/2 -translate-y-1/2 text-[9px] text-slate-600 pointer-events-none'>
                   km
                 </span>
               </div>
             ) : (
-              <div
-                style={{
-                  height: '34px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <span style={{ fontSize: '11px', color: '#1e293b' }}>—</span>
+              <div className='h-[34px] flex items-center justify-center'>
+                <span className='text-xs text-slate-800'>—</span>
               </div>
             )}
           </div>
 
           {/* Monto unitario */}
-          <div style={{ position: 'relative' }}>
-            <span
-              style={{
-                position: 'absolute',
-                left: '8px',
-                top: '50%',
-                transform: 'translateY(-50%)',
-                fontSize: '10px',
-                color: '#334155',
-                pointerEvents: 'none',
-                fontFamily: "'DM Mono',monospace",
-              }}
-            >
+          <div className='relative'>
+            <span className='absolute left-2 top-1/2 -translate-y-1/2 text-xs text-slate-700 pointer-events-none'>
               $
             </span>
             <Inp
@@ -1581,33 +1071,22 @@ function FilaIncidencia({
               value={inc.monto_unitario}
               onChange={(e) => onChange(idx, 'monto_unitario', e.target.value)}
               placeholder='0.00'
-              style={{
-                ...monoInput,
-                paddingLeft: '18px',
-                padding: '7px 8px 7px 18px',
-                fontSize: '12px',
-              }}
+              className='text-right text-xs px-2 py-[7px] pl-[18px]'
             />
           </div>
 
           {/* Subtotal */}
           <div
-            style={{
-              textAlign: 'right',
-              fontSize: '12px',
-              fontWeight: '600',
-              color: subtotal > 0 ? '#94a3b8' : '#334155',
-              fontFamily: "'DM Mono',monospace",
-            }}
+            className={`text-right text-xs font-semibold ${subtotal > 0 ? 'text-slate-400' : 'text-slate-700'}`}
           >
             {subtotal > 0 ? formatearMonto(subtotal) : '—'}
           </div>
 
           {/* Botones */}
-          <div style={{ display: 'flex', gap: '3px' }}>
+          <div className='flex gap-[3px]'>
             <button
               onClick={() => setExpanded((p) => !p)}
-              style={{ ...btnIcon, color: expanded ? '#f59e0b' : '#334155' }}
+              className={`w-[26px] h-[26px] rounded-md border border-slate-400/[0.08] bg-transparent cursor-pointer flex items-center justify-center transition-all duration-[120ms] ${expanded ? 'text-amber-500' : 'text-slate-700'}`}
             >
               <svg width='12' height='12' viewBox='0 0 12 12'>
                 <path
@@ -1621,9 +1100,7 @@ function FilaIncidencia({
             </button>
             <button
               onClick={() => onRemove(idx)}
-              style={{ ...btnIcon }}
-              onMouseEnter={(e) => (e.currentTarget.style.color = '#f87171')}
-              onMouseLeave={(e) => (e.currentTarget.style.color = '#475569')}
+              className='w-[26px] h-[26px] rounded-md border border-slate-400/[0.08] bg-transparent cursor-pointer flex items-center justify-center transition-all duration-[120ms] text-slate-600 hover:text-red-400'
             >
               <svg width='12' height='12' viewBox='0 0 12 12'>
                 <path
@@ -1641,55 +1118,19 @@ function FilaIncidencia({
       {/* Toggle interno / externo */}
       {expanded && (
         <div
-          className='flex flex-col gap-3 sm:flex-row sm:items-center'
-          style={{
-            padding: '0 12px 10px',
-            borderTop: '1px solid rgba(148,163,184,0.05)',
-          }}
+          className='flex flex-col gap-3 sm:flex-row sm:items-center px-3 pb-2.5 border-t border-slate-400/[0.05]'
         >
-          <label
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '7px',
-              cursor: 'pointer',
-            }}
-          >
+          <label className='flex items-center gap-[7px] cursor-pointer'>
             <div
               onClick={() => onChange(idx, 'es_interno', !inc.es_interno)}
-              style={{
-                width: '32px',
-                height: '18px',
-                borderRadius: '9px',
-                background: inc.es_interno
-                  ? 'rgba(245,158,11,0.4)'
-                  : 'rgba(148,163,184,0.12)',
-                border: `1px solid ${inc.es_interno ? 'rgba(245,158,11,0.5)' : 'rgba(148,163,184,0.15)'}`,
-                position: 'relative',
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-                flexShrink: 0,
-              }}
+              className={`relative cursor-pointer transition-all duration-200 shrink-0 w-8 h-[18px] rounded-[9px] border ${inc.es_interno ? 'bg-amber-500/40 border-amber-500/50' : 'bg-slate-400/[0.12] border-slate-400/15'}`}
             >
               <div
-                style={{
-                  position: 'absolute',
-                  top: '2px',
-                  left: inc.es_interno ? '15px' : '2px',
-                  width: '12px',
-                  height: '12px',
-                  borderRadius: '50%',
-                  background: inc.es_interno ? '#f59e0b' : '#475569',
-                  transition: 'all 0.2s',
-                }}
+                className={`absolute top-[2px] w-3 h-3 rounded-full transition-all duration-200 ${inc.es_interno ? 'left-[15px] bg-amber-500' : 'left-[2px] bg-slate-600'}`}
               />
             </div>
             <span
-              style={{
-                fontSize: '11px',
-                color: inc.es_interno ? '#f59e0b' : '#475569',
-                fontWeight: '500',
-              }}
+              className={`text-xs font-medium ${inc.es_interno ? 'text-amber-500' : 'text-slate-600'}`}
             >
               {inc.es_interno
                 ? 'Incidencia interna (solo costo)'
@@ -1701,12 +1142,7 @@ function FilaIncidencia({
               value={inc.notas}
               onChange={(e) => onChange(idx, 'notas', e.target.value)}
               placeholder='Notas opcionales...'
-              style={{
-                ...inputStyle,
-                fontSize: '11px',
-                padding: '5px 10px',
-                flex: 1,
-              }}
+              className='text-xs px-2.5 py-[5px] flex-1'
             />
           )}
         </div>
@@ -1755,75 +1191,34 @@ function PanelTotales({
     iva_pct: n(cabecera.iva_pct),
   });
 
-  const margenColor =
-    totales.margen_pct >= 30
-      ? '#4ade80'
-      : totales.margen_pct >= 10
-        ? '#f59e0b'
-        : '#f87171';
+  const margenCls =
+    totales.margen_pct >= 30 ? 'text-green-400' : totales.margen_pct >= 10 ? 'text-amber-500' : 'text-red-400';
+  const margenBarCls =
+    totales.margen_pct >= 30 ? 'bg-green-400' : totales.margen_pct >= 10 ? 'bg-amber-500' : 'bg-red-400';
 
   return (
-    <div className='p-4 lg:p-3 xl:sticky xl:top-4' style={card}>
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '7px',
-          marginBottom: '18px',
-        }}
-      >
-        <span style={{ fontSize: '13px' }}>🧮</span>
-        <span
-          style={{
-            fontSize: '12px',
-            fontWeight: '700',
-            color: '#64748b',
-            letterSpacing: '0.06em',
-            textTransform: 'uppercase',
-          }}
-        >
+    <div className={`${cardClass} p-4 lg:p-3 xl:sticky xl:top-4`}>
+      <div className='flex items-center gap-[7px] mb-[18px]'>
+        <span className='text-[13px]'>🧮</span>
+        <span className='text-xs font-bold text-slate-500 tracking-[0.06em] uppercase'>
           Resumen
         </span>
       </div>
 
       {/* Cliente seleccionado */}
       {cabecera.titulo && (
-        <div
-          style={{
-            padding: '10px 12px',
-            background: 'rgba(245,158,11,0.05)',
-            border: '1px solid rgba(245,158,11,0.12)',
-            borderRadius: '8px',
-            marginBottom: '16px',
-          }}
-        >
-          <div
-            style={{ fontSize: '11px', color: '#475569', marginBottom: '2px' }}
-          >
+        <div className='px-3 py-2.5 bg-amber-500/[0.05] border border-amber-500/[0.12] rounded-lg mb-4'>
+          <div className='text-xs text-slate-600 mb-[2px]'>
             Presupuesto
           </div>
-          <div
-            style={{
-              fontSize: '12px',
-              fontWeight: '600',
-              color: '#cbd5e1',
-              lineHeight: '1.4',
-            }}
-          >
+          <div className='text-xs font-semibold text-slate-300 leading-[1.4]'>
             {cabecera.titulo}
           </div>
         </div>
       )}
 
       {/* Ítems e incidencias */}
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '2px',
-          marginBottom: '12px',
-        }}
-      >
+      <div className='flex flex-col gap-[2px] mb-3'>
         <MontoDisplay
           label={`Ítems (${items.length})`}
           value={totales.subtotal_items}
@@ -1837,46 +1232,17 @@ function PanelTotales({
           />
         )}
         {incidencias.filter((i) => i.es_interno).length > 0 && (
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              padding: '4px 0',
-            }}
-          >
-            <span
-              style={{
-                fontSize: '10px',
-                color: '#334155',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px',
-              }}
-            >
+          <div className='flex justify-between items-center py-1'>
+            <span className='text-xs text-slate-700 flex items-center gap-1'>
               <span>
                 Incidencias internas (
                 {incidencias.filter((i) => i.es_interno).length})
               </span>
-              <span
-                style={{
-                  background: 'rgba(148,163,184,0.08)',
-                  border: '1px solid rgba(148,163,184,0.12)',
-                  borderRadius: '3px',
-                  padding: '0 4px',
-                  fontSize: '9px',
-                }}
-              >
+              <span className='bg-slate-400/[0.08] border border-slate-400/[0.12] rounded px-1 text-[9px]'>
                 interno
               </span>
             </span>
-            <span
-              style={{
-                fontSize: '11px',
-                color: '#334155',
-                fontFamily: "'DM Mono',monospace",
-              }}
-            >
+            <span className='text-xs text-slate-700'>
               {formatearMonto(
                 incidencias
                   .filter((i) => i.es_interno)
@@ -1888,20 +1254,11 @@ function PanelTotales({
       </div>
 
       {/* Descuento global */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-          marginBottom: '8px',
-        }}
-      >
-        <span
-          style={{ fontSize: '11px', color: '#475569', whiteSpace: 'nowrap' }}
-        >
+      <div className='flex items-center gap-2 mb-2'>
+        <span className='text-xs text-slate-600 whitespace-nowrap'>
           Descuento global
         </span>
-        <div style={{ position: 'relative', flex: 1 }}>
+        <div className='relative flex-1'>
           <Inp
             type='number'
             min='0'
@@ -1909,66 +1266,27 @@ function PanelTotales({
             step='0.5'
             value={cabecera.descuento_pct}
             onChange={(e) => onChangeCabecera('descuento_pct', e.target.value)}
-            style={{
-              ...monoInput,
-              padding: '5px 20px 5px 8px',
-              fontSize: '12px',
-            }}
+            className='text-right text-xs px-2 py-[5px] pr-5'
           />
-          <span
-            style={{
-              position: 'absolute',
-              right: '7px',
-              top: '50%',
-              transform: 'translateY(-50%)',
-              fontSize: '10px',
-              color: '#475569',
-              pointerEvents: 'none',
-            }}
-          >
+          <span className='absolute right-[7px] top-1/2 -translate-y-1/2 text-xs text-slate-600 pointer-events-none'>
             %
           </span>
         </div>
       </div>
 
       {/* IVA */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-          marginBottom: '16px',
-        }}
-      >
-        <span
-          style={{ fontSize: '11px', color: '#475569', whiteSpace: 'nowrap' }}
-        >
-          IVA
-        </span>
-        <div style={{ display: 'flex', gap: '4px', flex: 1 }}>
+      <div className='flex items-center gap-2 mb-4'>
+        <span className='text-xs text-slate-600 whitespace-nowrap'>IVA</span>
+        <div className='flex gap-1 flex-1'>
           {IVA_OPCIONES.map((pct) => (
             <button
               key={pct}
               onClick={() => onChangeCabecera('iva_pct', String(pct))}
-              style={{
-                flex: 1,
-                padding: '5px 4px',
-                borderRadius: '5px',
-                cursor: 'pointer',
-                border:
-                  n(cabecera.iva_pct) === pct
-                    ? '1px solid rgba(245,158,11,0.4)'
-                    : '1px solid rgba(148,163,184,0.1)',
-                background:
-                  n(cabecera.iva_pct) === pct
-                    ? 'rgba(245,158,11,0.08)'
-                    : 'transparent',
-                color: n(cabecera.iva_pct) === pct ? '#f59e0b' : '#475569',
-                fontSize: '10px',
-                fontWeight: '600',
-                fontFamily: "'DM Mono',monospace",
-                transition: 'all 0.15s',
-              }}
+              className={`flex-1 py-[5px] px-1 rounded-[5px] cursor-pointer text-xs font-semibold transition-all duration-150 ${
+                n(cabecera.iva_pct) === pct
+                  ? 'border border-amber-500/40 bg-amber-500/[0.08] text-amber-500'
+                  : 'border border-slate-400/10 bg-transparent text-slate-600'
+              }`}
             >
               {pct}%
             </button>
@@ -1977,12 +1295,7 @@ function PanelTotales({
       </div>
 
       {/* Totales */}
-      <div
-        style={{
-          borderTop: '1px solid rgba(148,163,184,0.08)',
-          paddingTop: '10px',
-        }}
-      >
+      <div className='border-t border-slate-400/[0.08] pt-2.5'>
         {n(cabecera.descuento_pct) > 0 && (
           <MontoDisplay
             label={`Descuento (${cabecera.descuento_pct}%)`}
@@ -1998,76 +1311,28 @@ function PanelTotales({
       </div>
 
       {/* Margen interno */}
-      <div
-        style={{
-          marginTop: '14px',
-          padding: '12px',
-          background: 'rgba(8,16,35,0.5)',
-          border: '1px solid rgba(148,163,184,0.07)',
-          borderRadius: '8px',
-        }}
-      >
-        <div
-          style={{
-            fontSize: '10px',
-            color: '#334155',
-            fontWeight: '600',
-            textTransform: 'uppercase',
-            letterSpacing: '0.08em',
-            marginBottom: '8px',
-          }}
-        >
+      <div className='mt-[14px] p-3 bg-slate-950/50 border border-slate-400/[0.07] rounded-lg'>
+        <div className='text-xs text-slate-700 font-semibold uppercase tracking-widest mb-2'>
           Análisis interno
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: '11px', color: '#334155' }}>
-              Costo estimado
-            </span>
-            <span
-              style={{
-                fontSize: '11px',
-                color: '#334155',
-                fontFamily: "'DM Mono',monospace",
-              }}
-            >
+        <div className='flex flex-col gap-1'>
+          <div className='flex justify-between'>
+            <span className='text-xs text-slate-700'>Costo estimado</span>
+            <span className='text-xs text-slate-700'>
               {formatearMonto(totales.costo_total)}
             </span>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: '11px', color: '#475569' }}>
-              Margen bruto
-            </span>
-            <span
-              style={{
-                fontSize: '11px',
-                fontWeight: '600',
-                color: margenColor,
-                fontFamily: "'DM Mono',monospace",
-              }}
-            >
+          <div className='flex justify-between'>
+            <span className='text-xs text-slate-600'>Margen bruto</span>
+            <span className={`text-xs font-semibold ${margenCls}`}>
               {formatearMonto(totales.margen_monto)} (
               {totales.margen_pct.toFixed(1)}%)
             </span>
           </div>
           {/* Barra de margen */}
-          <div
-            style={{
-              height: '4px',
-              background: 'rgba(148,163,184,0.08)',
-              borderRadius: '2px',
-              marginTop: '4px',
-              overflow: 'hidden',
-            }}
-          >
+          <div className='h-1 bg-slate-400/[0.08] rounded-sm mt-1 overflow-hidden'>
             <div
-              style={{
-                height: '100%',
-                borderRadius: '2px',
-                width: `${Math.min(100, Math.max(0, totales.margen_pct))}%`,
-                background: margenColor,
-                transition: 'width 0.4s ease',
-              }}
+              className={`h-full rounded-sm transition-all duration-300 ${margenBarCls} w-[${Math.min(100, Math.max(0, totales.margen_pct))}%]`}
             />
           </div>
         </div>
@@ -2239,14 +1504,14 @@ export default function PresupuestoBuilder() {
   const TABS: {
     id: TabActiva;
     label: string;
-    icon: string;
+    icon: ReactNode;
     badge?: number;
     hasError?: boolean;
   }[] = [
     {
       id: 'cabecera',
       label: 'Cabecera',
-      icon: '📝',
+      icon: <PenLine className="w-3.5 h-3.5" />,
       hasError: !!(
         errors.cliente_id ||
         errors.titulo ||
@@ -2256,17 +1521,17 @@ export default function PresupuestoBuilder() {
     {
       id: 'items',
       label: 'Ítems',
-      icon: '📋',
+      icon: <ClipboardList className="w-3.5 h-3.5" />,
       badge: items.length,
       hasError: !!errors.items,
     },
     {
       id: 'incidencias',
       label: 'Incidencias',
-      icon: '📊',
+      icon: <BarChart3 className="w-3.5 h-3.5" />,
       badge: incidencias.length,
     },
-    { id: 'condiciones', label: 'Condiciones', icon: '📄' },
+    { id: 'condiciones', label: 'Condiciones', icon: <FileText className="w-3.5 h-3.5" /> },
   ];
 
   if (submitted)
@@ -2283,73 +1548,23 @@ export default function PresupuestoBuilder() {
 
   return (
     <>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@300;400;500&display=swap');
-        * { box-sizing:border-box; }
-        body { margin:0; background:#060d1a; font-family:'DM Sans',sans-serif; -webkit-font-smoothing:antialiased; }
-        ::placeholder { color:#1e293b !important; }
-        option { background:#0f172a; color:#e2e8f0; }
-        input:focus, select:focus, textarea:focus { outline:none !important; }
-        ::-webkit-scrollbar { width:4px; height:4px; }
-        ::-webkit-scrollbar-track { background:transparent; }
-        ::-webkit-scrollbar-thumb { background:rgba(148,163,184,0.15); border-radius:2px; }
-        @keyframes scaleIn { from{transform:scale(0.96);opacity:0} to{transform:scale(1);opacity:1} }
-        @keyframes fadeIn  { from{opacity:0} to{opacity:1} }
-        @keyframes slideUp { from{transform:translateY(8px);opacity:0} to{transform:translateY(0);opacity:1} }
-        @keyframes spin    { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
-      `}</style>
-
       <div
-        className='px-3 py-3 pb-10 sm:px-5 sm:py-4 sm:pb-12 lg:px-4 lg:py-2 lg:pb-3'
-        style={{
-          minHeight: '100vh',
-          background:
-            'radial-gradient(ellipse 120% 70% at 8% 0%,rgba(245,158,11,0.04) 0%,transparent 55%),#060d1a',
-        }}
+        className='min-h-screen px-3 py-5 pb-20 sm:px-5 sm:py-8 lg:px-6 bg-slate-950 bg-gradient-to-b from-amber-950/5 to-slate-950'
       >
-        <div style={{ maxWidth: '1280px', margin: '0 auto' }}>
+        <div className='max-w-[1280px] mx-auto'>
           {/* Header */}
           <div className='mb-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between lg:mb-3'>
             <div>
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  marginBottom: '4px',
-                }}
-              >
-                <span
-                  style={{
-                    fontSize: '11px',
-                    color: '#334155',
-                    letterSpacing: '0.08em',
-                    textTransform: 'uppercase',
-                  }}
-                >
+              <div className='flex items-center gap-2 mb-1'>
+                <span className='text-xs text-slate-700 tracking-widest uppercase'>
                   Presupuestos
                 </span>
-                <span style={{ color: '#1e293b' }}>›</span>
-                <span
-                  style={{
-                    fontSize: '11px',
-                    color: '#475569',
-                    letterSpacing: '0.08em',
-                    textTransform: 'uppercase',
-                  }}
-                >
+                <span className='text-slate-800'>›</span>
+                <span className='text-xs text-slate-600 tracking-widest uppercase'>
                   Nuevo
                 </span>
               </div>
-              <h1
-                style={{
-                  margin: 0,
-                  fontSize: '22px',
-                  fontWeight: '700',
-                  color: '#e2e8f0',
-                  letterSpacing: '-0.02em',
-                }}
-              >
+              <h1 className='m-0 text-[22px] font-bold text-slate-200 tracking-tight'>
                 Nuevo Presupuesto
               </h1>
             </div>
@@ -2357,53 +1572,21 @@ export default function PresupuestoBuilder() {
               <button
                 onClick={() => handleSubmit('borrador')}
                 disabled={submitting}
-                className='w-full sm:w-auto'
-                style={{
-                  padding: '9px 18px',
-                  borderRadius: '9px',
-                  border: '1px solid rgba(148,163,184,0.15)',
-                  background: 'rgba(15,23,42,0.8)',
-                  color: '#64748b',
-                  fontSize: '13px',
-                  fontWeight: '600',
-                  cursor: submitting ? 'not-allowed' : 'pointer',
-                  fontFamily: "'DM Sans',sans-serif",
-                  opacity: submitting ? 0.6 : 1,
-                }}
+                className={`w-full sm:w-auto px-[18px] py-[9px] rounded-[9px] border border-slate-400/15 bg-slate-900/80 text-slate-500 text-[13px] font-semibold transition-all duration-150 ${submitting ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
               >
                 Guardar borrador
               </button>
               <button
                 onClick={() => handleSubmit('enviar')}
                 disabled={submitting}
-                className='w-full sm:w-auto'
-                style={{
-                  padding: '9px 20px',
-                  borderRadius: '9px',
-                  border: 'none',
-                  background: submitting
-                    ? 'rgba(245,158,11,0.3)'
-                    : 'linear-gradient(135deg,rgba(245,158,11,0.9),rgba(217,119,6,0.9))',
-                  color: '#0f172a',
-                  fontSize: '13px',
-                  fontWeight: '700',
-                  cursor: submitting ? 'not-allowed' : 'pointer',
-                  fontFamily: "'DM Sans',sans-serif",
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '7px',
-                  boxShadow: submitting
-                    ? 'none'
-                    : '0 4px 12px rgba(245,158,11,0.2)',
-                }}
+                className={`w-full sm:w-auto px-5 py-[9px] rounded-[9px] border-0 text-slate-900 text-[13px] font-bold flex items-center justify-center gap-[7px] transition-all duration-150 ${submitting ? 'cursor-not-allowed bg-emerald-600/30 shadow-none' : 'cursor-pointer bg-gradient-to-br from-emerald-600/80 to-emerald-700/80 hover:from-emerald-600 hover:to-emerald-700 shadow-sm shadow-emerald-600/15'}`}
               >
                 {submitting && (
                   <svg
                     width='13'
                     height='13'
                     viewBox='0 0 13 13'
-                    style={{ animation: 'spin 0.8s linear infinite' }}
+                    className='[animation:spin_0.8s_linear_infinite]'
                   >
                     <circle
                       cx='6.5'
@@ -2429,18 +1612,7 @@ export default function PresupuestoBuilder() {
 
           {/* Error global */}
           {errors._global && (
-            <div
-              style={{
-                marginBottom: '16px',
-                padding: '12px 16px',
-                background: 'rgba(248,113,113,0.08)',
-                border: '1px solid rgba(248,113,113,0.25)',
-                borderRadius: '10px',
-                fontSize: '13px',
-                color: '#f87171',
-                animation: 'slideUp 0.2s ease',
-              }}
-            >
+            <div className='mb-4 px-4 py-3 bg-red-500/[0.08] border border-red-500/25 rounded-[10px] text-[13px] text-red-400 [animation:slideUp_0.2s_ease]'>
               {errors._global}
             </div>
           )}
@@ -2450,75 +1622,36 @@ export default function PresupuestoBuilder() {
             {/* Panel izquierdo */}
             <div className='flex flex-col gap-4 lg:gap-3'>
               {/* Tabs */}
-              <div
-                style={{
-                  ...card,
-                  overflow: 'hidden',
-                }}
-              >
+              <div className={`${cardClass} overflow-hidden`}>
                 {/* Tab bar */}
                 <div
-                  className='flex overflow-x-auto'
-                  style={{
-                    borderBottom: '1px solid rgba(148,163,184,0.07)',
-                    background: 'rgba(8,16,35,0.3)',
-                    scrollbarWidth: 'none',
-                  }}
+                  className='flex overflow-x-auto border-b border-slate-400/[0.07] bg-slate-950/30 [scrollbar-width:none]'
                 >
                   {TABS.map((tab) => (
                     <button
                       key={tab.id}
                       onClick={() => setTabActiva(tab.id)}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        padding: '13px 20px',
-                        border: 'none',
-                        cursor: 'pointer',
-                        background: 'transparent',
-                        fontSize: '12px',
-                        fontWeight: '600',
-                        fontFamily: "'DM Sans',sans-serif",
-                        color: tabActiva === tab.id ? '#e2e8f0' : '#334155',
-                        borderBottom:
-                          tabActiva === tab.id
-                            ? '2px solid #f59e0b'
-                            : '2px solid transparent',
-                        transition: 'all 0.15s',
-                        whiteSpace: 'nowrap',
-                      }}
+                      className={`flex items-center gap-1.5 px-5 py-[13px] border-0 cursor-pointer bg-transparent text-xs font-semibold whitespace-nowrap transition-all duration-150 border-b-2 ${
+                        tabActiva === tab.id
+                          ? 'text-slate-200 border-b-amber-500'
+                          : 'text-slate-700 border-b-transparent'
+                      }`}
                     >
-                      <span style={{ fontSize: '13px' }}>{tab.icon}</span>
+                      <span className='flex items-center text-slate-500'>{tab.icon}</span>
                       {tab.label}
                       {tab.badge !== undefined && tab.badge > 0 && (
                         <span
-                          style={{
-                            fontSize: '9px',
-                            fontWeight: '700',
-                            padding: '1px 5px',
-                            borderRadius: '10px',
-                            background:
-                              tabActiva === tab.id
-                                ? 'rgba(245,158,11,0.15)'
-                                : 'rgba(148,163,184,0.08)',
-                            color: tabActiva === tab.id ? '#f59e0b' : '#475569',
-                            fontFamily: "'DM Mono',monospace",
-                          }}
+                          className={`text-[9px] font-bold px-[5px] py-[1px] rounded-[10px] ${
+                            tabActiva === tab.id
+                              ? 'bg-amber-500/15 text-amber-500'
+                              : 'bg-slate-400/[0.08] text-slate-600'
+                          }`}
                         >
                           {tab.badge}
                         </span>
                       )}
                       {tab.hasError && (
-                        <span
-                          style={{
-                            width: '6px',
-                            height: '6px',
-                            borderRadius: '50%',
-                            background: '#f59e0b',
-                            display: 'inline-block',
-                          }}
-                        />
+                        <span className='inline-block w-1.5 h-1.5 rounded-full bg-amber-500' />
                       )}
                     </button>
                   ))}
@@ -2526,8 +1659,7 @@ export default function PresupuestoBuilder() {
 
                 {/* Contenido del tab */}
                 <div
-                  className='p-4 sm:p-5 lg:max-h-[calc(100vh-230px)] lg:overflow-y-auto lg:p-4'
-                  style={{ animation: 'fadeIn 0.15s ease' }}
+                  className='p-4 sm:p-5 lg:max-h-[calc(100vh-230px)] lg:overflow-y-auto lg:p-4 [animation:fadeIn_0.15s_ease]'
                   key={tabActiva}
                 >
                   {tabActiva === 'cabecera' && (
@@ -2564,55 +1696,25 @@ export default function PresupuestoBuilder() {
 
               {/* Accesos rápidos desde ítems */}
               {tabActiva !== 'items' && items.length > 0 && (
-                <div
-                  className='flex flex-wrap items-center gap-2'
-                  style={{ padding: '0 4px' }}
-                >
-                  <span style={{ fontSize: '11px', color: '#334155' }}>
+                <div className='flex flex-wrap items-center gap-2 px-1'>
+                  <span className='text-xs text-slate-700'>
                     Acceso rápido:
                   </span>
                   <button
                     onClick={handleAddItem}
-                    style={{
-                      padding: '4px 10px',
-                      borderRadius: '6px',
-                      border: '1px solid rgba(148,163,184,0.1)',
-                      background: 'rgba(15,23,42,0.5)',
-                      color: '#475569',
-                      fontSize: '11px',
-                      cursor: 'pointer',
-                      fontFamily: "'DM Sans',sans-serif",
-                    }}
+                    className='px-2.5 py-1 rounded-md border border-slate-400/10 bg-slate-900/50 text-slate-600 text-xs cursor-pointer transition-colors duration-150'
                   >
                     + Ítem
                   </button>
                   <button
                     onClick={() => handleAddIncidencia('traslado')}
-                    style={{
-                      padding: '4px 10px',
-                      borderRadius: '6px',
-                      border: '1px solid rgba(148,163,184,0.1)',
-                      background: 'rgba(15,23,42,0.5)',
-                      color: '#475569',
-                      fontSize: '11px',
-                      cursor: 'pointer',
-                      fontFamily: "'DM Sans',sans-serif",
-                    }}
+                    className='px-2.5 py-1 rounded-md border border-slate-400/10 bg-slate-900/50 text-slate-600 text-xs cursor-pointer transition-colors duration-150'
                   >
                     + Traslado
                   </button>
                   <button
                     onClick={() => handleAddIncidencia('viatico')}
-                    style={{
-                      padding: '4px 10px',
-                      borderRadius: '6px',
-                      border: '1px solid rgba(148,163,184,0.1)',
-                      background: 'rgba(15,23,42,0.5)',
-                      color: '#475569',
-                      fontSize: '11px',
-                      cursor: 'pointer',
-                      fontFamily: "'DM Sans',sans-serif",
-                    }}
+                    className='px-2.5 py-1 rounded-md border border-slate-400/10 bg-slate-900/50 text-slate-600 text-xs cursor-pointer transition-colors duration-150'
                   >
                     + Viático
                   </button>
@@ -2657,12 +1759,7 @@ function SeccionCondiciones({
             onChange={set('condiciones_pago')}
             placeholder='Ej: 50% anticipo al inicio, 50% a la entrega...'
             rows={3}
-            style={{
-              ...inputStyle,
-              resize: 'vertical',
-              lineHeight: '1.6',
-              fontSize: '12px',
-            }}
+            className={`${inputClass} resize-y leading-relaxed text-xs`}
           />
         </Field>
         <Field label='Tiempo de ejecución'>
@@ -2671,12 +1768,7 @@ function SeccionCondiciones({
             onChange={set('tiempo_ejecucion')}
             placeholder='Ej: 15 días hábiles a partir del anticipo...'
             rows={3}
-            style={{
-              ...inputStyle,
-              resize: 'vertical',
-              lineHeight: '1.6',
-              fontSize: '12px',
-            }}
+            className={`${inputClass} resize-y leading-relaxed text-xs`}
           />
         </Field>
         <Field label='Garantía'>
@@ -2685,12 +1777,7 @@ function SeccionCondiciones({
             onChange={set('garantia')}
             placeholder='Ej: 12 meses sobre mano de obra y materiales...'
             rows={3}
-            style={{
-              ...inputStyle,
-              resize: 'vertical',
-              lineHeight: '1.6',
-              fontSize: '12px',
-            }}
+            className={`${inputClass} resize-y leading-relaxed text-xs`}
           />
         </Field>
         <Field label='Fecha de vencimiento del presupuesto'>
@@ -2699,9 +1786,7 @@ function SeccionCondiciones({
             value={cabecera.fecha_vencimiento}
             onChange={set('fecha_vencimiento')}
           />
-          <span
-            style={{ fontSize: '11px', color: '#334155', marginTop: '4px' }}
-          >
+          <span className='text-xs text-slate-700 mt-1'>
             Fecha límite para la validez del precio ofrecido
           </span>
         </Field>
@@ -2716,12 +1801,7 @@ function SeccionCondiciones({
             onChange={set('notas_cliente')}
             placeholder='Aclaraciones, condiciones especiales, alcance...'
             rows={4}
-            style={{
-              ...inputStyle,
-              resize: 'vertical',
-              lineHeight: '1.6',
-              fontSize: '12px',
-            }}
+            className={`${inputClass} resize-y leading-relaxed text-xs`}
           />
         </Field>
         <Field label='Notas internas' hint='Solo visible en el sistema'>
@@ -2730,12 +1810,7 @@ function SeccionCondiciones({
             onChange={set('notas_internas')}
             placeholder='Contexto, estrategia de precio, observaciones del equipo...'
             rows={4}
-            style={{
-              ...inputStyle,
-              resize: 'vertical',
-              lineHeight: '1.6',
-              fontSize: '12px',
-            }}
+            className={`${inputClass} resize-y leading-relaxed text-xs`}
           />
         </Field>
       </div>
@@ -2747,31 +1822,8 @@ function SeccionCondiciones({
 
 function PantallaExito({ onNuevo }: { onNuevo: () => void }) {
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: '#060d1a',
-        flexDirection: 'column',
-        gap: '24px',
-        padding: '40px',
-      }}
-    >
-      <div
-        style={{
-          width: '72px',
-          height: '72px',
-          borderRadius: '50%',
-          background: 'rgba(34,197,94,0.1)',
-          border: '2px solid rgba(34,197,94,0.4)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          animation: 'scaleIn 0.4s cubic-bezier(0.34,1.56,0.64,1)',
-        }}
-      >
+    <div className='min-h-screen flex items-center justify-center bg-slate-950 flex-col gap-6 p-10'>
+      <div className='w-[72px] h-[72px] rounded-full bg-emerald-500/10 border-2 border-emerald-500/40 flex items-center justify-center [animation:scaleIn_0.4s_cubic-bezier(0.34,1.56,0.64,1)]'>
         <svg width='32' height='32' viewBox='0 0 32 32' fill='none'>
           <path
             d='M8 16L13 21L24 10'
@@ -2782,62 +1834,24 @@ function PantallaExito({ onNuevo }: { onNuevo: () => void }) {
           />
         </svg>
       </div>
-      <div style={{ textAlign: 'center' }}>
-        <h2
-          style={{
-            margin: '0 0 8px',
-            fontSize: '20px',
-            fontWeight: '700',
-            color: '#e2e8f0',
-            fontFamily: "'DM Sans',sans-serif",
-          }}
-        >
+      <div className='text-center'>
+        <h2 className='m-0 mb-2 text-[20px] font-bold text-slate-200'>
           Presupuesto creado
         </h2>
-        <p
-          style={{
-            margin: 0,
-            fontSize: '14px',
-            color: '#64748b',
-            lineHeight: '1.6',
-          }}
-        >
+        <p className='m-0 text-sm text-slate-500 leading-normal'>
           El presupuesto fue guardado exitosamente en el sistema.
         </p>
       </div>
       <div className='flex w-full flex-col gap-3 sm:flex-row sm:w-auto'>
         <button
           onClick={onNuevo}
-          style={{
-            padding: '10px 20px',
-            borderRadius: '8px',
-            border: '1px solid rgba(148,163,184,0.15)',
-            background: 'rgba(15,23,42,0.6)',
-            color: '#94a3b8',
-            fontSize: '13px',
-            cursor: 'pointer',
-            fontFamily: "'DM Sans',sans-serif",
-          }}
+          className='px-5 py-2.5 rounded-lg border border-slate-400/15 bg-slate-900/60 text-slate-400 text-[13px] cursor-pointer transition-colors duration-150'
         >
           + Nuevo presupuesto
         </button>
         <a
           href='/presupuestos'
-          style={{
-            padding: '10px 20px',
-            borderRadius: '8px',
-            border: 'none',
-            background:
-              'linear-gradient(135deg,rgba(245,158,11,0.9),rgba(217,119,6,0.9))',
-            color: '#0f172a',
-            fontSize: '13px',
-            fontWeight: '700',
-            cursor: 'pointer',
-            fontFamily: "'DM Sans',sans-serif",
-            textDecoration: 'none',
-            display: 'inline-flex',
-            alignItems: 'center',
-          }}
+          className='px-5 py-2.5 rounded-lg border-0 bg-gradient-to-br from-emerald-600/80 to-emerald-700/80 hover:from-emerald-600 hover:to-emerald-700 text-slate-950 text-[13px] font-bold cursor-pointer no-underline inline-flex items-center transition-all'
         >
           Ver presupuestos →
         </a>

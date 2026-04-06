@@ -6,6 +6,7 @@
 // ============================================================
 
 import { useState } from 'react';
+import { AlertTriangle } from 'lucide-react';
 import { crearOrden } from '@/app/actions/ordenes';
 import type { CrearOrdenServicioDTO } from '@/types';
 
@@ -176,7 +177,7 @@ export default function OrdenForm({
         {/* Error */}
         {error && (
           <div className='flex items-center gap-2 px-4 py-3 bg-red-900/20 border border-red-600 rounded-xl text-red-400 text-sm'>
-            ⚠️ {error}
+            <AlertTriangle className='w-4 h-4 text-amber-500' /> {error}
           </div>
         )}
 

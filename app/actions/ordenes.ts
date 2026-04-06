@@ -28,10 +28,14 @@ export async function obtenerOrdenes(
     busqueda, cliente_id, estado,
     fecha_desde, fecha_hasta,
     pagina = 1, por_pagina = 20,
+    orden_por = 'creado_en', orden_dir = 'desc',
   } = filtros
 
   const desde = (pagina - 1) * por_pagina
   const hasta  = desde + por_pagina - 1
+
+  const COLS_PERMITIDAS = ['numero', 'creado_en', 'fecha_inicio', 'fecha_fin_estimada'] as const
+  const col = COLS_PERMITIDAS.includes(orden_por as any) ? orden_por : 'creado_en'
 
   let query = supabase
     .from('ordenes_servicio')
@@ -52,7 +56,7 @@ export async function obtenerOrdenes(
   if (fecha_hasta) query = query.lte('fecha_inicio', fecha_hasta)
 
   const { data, error, count } = await query
-    .order('creado_en', { ascending: false })
+    .order(col, { ascending: orden_dir === 'asc' })
     .range(desde, hasta)
 
   if (error) return { data: null, error: error.message }
@@ -90,12 +94,16 @@ export async function obtenerOrden(
       *,
       clientes(razon_social),
       presupuestos(numero),
-      tecnicos:ordenes_tecnicos(*)
+      tecnicos:ordenes_tecnicos(*),
+      remitos(id, numero, estado, factura_id)
     `)
     .eq('id', id)
     .single()
 
   if (error || !data) return { data: null, error: 'Orden no encontrada' }
+
+  const remitos = (data as any).remitos ?? []
+  const remito  = remitos[0] ?? null   // una orden tiene 0 o 1 remito
 
   return {
     data: {
@@ -103,6 +111,7 @@ export async function obtenerOrden(
       razon_social:       (data as any).clientes?.razon_social ?? '',
       numero_presupuesto: (data as any).presupuestos?.numero   ?? null,
       tecnicos:           (data as any).tecnicos ?? [],
+      remito,
     },
     error: null,
   }
@@ -197,6 +206,14 @@ export async function actualizarOrden(
 
 // ─── Cambiar estado ───────────────────────────────────────────────────────────
 
+const TRANSICIONES_ORDEN: Record<EstadoOrden, EstadoOrden[]> = {
+  PENDIENTE:   ['EN_PROGRESO', 'CANCELADA'],
+  EN_PROGRESO: ['COMPLETADA', 'SUSPENDIDA', 'CANCELADA'],
+  SUSPENDIDA:  ['EN_PROGRESO', 'CANCELADA'],
+  CANCELADA:   ['PENDIENTE'],
+  COMPLETADA:  [],
+}
+
 export async function cambiarEstadoOrden(
   id: string,
   estado: EstadoOrden,
@@ -206,13 +223,19 @@ export async function cambiarEstadoOrden(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { data: null, error: 'No autenticado' }
 
+  const { data: actual } = await supabase
+    .from('ordenes_servicio').select('estado, fecha_inicio').eq('id', id).single()
+  if (!actual) return { data: null, error: 'Orden no encontrada' }
+
+  const transicionesValidas = TRANSICIONES_ORDEN[actual.estado as EstadoOrden] ?? []
+  if (!transicionesValidas.includes(estado)) {
+    return { data: null, error: `No se puede pasar de "${actual.estado}" a "${estado}"` }
+  }
+
   const updates: Record<string, unknown> = { estado, actualizado_por: user.id }
 
   if (estado === 'EN_PROGRESO') {
-    // Registrar fecha de inicio real si no tenía una
-    const { data: actual } = await supabase
-      .from('ordenes_servicio').select('fecha_inicio').eq('id', id).single()
-    if (!actual?.fecha_inicio) {
+    if (!actual.fecha_inicio) {
       updates.fecha_inicio = new Date().toISOString().split('T')[0]
     }
   }
@@ -294,7 +317,7 @@ export async function actualizarAvance(
 
 export async function agregarTecnico(
   orden_id: string,
-  tecnico: { nombre: string; rol?: string; fecha_desde?: string; fecha_hasta?: string; notas?: string }
+  tecnico: { nombre: string; rol?: string; fecha_desde?: string; fecha_hasta?: string; notas?: string; tecnico_catalogo_id?: string }
 ): Promise<ApiResponse<null>> {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()

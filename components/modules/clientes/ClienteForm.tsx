@@ -6,9 +6,11 @@
 // Tipado estricto con tipos del sistema y validación Zod
 // ============================================================
 
-import { useState, useCallback, useRef, CSSProperties, ReactNode } from 'react'
+import { useState, useCallback, useRef, ReactNode } from 'react'
+import { ClipboardList, User, Mail, Search } from 'lucide-react'
 import type { CondicionIVA, TipoDocumento } from '@/types/database'
 import type { CrearClienteDTO, CrearDireccionDTO } from '@/types/clientes'
+import { crearCliente } from '@/app/actions/clientes'
 import { ClienteSchema, DireccionSchema } from '@/lib/validations'
 import type { ClienteFormValues } from '@/lib/validations'
 import type { ZodFormattedError } from 'zod'
@@ -104,7 +106,7 @@ type AnimDir = 'forward' | 'back'
 interface Step {
   id: number
   label: string
-  icon: string
+  icon: ReactNode
   desc: string
 }
 
@@ -112,7 +114,7 @@ interface Step {
 
 const STEPS: Step[] = [
   { id: 0, label: 'Datos Fiscales',    icon: '🏛',  desc: 'Razón social, CUIT, condición IVA' },
-  { id: 1, label: 'Datos Comerciales', icon: '📋',  desc: 'Contacto, teléfonos, web' },
+  { id: 1, label: 'Datos Comerciales', icon: <ClipboardList className='w-3.5 h-3.5' />,  desc: 'Contacto, teléfonos, web' },
   { id: 2, label: 'Dirección',         icon: '📍',  desc: 'Domicilio principal del cliente' },
   { id: 3, label: 'Clasificación',     icon: '🏷',  desc: 'Segmento, origen y notas' },
 ]
@@ -304,7 +306,6 @@ interface InputProps {
   type?: string
   maxLength?: number
   min?: string
-  style?: CSSProperties
 }
 
 interface SelectProps {
@@ -362,6 +363,7 @@ interface StepperProps {
 
 interface SuccessScreenProps {
   data: FormState
+  clienteId: string
   onNew: () => void
 }
 
@@ -371,56 +373,26 @@ interface InfoRowProps {
 }
 
 interface SectionTitleProps {
-  icon: string
+  icon: ReactNode
   title: string
-}
-
-// ─── Estilos base compartidos ─────────────────────────────────────────────────
-
-const inputBase: CSSProperties = {
-  width:        '100%',
-  padding:      '10px 14px',
-  background:   'rgba(15, 23, 42, 0.6)',
-  border:       '1px solid rgba(148, 163, 184, 0.12)',
-  borderRadius: '8px',
-  color:        '#e2e8f0',
-  fontSize:     '13.5px',
-  fontFamily:   "'DM Mono', monospace",
-  outline:      'none',
-  transition:   'all 0.2s',
-  boxSizing:    'border-box',
 }
 
 // ─── Componentes de UI base ───────────────────────────────────────────────────
 
 function FieldWrapper({ label, error, hint, required, children }: FieldWrapperProps) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+    <div className='flex flex-col gap-1.5'>
       {label && (
-        <label style={{
-          fontSize:      '11px',
-          fontWeight:    '600',
-          letterSpacing: '0.08em',
-          textTransform: 'uppercase',
-          color:         error ? '#f59e0b' : '#94a3b8',
-          display:       'flex',
-          alignItems:    'center',
-          gap:           '4px',
-        }}>
+        <label className={`text-xs font-semibold tracking-widest uppercase flex items-center gap-1 ${error ? 'text-amber-500' : 'text-slate-400'}`}>
           {label}
-          {required && <span style={{ color: '#f59e0b', fontSize: '10px' }}>●</span>}
+          {required && <span className='text-amber-500 text-[10px]'>●</span>}
         </label>
       )}
       {children}
       {error && (
-        <div style={{
-          fontSize:   '11px',
-          color:      '#f59e0b',
-          display:    'flex',
-          alignItems: 'center',
-          gap:        '5px',
-          animation:  'slideIn 0.15s ease',
-        }}>
+        <div
+          className='text-xs text-amber-500 flex items-center gap-[5px] animate-fade-in'
+        >
           <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
             <circle cx="5" cy="5" r="4.5" stroke="#f59e0b" />
             <line x1="5" y1="3" x2="5" y2="5.5" stroke="#f59e0b" strokeWidth="1.2" strokeLinecap="round" />
@@ -430,7 +402,7 @@ function FieldWrapper({ label, error, hint, required, children }: FieldWrapperPr
         </div>
       )}
       {hint && !error && (
-        <div style={{ fontSize: '11px', color: '#475569' }}>{hint}</div>
+        <div className='text-xs text-slate-600'>{hint}</div>
       )}
     </div>
   )
@@ -446,19 +418,7 @@ function Input({ value, onChange, placeholder, error, type = 'text', ...rest }: 
       placeholder={placeholder}
       onFocus={() => setFocused(true)}
       onBlur={() => setFocused(false)}
-      style={{
-        ...inputBase,
-        borderColor: error
-          ? 'rgba(245, 158, 11, 0.5)'
-          : focused
-          ? 'rgba(245, 158, 11, 0.4)'
-          : 'rgba(148, 163, 184, 0.12)',
-        boxShadow: focused
-          ? '0 0 0 3px rgba(245, 158, 11, 0.08)'
-          : error
-          ? '0 0 0 3px rgba(245, 158, 11, 0.05)'
-          : 'none',
-      }}
+      className={`w-full px-3.5 py-2.5 bg-slate-900/60 border rounded-lg text-slate-200 text-[13.5px] outline-none transition-all ${error ? 'border-amber-500/50 shadow-[0_0_0_3px_rgba(245,158,11,0.05)]' : focused ? 'border-amber-500/40 shadow-[0_0_0_3px_rgba(245,158,11,0.08)]' : 'border-slate-400/[0.12]'}`}
       {...rest}
     />
   )
@@ -467,35 +427,17 @@ function Input({ value, onChange, placeholder, error, type = 'text', ...rest }: 
 function Select({ value, onChange, children, error }: SelectProps) {
   const [focused, setFocused] = useState(false)
   return (
-    <div style={{ position: 'relative' }}>
+    <div className='relative'>
       <select
         value={value}
         onChange={onChange}
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
-        style={{
-          ...inputBase,
-          appearance:    'none',
-          cursor:        'pointer',
-          paddingRight:  '36px',
-          borderColor:   error
-            ? 'rgba(245, 158, 11, 0.5)'
-            : focused
-            ? 'rgba(245, 158, 11, 0.4)'
-            : 'rgba(148, 163, 184, 0.12)',
-          boxShadow: focused ? '0 0 0 3px rgba(245, 158, 11, 0.08)' : 'none',
-        }}
+        className={`w-full px-3.5 py-2.5 bg-slate-900/60 border rounded-lg text-slate-200 text-[13.5px] outline-none cursor-pointer appearance-none pr-9 ${error ? 'border-amber-500/50' : focused ? 'border-amber-500/40 shadow-[0_0_0_3px_rgba(245,158,11,0.08)]' : 'border-slate-400/[0.12]'}`}
       >
         {children}
       </select>
-      <div style={{
-        position:      'absolute',
-        right:         '12px',
-        top:           '50%',
-        transform:     'translateY(-50%)',
-        pointerEvents: 'none',
-        color:         '#64748b',
-      }}>
+      <div className='absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500'>
         <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
           <path d="M2 4L6 8L10 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
@@ -514,39 +456,21 @@ function Textarea({ value, onChange, placeholder, rows = 3 }: TextareaProps) {
       rows={rows}
       onFocus={() => setFocused(true)}
       onBlur={() => setFocused(false)}
-      style={{
-        ...inputBase,
-        resize:      'vertical',
-        minHeight:   '80px',
-        lineHeight:  '1.6',
-        fontFamily:  "'DM Sans', sans-serif",
-        fontSize:    '13px',
-        borderColor: focused ? 'rgba(245, 158, 11, 0.4)' : 'rgba(148, 163, 184, 0.12)',
-        boxShadow:   focused ? '0 0 0 3px rgba(245, 158, 11, 0.08)' : 'none',
-      }}
+      className={`w-full px-3.5 py-2.5 bg-slate-900/60 border rounded-lg text-slate-200 text-[13px] outline-none resize-y min-h-[80px] leading-relaxed ${focused ? 'border-amber-500/40 shadow-[0_0_0_3px_rgba(245,158,11,0.08)]' : 'border-slate-400/[0.12]'}`}
     />
   )
 }
 
 function Badge({ children, color = 'slate' }: BadgeProps) {
-  const colors: Record<string, { bg: string; border: string; text: string }> = {
-    amber: { bg: 'rgba(245,158,11,0.12)', border: 'rgba(245,158,11,0.3)',  text: '#f59e0b' },
-    slate: { bg: 'rgba(148,163,184,0.08)',border: 'rgba(148,163,184,0.2)', text: '#94a3b8' },
-    green: { bg: 'rgba(34,197,94,0.1)',   border: 'rgba(34,197,94,0.25)',  text: '#4ade80' },
+  const colorClass: Record<string, string> = {
+    amber: 'bg-amber-500/[0.12] border border-amber-500/30 text-amber-500',
+    slate: 'bg-slate-400/[0.08] border border-slate-400/20 text-slate-400',
+    green: 'bg-emerald-500/10 border border-emerald-500/25 text-green-400',
   }
-  const c = colors[color] ?? colors.slate
   return (
-    <span style={{
-      background:    c.bg,
-      border:        `1px solid ${c.border}`,
-      color:         c.text,
-      fontSize:      '10px',
-      fontWeight:    '700',
-      letterSpacing: '0.1em',
-      textTransform: 'uppercase',
-      padding:       '2px 8px',
-      borderRadius:  '4px',
-    }}>
+    <span
+      className={`text-[10px] font-bold tracking-[0.1em] uppercase px-2 py-0.5 rounded ${colorClass[color] ?? colorClass.slate}`}
+    >
       {children}
     </span>
   )
@@ -554,15 +478,9 @@ function Badge({ children, color = 'slate' }: BadgeProps) {
 
 function SectionTitle({ icon, title }: SectionTitleProps) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-      <span style={{ fontSize: '14px' }}>{icon}</span>
-      <span style={{
-        fontSize:      '11px',
-        fontWeight:    '700',
-        letterSpacing: '0.1em',
-        textTransform: 'uppercase',
-        color:         '#64748b',
-      }}>
+    <div className='flex items-center gap-2 mb-1'>
+      <span className='flex items-center text-slate-500'>{icon}</span>
+      <span className='text-xs font-bold tracking-[0.1em] uppercase text-slate-500'>
         {title}
       </span>
     </div>
@@ -571,10 +489,9 @@ function SectionTitle({ icon, title }: SectionTitleProps) {
 
 function Divider() {
   return (
-    <div style={{
-      height:     '1px',
-      background: 'linear-gradient(to right, transparent, rgba(148,163,184,0.1), transparent)',
-    }} />
+    <div
+      className='h-px bg-gradient-to-r from-transparent via-slate-400/10 to-transparent'
+    />
   )
 }
 
@@ -595,22 +512,16 @@ function StepFiscal({ data, onChange, errors }: StepFiscalProps) {
   const cuitValido   = cuitCompleto && validarCUIT(data.cuit)
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-      <div style={{
-        padding:      '14px 16px',
-        background:   'rgba(245, 158, 11, 0.06)',
-        border:       '1px solid rgba(245, 158, 11, 0.15)',
-        borderRadius: '10px',
-        fontSize:     '12px',
-        color:        '#94a3b8',
-        lineHeight:   '1.6',
-      }}>
-        <span style={{ color: '#f59e0b', fontWeight: '600' }}>Datos fiscales</span>
+    <div className='flex flex-col gap-5'>
+      <div
+        className='px-4 py-3.5 rounded-[10px] text-xs text-slate-400 leading-relaxed bg-amber-500/[0.06] border border-amber-500/15'
+      >
+        <span className='text-amber-500 font-semibold'>Datos fiscales</span>
         {' '}— Esta información se usará en todos los comprobantes y documentos legales emitidos al cliente.
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-        <div style={{ gridColumn: '1 / -1' }}>
+      <div className='grid grid-cols-2 gap-4'>
+        <div className='col-span-full'>
           <FieldWrapper label="Razón Social" required error={errors.razon_social}>
             <Input
               value={data.razon_social}
@@ -661,7 +572,7 @@ function StepFiscal({ data, onChange, errors }: StepFiscalProps) {
           hint={needsCUIT ? 'Formato: XX-XXXXXXXX-X' : undefined}
         >
           {needsCUIT ? (
-            <div style={{ position: 'relative' }}>
+            <div className='relative'>
               <Input
                 value={data.cuit}
                 onChange={handleCUIT}
@@ -670,12 +581,7 @@ function StepFiscal({ data, onChange, errors }: StepFiscalProps) {
                 maxLength={13}
               />
               {cuitCompleto && (
-                <div style={{
-                  position:  'absolute',
-                  right:     '12px',
-                  top:       '50%',
-                  transform: 'translateY(-50%)',
-                }}>
+                <div className='absolute right-3 top-1/2 -translate-y-1/2'>
                   {cuitValido ? (
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                       <circle cx="8" cy="8" r="7" fill="rgba(34,197,94,0.15)" stroke="#4ade80" />
@@ -725,9 +631,9 @@ function StepFiscal({ data, onChange, errors }: StepFiscalProps) {
 
 function StepComercial({ data, onChange, errors }: StepComercialProps) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-      <SectionTitle icon="👤" title="Contacto Principal" />
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+    <div className='flex flex-col gap-5'>
+      <SectionTitle icon={<User className='w-3.5 h-3.5' />} title="Contacto Principal" />
+      <div className='grid grid-cols-2 gap-4'>
         <FieldWrapper label="Nombre del Contacto">
           <Input
             value={data.contacto_nombre}
@@ -759,8 +665,8 @@ function StepComercial({ data, onChange, errors }: StepComercialProps) {
       </div>
 
       <Divider />
-      <SectionTitle icon="📧" title="Datos de Facturación" />
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+      <SectionTitle icon={<Mail className='w-3.5 h-3.5' />} title="Datos de Facturación" />
+      <div className='grid grid-cols-2 gap-4'>
         <FieldWrapper
           label="Email de Facturación"
           error={errors.email_facturacion}
@@ -794,17 +700,9 @@ function StepDireccion({ data, onChange, errors }: StepDireccionProps) {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-      <div style={{
-        padding:      '14px 16px',
-        background:   'rgba(99, 102, 241, 0.06)',
-        border:       '1px solid rgba(99, 102, 241, 0.15)',
-        borderRadius: '10px',
-        fontSize:     '12px',
-        color:        '#94a3b8',
-        lineHeight:   '1.6',
-      }}>
-        <span style={{ color: '#a5b4fc', fontWeight: '600' }}>Dirección principal</span>
+    <div className='flex flex-col gap-5'>
+      <div className='px-4 py-3.5 rounded-[10px] text-xs text-slate-400 bg-indigo-500/[0.06] border border-indigo-500/15 leading-relaxed'>
+        <span className='text-indigo-300 font-semibold'>Dirección principal</span>
         {' '}— Esta dirección se usará por defecto en presupuestos y órdenes de servicio. Podés agregar más desde la ficha del cliente.
       </div>
 
@@ -816,7 +714,7 @@ function StepDireccion({ data, onChange, errors }: StepDireccionProps) {
         />
       </FieldWrapper>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '3fr 1fr', gap: '16px' }}>
+      <div className='grid grid-cols-[3fr_1fr] gap-4'>
         <FieldWrapper label="Calle" required error={errors.calle}>
           <Input
             value={dir.calle}
@@ -834,7 +732,7 @@ function StepDireccion({ data, onChange, errors }: StepDireccionProps) {
         </FieldWrapper>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+      <div className='grid grid-cols-2 gap-4'>
         <FieldWrapper label="Piso / Dpto">
           <Input
             value={dir.piso_dpto}
@@ -899,32 +797,18 @@ function StepClasificacion({ data, onChange }: StepClasificacionProps) {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+    <div className='flex flex-col gap-6'>
       <div>
         <SectionTitle icon="🏷" title="Segmento de Negocio" />
-        <p style={{ fontSize: '12px', color: '#64748b', margin: '8px 0 12px' }}>
+        <p className='text-xs text-slate-500 my-2 mb-3'>
           Clasificá el cliente según el tipo de servicios que requiere
         </p>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+        <div className='flex flex-wrap gap-2'>
           {SEGMENTOS.map((s) => (
             <button
               key={s}
               onClick={() => toggleChip('segmento', s)}
-              style={{
-                padding:      '7px 14px',
-                borderRadius: '20px',
-                border:       data.segmento === s
-                  ? '1px solid rgba(245, 158, 11, 0.5)'
-                  : '1px solid rgba(148, 163, 184, 0.15)',
-                background:   data.segmento === s
-                  ? 'rgba(245, 158, 11, 0.1)'
-                  : 'rgba(15, 23, 42, 0.4)',
-                color:        data.segmento === s ? '#f59e0b' : '#64748b',
-                fontSize:     '12px',
-                fontWeight:   data.segmento === s ? '600' : '400',
-                cursor:       'pointer',
-                transition:   'all 0.2s',
-              }}
+              className={`px-3.5 py-[7px] rounded-full text-xs cursor-pointer transition-all duration-200 ${data.segmento === s ? 'border border-amber-500/50 bg-amber-500/10 text-amber-500 font-semibold' : 'border border-slate-400/15 bg-slate-950/40 text-slate-500 font-normal'}`}
             >
               {s}
             </button>
@@ -935,30 +819,16 @@ function StepClasificacion({ data, onChange }: StepClasificacionProps) {
       <Divider />
 
       <div>
-        <SectionTitle icon="🔍" title="Origen del Cliente" />
-        <p style={{ fontSize: '12px', color: '#64748b', margin: '8px 0 12px' }}>
+        <SectionTitle icon={<Search className='w-3.5 h-3.5' />} title="Origen del Cliente" />
+        <p className='text-xs text-slate-500 my-2 mb-3'>
           ¿Cómo llegó este cliente a Hexa?
         </p>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+        <div className='flex flex-wrap gap-2'>
           {ORIGENES.map((o) => (
             <button
               key={o}
               onClick={() => toggleChip('origen', o)}
-              style={{
-                padding:      '7px 14px',
-                borderRadius: '20px',
-                border:       data.origen === o
-                  ? '1px solid rgba(99, 102, 241, 0.5)'
-                  : '1px solid rgba(148, 163, 184, 0.15)',
-                background:   data.origen === o
-                  ? 'rgba(99, 102, 241, 0.1)'
-                  : 'rgba(15, 23, 42, 0.4)',
-                color:        data.origen === o ? '#a5b4fc' : '#64748b',
-                fontSize:     '12px',
-                fontWeight:   data.origen === o ? '600' : '400',
-                cursor:       'pointer',
-                transition:   'all 0.2s',
-              }}
+              className={`px-3.5 py-[7px] rounded-full text-xs cursor-pointer transition-all duration-200 ${data.origen === o ? 'border border-indigo-500/50 bg-indigo-500/10 text-indigo-300 font-semibold' : 'border border-slate-400/15 bg-slate-950/40 text-slate-500 font-normal'}`}
             >
               {o}
             </button>
@@ -1004,61 +874,36 @@ function ResumenLateral({ data, step }: ResumenLateralProps) {
     : 'rgba(30, 41, 59, 0.8)'
 
   return (
-    <div style={{
-      background:   'rgba(15, 23, 42, 0.5)',
-      border:       '1px solid rgba(148, 163, 184, 0.08)',
-      borderRadius: '12px',
-      padding:      '20px',
-      display:      'flex',
-      flexDirection:'column',
-      gap:          '16px',
-    }}>
+    <div
+      className='flex flex-col gap-4 p-5 rounded-xl bg-slate-900/50 border border-slate-400/[0.08]'
+    >
       {/* Avatar generativo */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-        <div style={{
-          width:          '44px',
-          height:         '44px',
-          borderRadius:   '12px',
-          background:     avatarBg,
-          border:         '2px solid rgba(245, 158, 11, 0.2)',
-          display:        'flex',
-          alignItems:     'center',
-          justifyContent: 'center',
-          fontSize:       '16px',
-          fontWeight:     '700',
-          color:          '#f59e0b',
-          fontFamily:     "'DM Sans', sans-serif",
-          flexShrink:     0,
-        }}>
+      <div className='flex items-center gap-3'>
+        <div
+          className={`flex items-center justify-center text-base font-bold text-amber-500 shrink-0 w-11 h-11 rounded-xl border-2 border-amber-500/20 bg-[${avatarBg}]`}
+        >
           {data.razon_social ? data.razon_social.charAt(0).toUpperCase() : '?'}
         </div>
         <div>
-          <div style={{ fontSize: '13px', fontWeight: '600', color: '#e2e8f0', lineHeight: '1.3' }}>
+          <div className='text-[13px] font-semibold text-slate-200 leading-[1.3]'>
             {data.razon_social || 'Nuevo cliente'}
           </div>
           {data.nombre_fantasia && (
-            <div style={{ fontSize: '11px', color: '#64748b' }}>{data.nombre_fantasia}</div>
+            <div className='text-xs text-slate-500'>{data.nombre_fantasia}</div>
           )}
         </div>
       </div>
 
       {items.length > 0 && (
         <>
-          <div style={{ height: '1px', background: 'rgba(148,163,184,0.08)' }} />
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          <div className='h-px bg-slate-400/[0.08]' />
+          <div className='flex flex-col gap-2.5'>
             {items.map((item, i) => (
-              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', gap: '8px' }}>
-                <span style={{ fontSize: '11px', color: '#475569', flexShrink: 0 }}>{item.label}</span>
-                <span style={{
-                  fontSize:      '11px',
-                  color:         '#94a3b8',
-                  fontFamily:    "'DM Mono', monospace",
-                  textAlign:     'right',
-                  overflow:      'hidden',
-                  textOverflow:  'ellipsis',
-                  whiteSpace:    'nowrap',
-                  maxWidth:      '120px',
-                }}>
+              <div key={i} className='flex justify-between gap-2'>
+                <span className='text-xs text-slate-600 shrink-0'>{item.label}</span>
+                <span
+                  className='text-xs text-slate-400 text-right overflow-hidden text-ellipsis whitespace-nowrap max-w-[120px] font-mono'
+                >
                   {item.value}
                 </span>
               </div>
@@ -1069,26 +914,18 @@ function ResumenLateral({ data, step }: ResumenLateralProps) {
 
       {completedSteps.length > 0 && (
         <>
-          <div style={{ height: '1px', background: 'rgba(148,163,184,0.08)' }} />
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          <div className='h-px bg-slate-400/[0.08]' />
+          <div className='flex flex-col gap-1.5'>
             {completedSteps.map((s) => (
-              <div key={s} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <div style={{
-                  width:          '16px',
-                  height:         '16px',
-                  borderRadius:   '50%',
-                  background:     'rgba(34,197,94,0.15)',
-                  border:         '1px solid rgba(34,197,94,0.4)',
-                  display:        'flex',
-                  alignItems:     'center',
-                  justifyContent: 'center',
-                  flexShrink:     0,
-                }}>
+              <div key={s} className='flex items-center gap-2'>
+                <div
+                  className='flex items-center justify-center shrink-0 w-4 h-4 rounded-full bg-emerald-500/15 border border-emerald-500/40'
+                >
                   <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
                     <path d="M1.5 4L3 5.5L6.5 2" stroke="#4ade80" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                 </div>
-                <span style={{ fontSize: '11px', color: '#4ade80' }}>{STEPS[s].label}</span>
+                <span className='text-xs text-emerald-400'>{STEPS[s].label}</span>
               </div>
             ))}
           </div>
@@ -1102,7 +939,7 @@ function ResumenLateral({ data, step }: ResumenLateralProps) {
 
 function Stepper({ current, steps, onGoTo }: StepperProps) {
   return (
-    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0', marginBottom: '32px' }}>
+    <div className='flex items-start gap-0 mb-8'>
       {steps.map((step, i) => {
         const isDone   = i < current
         const isActive = i === current
@@ -1111,82 +948,43 @@ function Stepper({ current, steps, onGoTo }: StepperProps) {
         return (
           <div
             key={step.id}
-            style={{ display: 'flex', alignItems: 'flex-start', flex: isLast ? '0' : '1' }}
+            className={`flex items-start ${isLast ? 'flex-none' : 'flex-1'}`}
           >
             <div
-              style={{
-                display:       'flex',
-                flexDirection: 'column',
-                alignItems:    'center',
-                gap:           '6px',
-                cursor:        isDone ? 'pointer' : 'default',
-              }}
+              className={`flex flex-col items-center gap-1.5 ${isDone ? 'cursor-pointer' : 'cursor-default'}`}
               onClick={() => isDone && onGoTo(i)}
             >
-              <div style={{
-                width:          '36px',
-                height:         '36px',
-                borderRadius:   '50%',
-                background:     isDone
-                  ? 'rgba(34, 197, 94, 0.12)'
-                  : isActive
-                  ? 'rgba(245, 158, 11, 0.12)'
-                  : 'rgba(15, 23, 42, 0.6)',
-                border: `2px solid ${isDone
-                  ? 'rgba(34,197,94,0.5)'
-                  : isActive
-                  ? 'rgba(245,158,11,0.6)'
-                  : 'rgba(148,163,184,0.12)'}`,
-                display:        'flex',
-                alignItems:     'center',
-                justifyContent: 'center',
-                transition:     'all 0.3s',
-                position:       'relative',
-              }}>
+              <div
+                className={`flex items-center justify-center relative w-9 h-9 rounded-full transition-all duration-300 border-2 ${isDone ? 'bg-emerald-500/12 border-emerald-500/50' : isActive ? 'bg-amber-500/12 border-amber-500/60' : 'bg-slate-950/60 border-slate-400/12'}`}
+              >
                 {isDone ? (
                   <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                     <path d="M3 7L6 10L11 4" stroke="#4ade80" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                 ) : (
-                  <span style={{
-                    fontSize: isActive ? '14px' : '12px',
-                    filter:   isActive ? 'none' : 'grayscale(1) opacity(0.4)',
-                  }}>
+                  <span className={isActive ? 'text-sm' : 'text-xs grayscale opacity-40'}>
                     {step.icon}
                   </span>
                 )}
                 {isActive && (
-                  <div style={{
-                    position:     'absolute',
-                    inset:        '-4px',
-                    borderRadius: '50%',
-                    border:       '1px solid rgba(245,158,11,0.2)',
-                    animation:    'pulse 2s infinite',
-                  }} />
+                  <div
+                    className='absolute rounded-full -inset-1 border border-amber-500/20 animate-pulse'
+                  />
                 )}
               </div>
-              <div style={{ textAlign: 'center' }}>
-                <div style={{
-                  fontSize:      '10px',
-                  fontWeight:    '700',
-                  letterSpacing: '0.06em',
-                  color:         isDone ? '#4ade80' : isActive ? '#f59e0b' : '#334155',
-                  textTransform: 'uppercase',
-                  whiteSpace:    'nowrap',
-                }}>
+              <div className='text-center'>
+                <div
+                  className={`text-[10px] font-bold tracking-[0.06em] uppercase whitespace-nowrap ${isDone ? 'text-emerald-400' : isActive ? 'text-amber-500' : 'text-slate-700'}`}
+                >
                   {step.label}
                 </div>
               </div>
             </div>
 
             {!isLast && (
-              <div style={{
-                flex:       1,
-                height:     '2px',
-                background: isDone ? 'rgba(34,197,94,0.3)' : 'rgba(148,163,184,0.08)',
-                marginTop:  '17px',
-                transition: 'background 0.5s',
-              }} />
+              <div
+                className={`flex-1 mt-[17px] h-0.5 transition-colors duration-500 ${isDone ? 'bg-emerald-500/30' : 'bg-slate-400/[0.08]'}`}
+              />
             )}
           </div>
         )
@@ -1197,99 +995,47 @@ function Stepper({ current, steps, onGoTo }: StepperProps) {
 
 // ─── Pantalla de éxito ────────────────────────────────────────────────────────
 
-function SuccessScreen({ data, onNew }: SuccessScreenProps) {
+function SuccessScreen({ data, clienteId, onNew }: SuccessScreenProps) {
   const condLabel = CONDICIONES_IVA.find((c) => c.value === data.condicion_iva)?.label
 
   return (
-    <div style={{
-      display:        'flex',
-      flexDirection:  'column',
-      alignItems:     'center',
-      justifyContent: 'center',
-      gap:            '24px',
-      padding:        '48px 32px',
-      textAlign:      'center',
-    }}>
-      <div style={{
-        width:          '72px',
-        height:         '72px',
-        borderRadius:   '50%',
-        background:     'rgba(34,197,94,0.1)',
-        border:         '2px solid rgba(34,197,94,0.4)',
-        display:        'flex',
-        alignItems:     'center',
-        justifyContent: 'center',
-        animation:      'scaleIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)',
-      }}>
+    <div className='flex flex-col items-center justify-center gap-6 text-center px-8 py-12'>
+      <div className='flex items-center justify-center w-[72px] h-[72px] rounded-full bg-emerald-500/10 border-2 border-emerald-500/40 animate-modal-in'>
         <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
           <path d="M8 16L13 21L24 10" stroke="#4ade80" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       </div>
 
       <div>
-        <h3 style={{
-          margin:     '0 0 8px',
-          fontSize:   '20px',
-          fontWeight: '700',
-          color:      '#e2e8f0',
-          fontFamily: "'DM Sans', sans-serif",
-        }}>
+        <h3 className='m-0 mb-2 text-xl font-bold text-slate-200'>
           Cliente creado
         </h3>
-        <p style={{ margin: 0, fontSize: '14px', color: '#64748b', lineHeight: '1.6' }}>
-          <span style={{ color: '#f59e0b', fontWeight: '600' }}>{data.razon_social}</span>
+        <p className='m-0 text-sm text-slate-500 leading-relaxed'>
+          <span className='text-amber-500 font-semibold'>{data.razon_social}</span>
           {' '}fue agregado<br />exitosamente al sistema.
         </p>
       </div>
 
-      <div style={{
-        background:   'rgba(15, 23, 42, 0.6)',
-        border:       '1px solid rgba(148,163,184,0.1)',
-        borderRadius: '10px',
-        padding:      '16px 20px',
-        display:      'flex',
-        flexDirection:'column',
-        gap:          '8px',
-        width:        '100%',
-        maxWidth:     '300px',
-      }}>
+      <div className='flex flex-col gap-2 w-full max-w-[300px] px-5 py-4 rounded-[10px] bg-slate-900/60 border border-slate-400/10'>
         {data.cuit      && <InfoRow label="CUIT"     value={data.cuit} />}
         {condLabel      && <InfoRow label="IVA"      value={condLabel} />}
         {data.email     && <InfoRow label="Email"    value={data.email} />}
         {data.segmento  && <InfoRow label="Segmento" value={data.segmento} />}
       </div>
 
-      <div style={{ display: 'flex', gap: '12px' }}>
+      <div className='flex gap-3'>
         <button
           onClick={onNew}
-          style={{
-            padding:    '10px 20px',
-            borderRadius:'8px',
-            border:     '1px solid rgba(148,163,184,0.15)',
-            background: 'rgba(15,23,42,0.6)',
-            color:      '#94a3b8',
-            fontSize:   '13px',
-            cursor:     'pointer',
-            fontFamily: "'DM Sans', sans-serif",
-          }}
+          className='px-5 py-2.5 rounded-lg border border-slate-400/[0.15] bg-slate-900/60 text-slate-400 text-[13px] cursor-pointer'
         >
           + Nuevo cliente
         </button>
-        <button
-          style={{
-            padding:     '10px 20px',
-            borderRadius:'8px',
-            border:      'none',
-            background:  'linear-gradient(135deg, #f59e0b, #d97706)',
-            color:       '#0f172a',
-            fontSize:    '13px',
-            fontWeight:  '700',
-            cursor:      'pointer',
-            fontFamily:  "'DM Sans', sans-serif",
-          }}
+        <a
+          href={`/clientes/${clienteId}`}
+          className='px-5 py-2.5 rounded-lg border-none text-slate-900 text-[13px] font-bold cursor-pointer bg-gradient-to-br from-amber-500 to-amber-600 no-underline'
         >
           Ver ficha →
-        </button>
+        </a>
       </div>
     </div>
   )
@@ -1297,9 +1043,9 @@ function SuccessScreen({ data, onNew }: SuccessScreenProps) {
 
 function InfoRow({ label, value }: InfoRowProps) {
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
-      <span style={{ fontSize: '11px', color: '#475569' }}>{label}</span>
-      <span style={{ fontSize: '11px', color: '#94a3b8', fontFamily: "'DM Mono', monospace" }}>
+    <div className='flex justify-between gap-3'>
+      <span className='text-xs text-slate-600'>{label}</span>
+      <span className='text-xs text-slate-400 font-mono'>
         {value}
       </span>
     </div>
@@ -1312,8 +1058,10 @@ export default function ClienteForm() {
   const [step,       setStep]       = useState<number>(0)
   const [data,       setData]       = useState<FormState>(initialData)
   const [errors,     setErrors]     = useState<FormErrors>({})
-  const [submitting, setSubmitting] = useState<boolean>(false)
-  const [submitted,  setSubmitted]  = useState<boolean>(false)
+  const [submitting,  setSubmitting]  = useState<boolean>(false)
+  const [submitted,   setSubmitted]   = useState<boolean>(false)
+  const [clienteId,   setClienteId]   = useState<string>('')
+  const [submitError, setSubmitError] = useState<string>('')
   const [animDir,    setAnimDir]    = useState<AnimDir>('forward')
 
   /** Actualiza un campo del FormState con tipado completo */
@@ -1363,16 +1111,19 @@ export default function ClienteForm() {
     }
 
     setSubmitting(true)
+    setSubmitError('')
     try {
-      // Convertir FormState → CrearClienteDTO antes de enviarlo a la Server Action
       const dto = formStateToDTO(data)
-
-      // TODO: reemplazar por: const result = await crearCliente(dto)
-      await new Promise<void>((r) => setTimeout(r, 1800))
-
+      const res = await crearCliente(dto)
+      if (res.error || !res.data) {
+        setSubmitError(res.error ?? 'Error al crear el cliente')
+        return
+      }
+      setClienteId(res.data.id)
       setSubmitted(true)
     } catch (err) {
       console.error('[ClienteForm] Error al crear cliente:', err)
+      setSubmitError('Error inesperado al crear el cliente')
     } finally {
       setSubmitting(false)
     }
@@ -1383,6 +1134,8 @@ export default function ClienteForm() {
     setStep(0)
     setErrors({})
     setSubmitted(false)
+    setClienteId('')
+    setSubmitError('')
     setAnimDir('forward')
   }
 
@@ -1395,132 +1148,62 @@ export default function ClienteForm() {
 
   return (
     <>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@300;400;500&display=swap');
-
-        * { box-sizing: border-box; }
-
-        body {
-          margin: 0;
-          background: #060d1a;
-          font-family: 'DM Sans', sans-serif;
-          -webkit-font-smoothing: antialiased;
-        }
-
-        ::placeholder { color: #334155 !important; }
-
-        option { background: #0f172a; color: #e2e8f0; }
-
-        @keyframes slideIn {
-          from { opacity: 0; transform: translateY(-4px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes fadeSlideForward {
-          from { opacity: 0; transform: translateX(20px); }
-          to   { opacity: 1; transform: translateX(0); }
-        }
-        @keyframes fadeSlideBack {
-          from { opacity: 0; transform: translateX(-20px); }
-          to   { opacity: 1; transform: translateX(0); }
-        }
-        @keyframes pulse {
-          0%, 100% { opacity: 0.4; transform: scale(1); }
-          50%       { opacity: 0.8; transform: scale(1.05); }
-        }
-        @keyframes scaleIn {
-          from { transform: scale(0.5); opacity: 0; }
-          to   { transform: scale(1);   opacity: 1; }
-        }
-        @keyframes spin {
-          from { transform: rotate(0deg); }
-          to   { transform: rotate(360deg); }
-        }
-        .step-content         { animation: fadeSlideForward 0.25s cubic-bezier(0.4, 0, 0.2, 1); }
-        .step-content.back    { animation: fadeSlideBack    0.25s cubic-bezier(0.4, 0, 0.2, 1); }
-        input:focus, select:focus, textarea:focus { outline: none !important; }
-        ::-webkit-scrollbar       { width: 4px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: rgba(148,163,184,0.15); border-radius: 2px; }
-      `}</style>
-
-      <div style={{
-        minHeight:      '100vh',
-        background:     'radial-gradient(ellipse 120% 80% at 10% 0%, rgba(245,158,11,0.04) 0%, transparent 60%), radial-gradient(ellipse 80% 60% at 90% 100%, rgba(99,102,241,0.04) 0%, transparent 60%), #060d1a',
-        display:        'flex',
-        alignItems:     'flex-start',
-        justifyContent: 'center',
-        padding:        '40px 20px',
-      }}>
-        <div style={{ width: '100%', maxWidth: '920px' }}>
+      <div
+        className='min-h-screen flex items-start justify-center px-3 py-8 sm:px-5 sm:py-10 bg-slate-950 bg-gradient-to-b from-amber-950/5 to-slate-950'
+      >
+        <div className='w-full max-w-[920px]'>
 
           {/* Breadcrumb + Header */}
-          <div style={{ marginBottom: '28px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div className='mb-7 flex items-center justify-between'>
             <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
-                <div style={{
-                  width: '28px', height: '28px',
-                  background: 'rgba(245,158,11,0.12)',
-                  border: '1px solid rgba(245,158,11,0.25)',
-                  borderRadius: '8px',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: '13px',
-                }}>👥</div>
-                <span style={{ fontSize: '11px', color: '#475569', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+              <div className='flex items-center gap-2.5 mb-1'>
+                <div className='flex items-center justify-center text-[13px] w-7 h-7 bg-amber-500/[0.12] border border-amber-500/25 rounded-lg'>
+                  👥
+                </div>
+                <span className='text-xs text-slate-600 tracking-widest uppercase'>
                   Clientes
                 </span>
-                <span style={{ color: '#1e293b' }}>›</span>
-                <span style={{ fontSize: '11px', color: '#64748b', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                <span className='text-slate-800'>›</span>
+                <span className='text-xs text-slate-500 tracking-widest uppercase'>
                   Nuevo
                 </span>
               </div>
-              <h1 style={{
-                margin: 0, fontSize: '22px', fontWeight: '700',
-                color: '#e2e8f0', letterSpacing: '-0.02em',
-              }}>
+              <h1
+                className='m-0 text-[22px] font-bold text-slate-200 tracking-[-0.02em]'
+              >
                 Alta de Cliente
               </h1>
             </div>
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <div className='flex gap-2 items-center'>
               <Badge color="amber">MVP</Badge>
               <Badge color="slate">v0.1</Badge>
             </div>
           </div>
 
           {/* Layout principal */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 240px', gap: '20px', alignItems: 'start' }}>
+          <div className='grid grid-cols-[1fr_240px] gap-5 items-start'>
 
             {/* Card del formulario */}
-            <div style={{
-              background:    'rgba(15, 23, 42, 0.7)',
-              border:        '1px solid rgba(148, 163, 184, 0.08)',
-              borderRadius:  '16px',
-              overflow:      'hidden',
-              backdropFilter:'blur(12px)',
-            }}>
+            <div className='overflow-hidden rounded-2xl backdrop-blur-sm bg-slate-900/70 border border-slate-400/[0.08]'>
               {/* Top bar con stepper */}
-              <div style={{
-                padding:      '20px 28px',
-                borderBottom: '1px solid rgba(148, 163, 184, 0.06)',
-                background:   'rgba(8, 16, 35, 0.4)',
-              }}>
+              <div
+                className='px-7 py-5 border-b border-slate-400/[0.06] bg-slate-950/40'
+              >
                 {!submitted && (
                   <Stepper current={step} steps={STEPS} onGoTo={goTo} />
                 )}
                 {!submitted && (
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div className='flex items-center justify-between'>
                     <div>
-                      <h2 style={{
-                        margin: '0 0 2px', fontSize: '16px', fontWeight: '700', color: '#e2e8f0',
-                        display: 'flex', alignItems: 'center', gap: '8px',
-                      }}>
+                      <h2 className='m-0 mb-0.5 text-base font-bold text-slate-200 flex items-center gap-2'>
                         <span>{STEPS[step].icon}</span>
                         {STEPS[step].label}
                       </h2>
-                      <p style={{ margin: 0, fontSize: '12px', color: '#475569' }}>
+                      <p className='m-0 text-xs text-slate-600'>
                         {STEPS[step].desc}
                       </p>
                     </div>
-                    <div style={{ fontSize: '11px', color: '#334155', fontFamily: "'DM Mono', monospace" }}>
+                    <div className='text-xs text-slate-700 font-mono'>
                       {step + 1} / {STEPS.length}
                     </div>
                   </div>
@@ -1530,42 +1213,23 @@ export default function ClienteForm() {
               {/* Contenido del paso */}
               <div
                 key={submitted ? 'success' : step}
-                className={`step-content${animDir === 'back' ? ' back' : ''}`}
-                style={{ padding: submitted ? '0' : '28px' }}
+                className={`${animDir === 'back' ? 'animate-fade-slide-back' : 'animate-fade-slide-fwd'} ${submitted ? '' : 'p-7'}`}
               >
                 {submitted
-                  ? <SuccessScreen data={data} onNew={handleNew} />
+                  ? <SuccessScreen data={data} clienteId={clienteId} onNew={handleNew} />
                   : stepComponents[step]
                 }
               </div>
 
               {/* Footer con navegación */}
               {!submitted && (
-                <div style={{
-                  padding:        '20px 28px',
-                  borderTop:      '1px solid rgba(148, 163, 184, 0.06)',
-                  background:     'rgba(8, 16, 35, 0.3)',
-                  display:        'flex',
-                  justifyContent: 'space-between',
-                  alignItems:     'center',
-                }}>
+                <div
+                  className='px-7 py-5 border-t border-slate-400/[0.06] bg-slate-950/30 flex justify-between items-center'
+                >
                   <button
                     onClick={goPrev}
                     disabled={step === 0}
-                    style={{
-                      padding:     '9px 18px',
-                      borderRadius:'8px',
-                      border:      '1px solid rgba(148,163,184,0.12)',
-                      background:  'transparent',
-                      color:       step === 0 ? '#1e293b' : '#64748b',
-                      fontSize:    '13px',
-                      cursor:      step === 0 ? 'not-allowed' : 'pointer',
-                      fontFamily:  "'DM Sans', sans-serif",
-                      display:     'flex',
-                      alignItems:  'center',
-                      gap:         '6px',
-                      transition:  'all 0.2s',
-                    }}
+                    className={`flex items-center gap-1.5 px-[18px] py-[9px] rounded-lg border border-slate-400/[0.12] bg-transparent text-[13px] transition-all ${step === 0 ? 'text-slate-800 cursor-not-allowed' : 'text-slate-500 cursor-pointer'}`}
                   >
                     <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                       <path d="M9 11L5 7L9 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -1574,41 +1238,19 @@ export default function ClienteForm() {
                   </button>
 
                   {/* Indicadores de progreso */}
-                  <div style={{ display: 'flex', gap: '6px' }}>
+                  <div className='flex gap-1.5'>
                     {STEPS.map((_, i) => (
-                      <div key={i} style={{
-                        width:        i === step ? '20px' : '6px',
-                        height:       '6px',
-                        borderRadius: '3px',
-                        background:   i < step
-                          ? 'rgba(34,197,94,0.5)'
-                          : i === step
-                          ? '#f59e0b'
-                          : 'rgba(148,163,184,0.12)',
-                        transition: 'all 0.3s',
-                      }} />
+                      <div
+                        key={i}
+                        className={`h-1.5 rounded transition-all duration-300 ${i === step ? 'w-5' : 'w-1.5'} ${i < step ? 'bg-emerald-500/50' : i === step ? 'bg-amber-500' : 'bg-slate-400/[0.12]'}`}
+                      />
                     ))}
                   </div>
 
                   {step < STEPS.length - 1 ? (
                     <button
                       onClick={goNext}
-                      style={{
-                        padding:     '9px 20px',
-                        borderRadius:'8px',
-                        border:      'none',
-                        background:  'linear-gradient(135deg, rgba(245,158,11,0.9), rgba(217,119,6,0.9))',
-                        color:       '#0f172a',
-                        fontSize:    '13px',
-                        fontWeight:  '700',
-                        cursor:      'pointer',
-                        fontFamily:  "'DM Sans', sans-serif",
-                        display:     'flex',
-                        alignItems:  'center',
-                        gap:         '6px',
-                        boxShadow:   '0 4px 12px rgba(245,158,11,0.2)',
-                        transition:  'all 0.2s',
-                      }}
+                      className='flex items-center gap-1.5 px-5 py-[9px] rounded-lg border-none text-slate-900 text-[13px] font-bold cursor-pointer transition-all bg-gradient-to-br from-emerald-600/80 to-emerald-700/80 hover:from-emerald-600 hover:to-emerald-700 shadow-sm shadow-emerald-600/15'
                     >
                       Continuar
                       <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
@@ -1616,31 +1258,18 @@ export default function ClienteForm() {
                       </svg>
                     </button>
                   ) : (
+                    <div className='flex flex-col items-end gap-1'>
+                      {submitError && (
+                        <p className='text-xs text-red-400'>{submitError}</p>
+                      )}
                     <button
                       onClick={handleSubmit}
                       disabled={submitting}
-                      style={{
-                        padding:     '9px 22px',
-                        borderRadius:'8px',
-                        border:      'none',
-                        background:  submitting
-                          ? 'rgba(245,158,11,0.3)'
-                          : 'linear-gradient(135deg, rgba(245,158,11,0.9), rgba(217,119,6,0.9))',
-                        color:     '#0f172a',
-                        fontSize:  '13px',
-                        fontWeight:'700',
-                        cursor:    submitting ? 'not-allowed' : 'pointer',
-                        fontFamily:"'DM Sans', sans-serif",
-                        display:   'flex',
-                        alignItems:'center',
-                        gap:       '8px',
-                        boxShadow: submitting ? 'none' : '0 4px 12px rgba(245,158,11,0.2)',
-                        transition:'all 0.2s',
-                      }}
+                      className={`flex items-center gap-2 px-[22px] py-[9px] rounded-lg border-none text-slate-900 text-[13px] font-bold transition-all ${submitting ? 'bg-emerald-600/30 cursor-not-allowed' : 'bg-gradient-to-br from-emerald-600/80 to-emerald-700/80 hover:from-emerald-600 hover:to-emerald-700 shadow-sm shadow-emerald-600/15 cursor-pointer'}`}
                     >
                       {submitting ? (
                         <>
-                          <svg width="14" height="14" viewBox="0 0 14 14" style={{ animation: 'spin 0.8s linear infinite' }}>
+                          <svg width="14" height="14" viewBox="0 0 14 14" className='animate-spin'>
                             <circle cx="7" cy="7" r="5.5" stroke="rgba(15,23,42,0.5)" strokeWidth="1.5" fill="none" />
                             <path d="M7 1.5A5.5 5.5 0 0 1 12.5 7" stroke="#0f172a" strokeWidth="1.5" strokeLinecap="round" fill="none" />
                           </svg>
@@ -1655,29 +1284,19 @@ export default function ClienteForm() {
                         </>
                       )}
                     </button>
+                    </div>
                   )}
                 </div>
               )}
             </div>
 
             {/* Panel lateral sticky */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', position: 'sticky', top: '40px' }}>
+            <div className='flex flex-col gap-3 sticky top-10'>
               <ResumenLateral data={data} step={step} />
 
               {!submitted && (
-                <div style={{
-                  padding:      '14px 16px',
-                  background:   'rgba(8, 16, 35, 0.5)',
-                  border:       '1px solid rgba(148,163,184,0.06)',
-                  borderRadius: '10px',
-                  fontSize:     '11px',
-                  color:        '#334155',
-                  lineHeight:   '1.7',
-                }}>
-                  <div style={{
-                    color: '#475569', fontWeight: '600', marginBottom: '6px',
-                    display: 'flex', alignItems: 'center', gap: '6px',
-                  }}>
+                <div className='px-4 py-3.5 rounded-[10px] text-xs text-slate-700 bg-slate-950/50 border border-slate-400/[0.06] leading-[1.7]'>
+                  <div className='text-slate-600 font-semibold mb-1.5 flex items-center gap-1.5'>
                     <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
                       <circle cx="6" cy="6" r="5" stroke="#475569" />
                       <line x1="6" y1="5.5" x2="6" y2="8.5" stroke="#475569" strokeWidth="1.2" strokeLinecap="round" />

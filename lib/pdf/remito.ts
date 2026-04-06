@@ -32,7 +32,7 @@ export async function generarPDFRemito(
     .from('remitos')
     .select(`
       *,
-      cliente:clientes(razon_social, cuit, condicion_iva, domicilio, localidad, provincia),
+      cliente:clientes(razon_social, cuit, condicion_iva),
       orden:ordenes_servicio(numero, titulo),
       nota_pedido:notas_pedido(numero),
       items:remitos_items(*)
@@ -244,6 +244,8 @@ export async function generarPDFRemito(
     }
 
     // ── Firmas ────────────────────────────────────────────
+    if (y > doc.page.height - 110) { doc.addPage(); y = M }
+
     const firmaY = doc.page.height - 80
     doc.moveTo(M + 30, firmaY).lineTo(M + 190, firmaY).stroke(LINEA)
     doc.moveTo(doc.page.width - M - 190, firmaY).lineTo(doc.page.width - M - 30, firmaY).stroke(LINEA)

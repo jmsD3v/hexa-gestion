@@ -206,6 +206,8 @@ export interface FiltrosFactura {
   fecha_hasta?: string
   pagina?: number
   por_pagina?: number
+  orden_por?: 'numero' | 'fecha_emision' | 'total' | 'fecha_vencimiento'
+  orden_dir?: 'asc' | 'desc'
 }
 
 // ── Recibo ────────────────────────────────────────────────────

@@ -14,6 +14,18 @@ import {
   useRef,
   type ReactNode,
 } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import {
+  Settings,
+  CheckCircle2,
+  XCircle,
+  Pencil,
+  User,
+  FileText,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+} from 'lucide-react';
 import type { EstadoOrden, OrdenServicio } from '@/types';
 import {
   obtenerOrdenes,
@@ -40,43 +52,13 @@ type OrdenRow = OrdenServicio & {
 
 const ESTADO_CFG: Record<
   EstadoOrden,
-  { label: string; color: string; bg: string; border: string; icon: string }
+  { label: string; badge: string; text: string; dot: string; icon: ReactNode }
 > = {
-  PENDIENTE: {
-    label: 'Pendiente',
-    color: '#94a3b8',
-    bg: 'rgba(148,163,184,0.08)',
-    border: 'rgba(148,163,184,0.15)',
-    icon: '⏳',
-  },
-  EN_PROGRESO: {
-    label: 'En Progreso',
-    color: '#60a5fa',
-    bg: 'rgba(96,165,250,0.08)',
-    border: 'rgba(96,165,250,0.2)',
-    icon: '⚙️',
-  },
-  COMPLETADA: {
-    label: 'Completada',
-    color: '#4ade80',
-    bg: 'rgba(74,222,128,0.08)',
-    border: 'rgba(74,222,128,0.2)',
-    icon: '✅',
-  },
-  CANCELADA: {
-    label: 'Cancelada',
-    color: '#f87171',
-    bg: 'rgba(248,113,113,0.08)',
-    border: 'rgba(248,113,113,0.2)',
-    icon: '❌',
-  },
-  SUSPENDIDA: {
-    label: 'Suspendida',
-    color: '#f59e0b',
-    bg: 'rgba(245,158,11,0.08)',
-    border: 'rgba(245,158,11,0.2)',
-    icon: '⏸',
-  },
+  PENDIENTE:   { label: 'Pendiente',   badge: 'text-slate-400 bg-slate-400/[0.08] border-slate-400/15',  text: 'text-slate-400',  dot: 'bg-slate-400',  icon: <span className="text-[10px]">⏳</span> },
+  EN_PROGRESO: { label: 'En Progreso', badge: 'text-blue-400 bg-blue-400/[0.08] border-blue-400/20',     text: 'text-blue-400',   dot: 'bg-blue-400',   icon: <Settings className="w-3 h-3" /> },
+  COMPLETADA:  { label: 'Completada',  badge: 'text-green-400 bg-green-400/[0.08] border-green-400/20',  text: 'text-green-400',  dot: 'bg-green-400',  icon: <CheckCircle2 className="w-3 h-3" /> },
+  CANCELADA:   { label: 'Cancelada',   badge: 'text-red-400 bg-red-400/[0.08] border-red-400/20',        text: 'text-red-400',    dot: 'bg-red-400',    icon: <XCircle className="w-3 h-3" /> },
+  SUSPENDIDA:  { label: 'Suspendida',  badge: 'text-amber-500 bg-amber-500/[0.08] border-amber-500/20',  text: 'text-amber-500',  dot: 'bg-amber-500',  icon: <span className="text-[10px]">⏸</span> },
 };
 
 const TRANSICIONES: Partial<Record<EstadoOrden, EstadoOrden[]>> = {
@@ -135,8 +117,14 @@ function Skeleton({
 }) {
   return (
     <div
-      className='bg-slate-700/10 animate-pulse'
-      style={{ width: w, height: h, borderRadius: r }}
+      className='bg-slate-700/10 animate-pulse w-[var(--sk-w)] h-[var(--sk-h)] rounded-[var(--sk-r)]'
+      style={
+        {
+          '--sk-w': w,
+          '--sk-h': h,
+          '--sk-r': r,
+        } as React.CSSProperties
+      }
     />
   );
 }
@@ -145,13 +133,13 @@ function KPICard({
   label,
   value,
   sub,
-  color = '#94a3b8',
+  textCls = 'text-slate-400',
   loading,
 }: {
   label: string;
   value: string;
   sub?: string;
-  color?: string;
+  textCls?: string;
   loading?: boolean;
 }) {
   return (
@@ -162,10 +150,7 @@ function KPICard({
       {loading ? (
         <Skeleton w='60px' h='22px' />
       ) : (
-        <span
-          className='text-xl font-black font-mono tracking-tighter block'
-          style={{ color }}
-        >
+        <span className={`text-xl font-black font-mono tracking-tighter block ${textCls}`}>
           {value}
         </span>
       )}
@@ -179,36 +164,23 @@ function KPICard({
 function BadgeEstado({ estado }: { estado: EstadoOrden }) {
   const cfg = ESTADO_CFG[estado];
   return (
-    <span
-      className='inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wider whitespace-nowrap'
-      style={{
-        color: cfg.color,
-        background: cfg.bg,
-        border: `1px solid ${cfg.border}`,
-      }}
-    >
-      <span
-        className='w-1 h-1 rounded-full inline-block'
-        style={{ background: cfg.color }}
-      />
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wider whitespace-nowrap border ${cfg.badge}`}>
+      <span className={`w-1 h-1 rounded-full inline-block ${cfg.dot}`} />
       {cfg.label}
     </span>
   );
 }
 
-function BarraAvance({ pct, color }: { pct: number; color: string }) {
+function BarraAvance({ pct, barCls, textCls }: { pct: number; barCls: string; textCls: string }) {
   return (
     <div className='flex items-center gap-1.5 min-w-[90px]'>
       <div className='flex-1 h-1 bg-slate-700/20 rounded overflow-hidden'>
         <div
-          className='h-full rounded transition-all duration-400'
-          style={{ width: `${pct}%`, background: color }}
+          className={`h-full rounded transition-all duration-400 w-[var(--bar-w)] ${barCls}`}
+          style={{ '--bar-w': `${pct}%` } as React.CSSProperties}
         />
       </div>
-      <span
-        className='text-[10px] font-bold font-mono min-w-[26px] text-right'
-        style={{ color }}
-      >
+      <span className={`text-[10px] font-bold font-mono min-w-[26px] text-right ${textCls}`}>
         {pct}%
       </span>
     </div>
@@ -244,11 +216,7 @@ function MenuEstado({
       <button
         onClick={() => setAbierto((p) => !p)}
         disabled={loading}
-        className='flex items-center gap-1 bg-transparent border-none p-0 transition-opacity'
-        style={{
-          cursor: loading ? 'not-allowed' : 'pointer',
-          opacity: loading ? 0.6 : 1,
-        }}
+        className={`flex items-center gap-1 bg-transparent border-none p-0 transition-opacity ${loading ? 'cursor-not-allowed opacity-60' : 'cursor-pointer opacity-100'}`}
       >
         <BadgeEstado estado={orden.estado} />
         <svg
@@ -269,8 +237,7 @@ function MenuEstado({
       </button>
       {abierto && (
         <div
-          className='absolute left-0 top-[calc(100%_+_4px)] z-30 bg-slate-950 border border-slate-700/20 rounded-2xl p-1 min-w-[170px] shadow-2xl animate-in scale-95'
-          style={{ animation: 'scaleIn 0.12s ease' }}
+          className='absolute left-0 top-[calc(100%_+_4px)] z-30 bg-slate-950 border border-slate-700/20 rounded-2xl p-1 min-w-[170px] shadow-2xl animate-modal-in'
         >
           {trans.map((est) => {
             const cfg = ESTADO_CFG[est];
@@ -281,14 +248,7 @@ function MenuEstado({
                   setAbierto(false);
                   onCambio(orden.id, est);
                 }}
-                className='flex items-center gap-2 w-full px-2.5 py-1.5 rounded-md border-none bg-transparent cursor-pointer font-sans text-xs text-left transition-colors'
-                style={{ color: cfg.color }}
-                onMouseEnter={(e) =>
-                  (e.currentTarget.style.background = 'rgba(148,163,184,0.06)')
-                }
-                onMouseLeave={(e) =>
-                  (e.currentTarget.style.background = 'transparent')
-                }
+                className={`flex items-center gap-2 w-full px-2.5 py-1.5 rounded-md border-none bg-transparent cursor-pointer font-sans text-xs text-left transition-colors hover:bg-slate-400/[0.06] ${cfg.text}`}
               >
                 <span>{cfg.icon}</span>
                 <span>→ {cfg.label}</span>
@@ -318,15 +278,7 @@ function MenuAcciones({ orden }: { orden: OrdenRow }) {
     <div ref={ref} className='relative'>
       <button
         onClick={() => setAbierto((p) => !p)}
-        className='w-7 h-7 rounded-lg border border-slate-700/10 bg-transparent text-slate-600 cursor-pointer flex items-center justify-center transition-all'
-        onMouseEnter={(e) => {
-          e.currentTarget.style.background = 'rgba(148,163,184,0.06)';
-          e.currentTarget.style.color = '#94a3b8';
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.background = 'transparent';
-          e.currentTarget.style.color = '#475569';
-        }}
+        className='w-7 h-7 rounded-lg border border-slate-700/10 bg-transparent text-slate-600 cursor-pointer flex items-center justify-center transition-all hover:bg-slate-400/[0.06] hover:text-slate-400'
       >
         <svg width='13' height='13' viewBox='0 0 13 13'>
           <circle cx='6.5' cy='2.5' r='1' fill='currentColor' />
@@ -336,31 +288,30 @@ function MenuAcciones({ orden }: { orden: OrdenRow }) {
       </button>
       {abierto && (
         <div
-          className='absolute right-0 top-[calc(100%_+_4px)] z-30 bg-slate-950 border border-slate-700/20 rounded-2xl p-1 min-w-[180px] shadow-2xl animate-in scale-95'
-          style={{ animation: 'scaleIn 0.12s ease' }}
+          className='absolute right-0 top-[calc(100%_+_4px)] z-30 bg-slate-950 border border-slate-700/20 rounded-2xl p-1 min-w-[180px] shadow-2xl animate-modal-in'
         >
-          {[
-            { href: `/ordenes/${orden.id}`, label: 'Ver detalle', icon: '👁' },
+          {([
+            { href: `/ordenes/${orden.id}`, label: 'Ver detalle', icon: <span className="text-[11px]">👁</span> },
             {
               href: `/ordenes/${orden.id}/editar`,
               label: 'Editar',
-              icon: '✏️',
+              icon: <Pencil className="w-3 h-3" />,
             },
             {
               href: `/clientes/${orden.cliente_id}`,
               label: 'Ver cliente',
-              icon: '👤',
+              icon: <User className="w-3 h-3" />,
             },
             ...(orden.presupuesto_id
               ? [
                   {
                     href: `/presupuestos/${orden.presupuesto_id}`,
                     label: 'Ver presupuesto',
-                    icon: '📄',
+                    icon: <FileText className="w-3 h-3" />,
                   },
                 ]
               : []),
-          ].map(({ href, label, icon }) => (
+          ] as { href: string; label: string; icon: ReactNode }[]).map(({ href, label, icon }) => (
             <a
               key={href}
               href={href}
@@ -375,7 +326,7 @@ function MenuAcciones({ orden }: { orden: OrdenRow }) {
                 e.currentTarget.style.color = '#94a3b8';
               }}
             >
-              <span className='text-[11px]'>{icon}</span>
+              {icon}
               {label}
             </a>
           ))}
@@ -398,24 +349,13 @@ function Toast({
     const t = setTimeout(onClose, 3500);
     return () => clearTimeout(t);
   }, [onClose]);
-  const bgColor =
-    tipo === 'ok' ? 'rgba(74,222,128,0.3)' : 'rgba(248,113,113,0.3)';
-  const textColor = tipo === 'ok' ? '#4ade80' : '#f87171';
-  const icon = tipo === 'ok' ? '✓' : '✕';
+  const borderCls = tipo === 'ok' ? 'border-green-400/30' : 'border-red-400/30';
+  const textCls   = tipo === 'ok' ? 'text-green-400'      : 'text-red-400';
+  const icon      = tipo === 'ok' ? '✓'                   : '✕';
   return (
-    <div
-      className='fixed bottom-6 right-6 z-50 flex items-center gap-2.5 px-4.5 py-3 rounded-lg bg-slate-950/95 border backdrop-blur-3xl shadow-2xl animate-in slide-up'
-      style={{
-        borderColor: bgColor,
-        animation: 'slideUp 0.25s cubic-bezier(0.34,1.56,0.64,1)',
-      }}
-    >
-      <span className='text-xs font-semibold' style={{ color: textColor }}>
-        {icon}
-      </span>
-      <span className='text-xs font-sans' style={{ color: textColor }}>
-        {mensaje}
-      </span>
+    <div className={`fixed bottom-6 right-6 z-50 flex items-center gap-2.5 px-4.5 py-3 rounded-lg bg-slate-950/95 border backdrop-blur-3xl shadow-2xl animate-modal-in ${borderCls}`}>
+      <span className={`text-xs font-semibold ${textCls}`}>{icon}</span>
+      <span className={`text-xs font-sans ${textCls}`}>{mensaje}</span>
     </div>
   );
 }
@@ -431,20 +371,11 @@ function BtnPag({
   disabled?: boolean;
   active?: boolean;
 }) {
-  const borderClass = active ? 'border-amber-500/40' : 'border-slate-700/10';
-  const bgClass = active ? 'bg-amber-500/10' : 'bg-transparent';
-  const textColor = active ? '#f59e0b' : disabled ? '#1e293b' : '#475569';
-  const fontWeight = active ? 700 : 400;
   return (
     <button
       onClick={onClick}
       disabled={disabled}
-      className={`min-w-7 h-7 px-1.5 rounded-xl border font-mono text-xs transition-all ${borderClass} ${bgClass}`}
-      style={{
-        color: textColor,
-        fontWeight,
-        cursor: disabled ? 'not-allowed' : 'pointer',
-      }}
+      className={`min-w-7 h-7 px-1.5 rounded-xl border font-mono text-xs transition-all ${active ? 'border-amber-500/40 bg-amber-500/10 text-amber-500 font-bold' : 'border-slate-700/10 bg-transparent'} ${!active && (disabled ? 'text-slate-800 cursor-not-allowed' : 'text-slate-500 cursor-pointer')}`}
     >
       {children}
     </button>
@@ -454,6 +385,9 @@ function BtnPag({
 // ─── Componente principal ─────────────────────────────────────────────────────
 
 export default function OrdenesListado() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
   const [rows, setRows] = useState<OrdenRow[]>([]);
   const [total, setTotal] = useState(0);
   const [totalPags, setTotalPags] = useState(1);
@@ -468,12 +402,14 @@ export default function OrdenesListado() {
   const [loadingKpis, setLoadingKpis] = useState(true);
   const [isPending, startTransition] = useTransition();
 
-  const [busqueda, setBusqueda] = useState('');
-  const [estado, setEstado] = useState<EstadoOrden | ''>('');
-  const [fechaDesde, setFechaDesde] = useState('');
-  const [fechaHasta, setFechaHasta] = useState('');
-  const [pagina, setPagina] = useState(1);
+  const [busqueda, setBusqueda] = useState(() => searchParams.get('q') ?? '');
+  const [estado, setEstado] = useState<EstadoOrden | ''>(() => (searchParams.get('estado') as EstadoOrden) ?? '');
+  const [fechaDesde, setFechaDesde] = useState(() => searchParams.get('desde') ?? '');
+  const [fechaHasta, setFechaHasta] = useState(() => searchParams.get('hasta') ?? '');
+  const [pagina, setPagina] = useState(() => Number(searchParams.get('pag') ?? 1));
   const [porPagina, setPorPagina] = useState(20);
+  const [ordenPor, setOrdenPor] = useState<'numero' | 'creado_en' | 'fecha_inicio' | 'fecha_fin_estimada'>(() => (searchParams.get('ob') as any) ?? 'creado_en');
+  const [ordenDir, setOrdenDir] = useState<'asc' | 'desc'>(() => (searchParams.get('od') as any) ?? 'desc');
   const [filtrosAbiertos, setFiltrosAbiertos] = useState(false);
 
   const [loadingIds, setLoadingIds] = useState<Set<string>>(new Set());
@@ -483,6 +419,27 @@ export default function OrdenesListado() {
   } | null>(null);
 
   const busquedaTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const actualizarUrl = useCallback((params: Record<string, string>) => {
+    const sp = new URLSearchParams(searchParams.toString());
+    Object.entries(params).forEach(([k, v]) => v ? sp.set(k, v) : sp.delete(k));
+    router.replace(`?${sp.toString()}`, { scroll: false });
+  }, [searchParams, router]);
+
+  const handleSort = (col: typeof ordenPor) => {
+    const dir = ordenPor === col && ordenDir === 'desc' ? 'asc' : 'desc';
+    setOrdenPor(col);
+    setOrdenDir(dir);
+    setPagina(1);
+    actualizarUrl({ ob: col, od: dir, pag: '' });
+  };
+
+  const SortIcon = ({ col }: { col: typeof ordenPor }) => {
+    if (ordenPor !== col) return <ArrowUpDown className='w-3 h-3 text-slate-600' />;
+    return ordenDir === 'asc'
+      ? <ArrowUp className='w-3 h-3 text-blue-400' />
+      : <ArrowDown className='w-3 h-3 text-blue-400' />;
+  };
 
   // ── Fetch ──────────────────────────────────────────────────
 
@@ -511,6 +468,8 @@ export default function OrdenesListado() {
         fecha_hasta: fechaHasta || undefined,
         pagina,
         por_pagina: porPagina,
+        orden_por: ordenPor,
+        orden_dir: ordenDir,
       });
       setLoading(false);
       if (res.data) {
@@ -519,7 +478,7 @@ export default function OrdenesListado() {
         setTotalPags(res.data.total_paginas);
       }
     });
-  }, [busqueda, estado, fechaDesde, fechaHasta, pagina, porPagina]);
+  }, [busqueda, estado, fechaDesde, fechaHasta, pagina, porPagina, ordenPor, ordenDir]);
 
   useEffect(() => {
     cargar();
@@ -540,7 +499,10 @@ export default function OrdenesListado() {
   const handleBusqueda = (v: string) => {
     setBusqueda(v);
     if (busquedaTimer.current) clearTimeout(busquedaTimer.current);
-    busquedaTimer.current = setTimeout(() => setPagina(1), 350);
+    busquedaTimer.current = setTimeout(() => {
+      setPagina(1);
+      actualizarUrl({ q: v, pag: '' });
+    }, 350);
   };
 
   const hayFiltros = !!(estado || fechaDesde || fechaHasta);
@@ -550,6 +512,7 @@ export default function OrdenesListado() {
     setFechaDesde('');
     setFechaHasta('');
     setPagina(1);
+    actualizarUrl({ estado: '', desde: '', hasta: '', pag: '' });
   };
 
   // ── Acciones inline ────────────────────────────────────────
@@ -626,24 +589,8 @@ export default function OrdenesListado() {
 
   return (
     <>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@300;400;500&display=swap');
-        *{box-sizing:border-box}body{margin:0;background:#060d1a;font-family:'DM Sans',sans-serif;-webkit-font-smoothing:antialiased}
-        option{background:#0f172a;color:#e2e8f0}input:focus,select:focus{outline:none!important}
-        ::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:rgba(148,163,184,0.15);border-radius:2px}
-        @keyframes shimmer{0%,100%{opacity:.4}50%{opacity:.8}}@keyframes slideUp{from{transform:translateY(8px);opacity:0}to{transform:translateY(0);opacity:1}}
-        @keyframes fadeIn{from{opacity:0}to{opacity:1}}@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
-        @keyframes scaleIn{from{transform:scale(0.96);opacity:0}to{transform:scale(1);opacity:1}}
-        table{border-collapse:collapse;width:100%}tr:hover td{background:rgba(148,163,184,0.02)!important}
-        .table-wrapper{overflow-x:auto}
-      `}</style>
-
       <div
-        className='min-h-screen bg-slate-950 px-3 py-4 pb-14 sm:px-5 sm:py-6 sm:pb-16 lg:px-7 lg:py-3 lg:pb-6'
-        style={{
-          backgroundImage:
-            'radial-gradient(ellipse 100% 50% at 5% 0%,rgba(96,165,250,0.03),transparent 55%)',
-        }}
+        className='min-h-screen bg-slate-950 bg-gradient-to-b from-blue-950/5 to-slate-950 px-3 py-5 pb-20 sm:px-5 sm:py-8 lg:px-6'
       >
         <div className='mx-auto max-w-6xl min-w-0'>
           {/* Header */}
@@ -653,7 +600,7 @@ export default function OrdenesListado() {
                 <span className='text-[11px] text-slate-500 tracking-widest uppercase'>
                   Hexa Gestión
                 </span>
-                <span className='text-slate-800'>›</span>
+                <span className='text-slate-500'>›</span>
                 <span className='text-[11px] text-slate-600 tracking-widest uppercase'>
                   Órdenes de Servicio
                 </span>
@@ -671,7 +618,7 @@ export default function OrdenesListado() {
             </div>
             <a
               href='/ordenes/nueva'
-              className='inline-flex w-full items-center justify-center gap-1.75 rounded-[9px] bg-gradient-to-br from-blue-600/80 to-blue-700/80 px-4 py-2.5 text-sm font-bold text-white no-underline shadow-lg shadow-blue-600/15 transition-all duration-120 hover:from-blue-600 hover:to-blue-700 sm:w-auto'
+              className='inline-flex w-full items-center justify-center gap-2 rounded-[9px] bg-gradient-to-br from-emerald-600/80 to-emerald-700/80 px-4 py-2.5 text-sm font-bold text-slate-950 no-underline shadow-sm shadow-emerald-600/15 transition-all hover:from-emerald-600 hover:to-emerald-700 sm:w-auto'
             >
               <svg width='11' height='11' viewBox='0 0 11 11'>
                 <path
@@ -686,31 +633,31 @@ export default function OrdenesListado() {
           </div>
 
           {/* KPIs */}
-          <div className='mb-4 grid grid-cols-1 gap-2.5 min-[420px]:grid-cols-2 xl:grid-cols-4 lg:mb-3'>
+          <div className='mb-4 grid grid-cols-1 gap-2.5 min-[420px]:grid-cols-2 lg:grid-cols-4 lg:mb-3'>
             <KPICard
               label='Total activas'
               value={kpis ? String(kpis.pendientes + kpis.en_progreso) : '—'}
               sub='pendientes + en progreso'
-              color='#60a5fa'
+              textCls='text-blue-400'
               loading={loadingKpis}
             />
             <KPICard
               label='En progreso'
               value={kpis ? String(kpis.en_progreso) : '—'}
-              color='#f59e0b'
+              textCls='text-amber-500'
               loading={loadingKpis}
             />
             <KPICard
               label='Completadas este mes'
               value={kpis ? String(kpis.completadas_mes) : '—'}
-              color='#4ade80'
+              textCls='text-green-400'
               loading={loadingKpis}
             />
             <KPICard
               label='Tasa de cierre'
               value={kpis ? `${kpis.tasa_completadas}%` : '—'}
               sub={`de ${kpis?.total ?? '...'} órdenes totales`}
-              color='#a78bfa'
+              textCls='text-violet-400'
               loading={loadingKpis}
             />
           </div>
@@ -750,16 +697,7 @@ export default function OrdenesListado() {
                   value={busqueda}
                   onChange={(e) => handleBusqueda(e.target.value)}
                   placeholder='Buscar por número, título, cliente...'
-                  className={`${inputClass} w-full pl-8 transition-colors`}
-                  style={{ paddingRight: busqueda ? '30px' : '12px' }}
-                  onFocus={(e) =>
-                    (e.currentTarget.style.borderColor =
-                      'rgba(96,165,250,0.35)')
-                  }
-                  onBlur={(e) =>
-                    (e.currentTarget.style.borderColor =
-                      'rgba(148,163,184,0.1)')
-                  }
+                  className={`${inputClass} w-full pl-8 transition-colors focus:border-blue-400/35 ${busqueda ? 'pr-[30px]' : 'pr-3'}`}
                 />
                 {busqueda && (
                   <button
@@ -784,25 +722,19 @@ export default function OrdenesListado() {
               {/* Chips de estado */}
               <div className='flex w-full flex-wrap gap-1 sm:w-auto'>
                 {ESTADOS_FILTRO.map((f) => {
-                  const cfg = f.value ? ESTADO_CFG[f.value] : null;
                   const isActive = estado === f.value;
+                  const selectedCls = f.value
+                    ? ESTADO_CFG[f.value]?.badge
+                    : 'text-blue-400 bg-blue-400/[0.07] border-blue-400/30';
                   return (
                     <button
                       key={f.value}
                       onClick={() => {
                         setEstado(f.value as EstadoOrden | '');
                         setPagina(1);
+                        actualizarUrl({ estado: f.value, pag: '' });
                       }}
-                      className='px-3 py-1.5 rounded-lg cursor-pointer transition-all text-[11px] font-semibold whitespace-nowrap'
-                      style={{
-                        border: isActive
-                          ? `1px solid ${cfg?.border ?? 'rgba(96,165,250,0.3)'}`
-                          : '1px solid rgba(148,163,184,0.1)',
-                        background: isActive
-                          ? (cfg?.bg ?? 'rgba(96,165,250,0.07)')
-                          : 'transparent',
-                        color: isActive ? (cfg?.color ?? '#60a5fa') : '#475569',
-                      }}
+                      className={`px-3 py-1.5 rounded-lg cursor-pointer transition-all text-[11px] font-semibold whitespace-nowrap border ${isActive ? selectedCls : 'border-slate-400/10 bg-transparent text-slate-500'}`}
                     >
                       {f.label}
                     </button>
@@ -813,16 +745,7 @@ export default function OrdenesListado() {
               {/* Toggle filtros avanzados */}
               <button
                 onClick={() => setFiltrosAbiertos((p) => !p)}
-                className='flex items-center gap-1 px-3 py-1.5 rounded-lg cursor-pointer transition-all text-[11px] font-semibold'
-                style={{
-                  border: filtrosAbiertos
-                    ? '1px solid rgba(96,165,250,0.3)'
-                    : '1px solid rgba(148,163,184,0.1)',
-                  background: filtrosAbiertos
-                    ? 'rgba(96,165,250,0.06)'
-                    : 'transparent',
-                  color: filtrosAbiertos ? '#60a5fa' : '#475569',
-                }}
+                className={`flex items-center gap-1 px-3 py-1.5 rounded-lg cursor-pointer transition-all text-[11px] font-semibold border ${filtrosAbiertos ? 'border-blue-400/30 bg-blue-400/[0.06] text-blue-400' : 'border-slate-400/10 bg-transparent text-slate-500'}`}
               >
                 <svg width='12' height='12' viewBox='0 0 12 12' fill='none'>
                   <path
@@ -850,13 +773,12 @@ export default function OrdenesListado() {
 
             {filtrosAbiertos && (
               <div
-                className='mt-3 flex flex-wrap gap-3 border-t border-slate-700/10 pt-3 animate-in fade-in'
-                style={{ animation: 'fadeIn 0.15s ease' }}
+                className='mt-3 flex flex-wrap gap-3 border-t border-slate-700/10 pt-3 animate-fade-in'
               >
                 {[
-                  { label: 'Desde', value: fechaDesde, set: setFechaDesde },
-                  { label: 'Hasta', value: fechaHasta, set: setFechaHasta },
-                ].map(({ label, value, set }) => (
+                  { label: 'Desde', value: fechaDesde, set: setFechaDesde, key: 'desde' },
+                  { label: 'Hasta', value: fechaHasta, set: setFechaHasta, key: 'hasta' },
+                ].map(({ label, value, set, key }) => (
                   <div
                     key={label}
                     className='flex flex-col gap-1 min-w-[140px]'
@@ -870,9 +792,9 @@ export default function OrdenesListado() {
                       onChange={(e) => {
                         set(e.target.value);
                         setPagina(1);
+                        actualizarUrl({ [key]: e.target.value, pag: '' });
                       }}
-                      className={inputClass}
-                      style={{ colorScheme: 'dark' }}
+                      className={`${inputClass} [color-scheme:dark]`}
                     />
                   </div>
                 ))}
@@ -883,27 +805,41 @@ export default function OrdenesListado() {
           {/* Tabla */}
           <div className={`${cardClass} overflow-hidden`}>
             <div className='table-wrapper overflow-x-auto'>
-              <table className='min-w-full'>
+              <table className='min-w-full border-collapse'>
                 <thead>
                   <tr className='border-b border-slate-700/10'>
                     {[
-                      { label: 'Número', w: '90px', col: 'numero' },
-                      { label: 'Cliente', w: 'auto', col: 'cliente' },
-                      { label: 'Título', w: 'auto', col: 'titulo' },
-                      { label: 'Ppto.', w: '90px', col: 'ppto' },
-                      { label: 'Inicio', w: '75px', col: 'inicio' },
-                      { label: 'Fin est.', w: '80px', col: 'fin' },
-                      { label: 'Avance', w: '120px', col: 'avance' },
-                      { label: 'Estado', w: '130px', col: 'estado' },
-                      { label: '', w: '36px', col: 'acciones' },
+                      { label: 'Número',   w: '90px',  col: 'numero',  sort: 'numero'           as const },
+                      { label: 'Cliente',  w: 'auto',  col: 'cliente', sort: null },
+                      { label: 'Título',   w: 'auto',  col: 'titulo',  sort: null },
+                      { label: 'Ppto.',    w: '90px',  col: 'ppto',    sort: null },
+                      { label: 'Inicio',   w: '75px',  col: 'inicio',  sort: 'fecha_inicio'      as const },
+                      { label: 'Fin est.', w: '80px',  col: 'fin',     sort: 'fecha_fin_estimada' as const },
+                      { label: 'Avance',   w: '120px', col: 'avance',  sort: null },
+                      { label: 'Estado',   w: '130px', col: 'estado',  sort: null },
+                      { label: '',         w: '36px',  col: 'acciones',sort: null },
                     ].map((col) => (
                       <th
-                        key={col.label}
+                        key={col.label || col.col}
                         data-col={col.col}
-                        className={`px-3.5 py-3 text-left text-[10px] font-bold tracking-widest uppercase text-slate-500 whitespace-nowrap bg-slate-900/30 max-[780px]:px-1 max-[780px]:py-1 max-[780px]:text-[10px] ${col.col === 'titulo' || col.col === 'ppto' || col.col === 'inicio' || col.col === 'fin' ? 'max-[780px]:hidden' : ''} ${col.col === 'cliente' ? 'max-[780px]:max-w-[55px] max-[780px]:text-[9px]' : ''} ${col.col === 'avance' ? 'max-[780px]:text-[9px]' : ''} ${col.col === 'acciones' ? 'max-[780px]:px-[2px]' : ''}`}
-                        style={{ width: col.w }}
+                        onClick={col.sort ? () => handleSort(col.sort!) : undefined}
+                        className={[
+                          'px-3.5 py-3 text-left text-[10px] font-bold tracking-widest uppercase text-slate-500 whitespace-nowrap bg-slate-900/30 w-[var(--col-w)]',
+                          'max-[780px]:px-1 max-[780px]:py-1 max-[780px]:text-[10px]',
+                          col.col === 'titulo' || col.col === 'ppto' || col.col === 'inicio' || col.col === 'fin' ? 'max-[780px]:hidden' : '',
+                          col.col === 'cliente' ? 'max-[780px]:max-w-[55px] max-[780px]:text-[9px]' : '',
+                          col.col === 'avance' ? 'max-[780px]:text-[9px]' : '',
+                          col.col === 'acciones' ? 'max-[780px]:px-[2px]' : '',
+                          col.sort ? 'cursor-pointer select-none hover:text-slate-400 transition-colors' : '',
+                        ].join(' ')}
+                        style={{ '--col-w': col.w } as React.CSSProperties}
                       >
-                        {col.label}
+                        {col.sort ? (
+                          <span className='inline-flex items-center gap-1'>
+                            {col.label}
+                            <SortIcon col={col.sort} />
+                          </span>
+                        ) : col.label}
                       </th>
                     ))}
                   </tr>
@@ -928,7 +864,7 @@ export default function OrdenesListado() {
                     <tr>
                       <td colSpan={9} className='px-6 py-12 text-center'>
                         <div className='flex flex-col items-center gap-2.5'>
-                          <span className='text-4xl opacity-40'>⚙️</span>
+                          <Settings className='w-12 h-12 text-slate-700' />
                           <span className='text-xs text-slate-500'>
                             {busqueda || hayFiltros
                               ? 'Sin resultados para los filtros aplicados'
@@ -962,12 +898,12 @@ export default function OrdenesListado() {
                         dias < 0 &&
                         row.estado === 'EN_PROGRESO';
                       const cfg = ESTADO_CFG[row.estado];
-                      const avanceColor =
+                      const avanceCls =
                         row.porcentaje_avance === 100
-                          ? '#4ade80'
+                          ? { bar: 'bg-green-400', text: 'text-green-400' }
                           : row.porcentaje_avance >= 50
-                            ? '#60a5fa'
-                            : '#f59e0b';
+                            ? { bar: 'bg-blue-400', text: 'text-blue-400' }
+                            : { bar: 'bg-amber-500', text: 'text-amber-500' };
                       return (
                         <tr
                           key={row.id}
@@ -1053,26 +989,12 @@ export default function OrdenesListado() {
                             className='px-3.5 py-3 max-[780px]:hidden max-[780px]:px-1 max-[780px]:py-1'
                           >
                             <div>
-                              <span
-                                className='text-[11px] font-mono max-[780px]:text-[8px]'
-                                style={{
-                                  color: vencida ? '#f87171' : '#334155',
-                                }}
-                              >
+                              <span className={`text-[11px] font-mono max-[780px]:text-[8px] ${vencida ? 'text-red-400' : 'text-slate-700'}`}>
                                 {fmtFecha(row.fecha_fin_estimada)}
                               </span>
                               {dias !== null &&
                                 row.estado === 'EN_PROGRESO' && (
-                                  <div
-                                    className='text-[9px] mt-0.5 max-[780px]:hidden'
-                                    style={{
-                                      color: vencida
-                                        ? '#f87171'
-                                        : dias <= 3
-                                          ? '#f59e0b'
-                                          : '#334155',
-                                    }}
-                                  >
+                                  <div className={`text-[9px] mt-0.5 max-[780px]:hidden ${vencida ? 'text-red-400' : dias <= 3 ? 'text-amber-500' : 'text-slate-700'}`}>
                                     {vencida
                                       ? `${Math.abs(dias)}d vencida`
                                       : `${dias}d restantes`}
@@ -1088,7 +1010,8 @@ export default function OrdenesListado() {
                           >
                             <BarraAvance
                               pct={row.porcentaje_avance}
-                              color={avanceColor}
+                              barCls={avanceCls.bar}
+                              textCls={avanceCls.text}
                             />
                           </td>
 
@@ -1126,11 +1049,11 @@ export default function OrdenesListado() {
                   {desde}–{hasta} de {total}
                 </span>
                 <div className='flex items-center gap-1'>
-                  <BtnPag onClick={() => setPagina(1)} disabled={pagina === 1}>
+                  <BtnPag onClick={() => { setPagina(1); actualizarUrl({ pag: '1' }); }} disabled={pagina === 1}>
                     «
                   </BtnPag>
                   <BtnPag
-                    onClick={() => setPagina((p) => p - 1)}
+                    onClick={() => { setPagina((p) => { const n = p - 1; actualizarUrl({ pag: String(n) }); return n; }); }}
                     disabled={pagina === 1}
                   >
                     ‹
@@ -1138,20 +1061,20 @@ export default function OrdenesListado() {
                   {ventanaPags().map((p) => (
                     <BtnPag
                       key={p}
-                      onClick={() => setPagina(p)}
+                      onClick={() => { setPagina(p); actualizarUrl({ pag: String(p) }); }}
                       active={p === pagina}
                     >
                       {String(p)}
                     </BtnPag>
                   ))}
                   <BtnPag
-                    onClick={() => setPagina((p) => p + 1)}
+                    onClick={() => { setPagina((p) => { const n = p + 1; actualizarUrl({ pag: String(n) }); return n; }); }}
                     disabled={pagina === totalPags}
                   >
                     ›
                   </BtnPag>
                   <BtnPag
-                    onClick={() => setPagina(totalPags)}
+                    onClick={() => { setPagina(totalPags); actualizarUrl({ pag: String(totalPags) }); }}
                     disabled={pagina === totalPags}
                   >
                     »

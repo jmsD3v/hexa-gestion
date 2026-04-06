@@ -11,7 +11,6 @@ import {
   useEffect,
   useCallback,
   useRef,
-  type CSSProperties,
   type ReactNode,
 } from 'react';
 import type { OrdenServicioCompleta, OrdenTecnico, EstadoOrden } from '@/types';
@@ -23,10 +22,28 @@ import {
   eliminarTecnico,
   actualizarNotasTecnicas,
 } from '@/app/actions/ordenes';
+import { obtenerTecnicos, type Tecnico as TecnicoCatalogo } from '@/app/actions/tecnicos';
+import { generarRemitoDesdeOrden } from '@/app/actions/logistica';
+import { generarFacturaDesdeRemito } from '@/app/actions/facturas';
 import {
   getMockOrdenDetalle,
   shouldUsePlatformMocks,
 } from '@/app/actions/platform-mocks';
+import {
+  ArrowLeft,
+  Settings,
+  CheckCircle2,
+  XCircle,
+  User,
+  FileText,
+  ClipboardList,
+  PenLine,
+  Wrench,
+  AlertTriangle,
+  Truck,
+  Loader2,
+} from 'lucide-react';
+import { descargarPDF } from '@/lib/pdf-client';
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -41,45 +58,12 @@ interface Props {
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
 
-const ESTADO_CFG: Record<
-  EstadoOrden,
-  { label: string; color: string; bg: string; border: string; icon: string }
-> = {
-  PENDIENTE: {
-    label: 'Pendiente',
-    color: '#94a3b8',
-    bg: 'rgba(148,163,184,0.08)',
-    border: 'rgba(148,163,184,0.15)',
-    icon: '⏳',
-  },
-  EN_PROGRESO: {
-    label: 'En Progreso',
-    color: '#60a5fa',
-    bg: 'rgba(96,165,250,0.08)',
-    border: 'rgba(96,165,250,0.2)',
-    icon: '⚙️',
-  },
-  COMPLETADA: {
-    label: 'Completada',
-    color: '#4ade80',
-    bg: 'rgba(74,222,128,0.08)',
-    border: 'rgba(74,222,128,0.2)',
-    icon: '✅',
-  },
-  CANCELADA: {
-    label: 'Cancelada',
-    color: '#f87171',
-    bg: 'rgba(248,113,113,0.08)',
-    border: 'rgba(248,113,113,0.2)',
-    icon: '❌',
-  },
-  SUSPENDIDA: {
-    label: 'Suspendida',
-    color: '#f59e0b',
-    bg: 'rgba(245,158,11,0.08)',
-    border: 'rgba(245,158,11,0.2)',
-    icon: '⏸',
-  },
+const ESTADO_CFG: Record<EstadoOrden, { label: string; badge: string; dot: string; icon: ReactNode }> = {
+  PENDIENTE:   { label: 'Pendiente',   badge: 'text-slate-400 bg-slate-400/[0.08] border-slate-400/15',  dot: 'bg-slate-400',  icon: <span className="text-[10px]">⏳</span> },
+  EN_PROGRESO: { label: 'En Progreso', badge: 'text-blue-400 bg-blue-400/[0.08] border-blue-400/20',     dot: 'bg-blue-400',   icon: <Settings className="w-3 h-3" /> },
+  COMPLETADA:  { label: 'Completada',  badge: 'text-green-400 bg-green-400/[0.08] border-green-400/20',  dot: 'bg-green-400',  icon: <CheckCircle2 className="w-3 h-3" /> },
+  CANCELADA:   { label: 'Cancelada',   badge: 'text-red-400 bg-red-400/[0.08] border-red-400/20',        dot: 'bg-red-400',    icon: <XCircle className="w-3 h-3" /> },
+  SUSPENDIDA:  { label: 'Suspendida',  badge: 'text-amber-500 bg-amber-500/[0.08] border-amber-500/20',  dot: 'bg-amber-500',  icon: <span className="text-[10px]">⏸</span> },
 };
 
 const TRANSICIONES: Partial<Record<EstadoOrden, EstadoOrden[]>> = {
@@ -92,34 +76,9 @@ const TRANSICIONES: Partial<Record<EstadoOrden, EstadoOrden[]>> = {
 
 // ─── Estilos ──────────────────────────────────────────────────────────────────
 
-const card: CSSProperties = {
-  background: 'rgba(15,23,42,0.7)',
-  border: '1px solid rgba(148,163,184,0.08)',
-  borderRadius: '12px',
-  backdropFilter: 'blur(12px)',
-};
-const inputSt: CSSProperties = {
-  width: '100%',
-  padding: '8px 11px',
-  background: 'rgba(8,16,35,0.6)',
-  border: '1px solid rgba(148,163,184,0.1)',
-  borderRadius: '7px',
-  color: '#e2e8f0',
-  fontSize: '12px',
-  fontFamily: "'DM Sans',sans-serif",
-  outline: 'none',
-  boxSizing: 'border-box',
-  transition: 'border-color 0.15s',
-};
-const labelSt: CSSProperties = {
-  fontSize: '10px',
-  fontWeight: '600',
-  letterSpacing: '0.08em',
-  textTransform: 'uppercase',
-  color: '#475569',
-  display: 'block',
-  marginBottom: '4px',
-};
+const cardClass = 'bg-slate-900/70 border border-slate-400/10 rounded-xl backdrop-blur-sm';
+const inputClass = 'w-full px-[11px] py-2 bg-slate-950/60 border border-slate-400/10 rounded-[7px] text-slate-200 text-xs outline-none transition-colors duration-150';
+const labelClass = 'text-[10px] font-semibold tracking-widest uppercase text-slate-600 block mb-1';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -152,13 +111,14 @@ function Skeleton({
 }) {
   return (
     <div
-      style={{
-        width: w,
-        height: h,
-        borderRadius: r,
-        background: 'rgba(148,163,184,0.07)',
-        animation: 'shimmer 1.4s ease infinite',
-      }}
+      className='animate-pulse bg-slate-400/[0.07] w-[var(--sk-w)] h-[var(--sk-h)] rounded-[var(--sk-r)]'
+      style={
+        {
+          '--sk-w': w,
+          '--sk-h': h,
+          '--sk-r': r,
+        } as React.CSSProperties
+      }
     />
   );
 }
@@ -175,26 +135,12 @@ function InfoPar({
   children?: ReactNode;
 }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-      <span
-        style={{
-          fontSize: '10px',
-          fontWeight: '600',
-          letterSpacing: '0.08em',
-          textTransform: 'uppercase',
-          color: '#334155',
-        }}
-      >
+    <div className='flex flex-col gap-[3px]'>
+      <span className='text-[10px] font-semibold tracking-widest uppercase text-slate-700'>
         {label}
       </span>
       {children ?? (
-        <span
-          style={{
-            fontSize: '13px',
-            color: value ? '#94a3b8' : '#1e293b',
-            fontFamily: mono ? "'DM Mono',monospace" : "'DM Sans',sans-serif",
-          }}
-        >
+        <span className={`text-[13px] ${value ? 'text-slate-400' : 'text-slate-800'}`}>
           {value || '—'}
         </span>
       )}
@@ -205,29 +151,8 @@ function InfoPar({
 function BadgeEstado({ estado }: { estado: EstadoOrden }) {
   const cfg = ESTADO_CFG[estado];
   return (
-    <span
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: '5px',
-        padding: '3px 10px',
-        borderRadius: '20px',
-        fontSize: '11px',
-        fontWeight: '600',
-        background: cfg.bg,
-        border: `1px solid ${cfg.border}`,
-        color: cfg.color,
-      }}
-    >
-      <span
-        style={{
-          width: '5px',
-          height: '5px',
-          borderRadius: '50%',
-          background: 'currentColor',
-          display: 'inline-block',
-        }}
-      />
+    <span className={`inline-flex items-center gap-[5px] px-[10px] py-[3px] rounded-full text-[11px] font-semibold border ${cfg.badge}`}>
+      <span className='inline-block w-[5px] h-[5px] rounded-full bg-current' />
       {cfg.label}
     </span>
   );
@@ -248,38 +173,15 @@ function Toast({
   }, [onClose]);
   return (
     <div
-      style={{
-        position: 'fixed',
-        bottom: '24px',
-        right: '24px',
-        zIndex: 200,
-        display: 'flex',
-        alignItems: 'center',
-        gap: '10px',
-        padding: '12px 18px',
-        borderRadius: '10px',
-        background: 'rgba(15,23,42,0.97)',
-        border: `1px solid ${tipo === 'ok' ? 'rgba(74,222,128,0.3)' : 'rgba(248,113,113,0.3)'}`,
-        backdropFilter: 'blur(12px)',
-        boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
-        animation: 'slideUp 0.25s cubic-bezier(0.34,1.56,0.64,1)',
-      }}
+      className={`fixed bottom-6 right-6 z-[200] flex items-center gap-2.5 px-[18px] py-3 rounded-[10px] backdrop-blur-sm bg-slate-950/[0.97] shadow-[0_8px_32px_rgba(0,0,0,0.4)] animate-[slideUp_0.25s_cubic-bezier(0.34,1.56,0.64,1)] ${tipo === 'ok' ? 'border border-emerald-400/30' : 'border border-red-400/30'}`}
     >
       <span
-        style={{
-          fontSize: '13px',
-          color: tipo === 'ok' ? '#4ade80' : '#f87171',
-          fontWeight: '600',
-        }}
+        className={`text-[13px] font-semibold ${tipo === 'ok' ? 'text-emerald-400' : 'text-red-400'}`}
       >
         {tipo === 'ok' ? '✓' : '✕'}
       </span>
       <span
-        style={{
-          fontSize: '13px',
-          color: tipo === 'ok' ? '#4ade80' : '#f87171',
-          fontFamily: "'DM Sans',sans-serif",
-        }}
+        className={`text-[13px] ${tipo === 'ok' ? 'text-emerald-400' : 'text-red-400'}`}
       >
         {mensaje}
       </span>
@@ -299,7 +201,7 @@ function PanelAvance({
   const [valor, setValor] = useState(orden.porcentaje_avance);
   const [loading, setLoading] = useState(false);
   const [dirty, setDirty] = useState(false);
-  const timerRef = useRef<ReturnType<typeof setTimeout>>();
+  const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   useEffect(() => {
     setValor(orden.porcentaje_avance);
@@ -318,39 +220,30 @@ function PanelAvance({
     }, 800);
   };
 
-  const color = valor === 100 ? '#4ade80' : valor >= 50 ? '#60a5fa' : '#f59e0b';
+  const colorCls    = valor >= 100 ? 'text-green-400'  : valor >= 50 ? 'text-blue-400'  : 'text-amber-500';
+  const colorBgCls  = valor >= 100 ? 'bg-green-400'    : valor >= 50 ? 'bg-blue-400'    : 'bg-amber-500';
+  const gradCls     = valor >= 100 ? 'bg-gradient-to-r from-amber-500 to-green-400'
+                    : valor >= 50  ? 'bg-gradient-to-r from-amber-500 to-blue-400'
+                    : 'bg-amber-500';
+  const thumbShadow = valor >= 100 ? 'shadow-[0_0_0_3px_#4ade8030]'
+                    : valor >= 50  ? 'shadow-[0_0_0_3px_#60a5fa30]'
+                    : 'shadow-[0_0_0_3px_#f59e0b30]';
+  const hitoBorderA = valor >= 100 ? 'border-green-400/30'   : valor >= 50 ? 'border-blue-400/30'   : 'border-amber-500/30';
+  const hitoBgA     = valor >= 100 ? 'bg-green-400/[0.07]'   : valor >= 50 ? 'bg-blue-400/[0.07]'   : 'bg-amber-500/[0.07]';
 
   return (
-    <div style={{ ...card, padding: '20px' }}>
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          marginBottom: '16px',
-        }}
-      >
-        <span
-          style={{
-            fontSize: '11px',
-            fontWeight: '700',
-            letterSpacing: '0.08em',
-            textTransform: 'uppercase',
-            color: '#475569',
-          }}
-        >
+    <div className={`${cardClass} p-5`}>
+      <div className='flex items-center justify-between mb-4'>
+        <span className='text-[11px] font-bold tracking-widest uppercase text-slate-600'>
           Avance de la orden
         </span>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div className='flex items-center gap-2'>
           {loading && (
             <svg
               width='12'
               height='12'
               viewBox='0 0 12 12'
-              style={{
-                animation: 'spin 0.8s linear infinite',
-                color: '#475569',
-              }}
+              className='text-slate-600 animate-spin'
             >
               <circle
                 cx='6'
@@ -364,16 +257,7 @@ function PanelAvance({
               />
             </svg>
           )}
-          <span
-            style={{
-              fontSize: '28px',
-              fontWeight: '800',
-              color,
-              fontFamily: "'DM Mono',monospace",
-              letterSpacing: '-0.03em',
-              transition: 'color 0.3s',
-            }}
-          >
+          <span className={`text-[28px] font-extrabold tracking-[-0.03em] transition-colors duration-300 ${colorCls}`}>
             {valor}%
           </span>
         </div>
@@ -381,27 +265,11 @@ function PanelAvance({
 
       {/* Slider */}
       {orden.estado !== 'COMPLETADA' && orden.estado !== 'CANCELADA' ? (
-        <div style={{ position: 'relative', marginBottom: '14px' }}>
-          <div
-            style={{
-              height: '8px',
-              background: 'rgba(148,163,184,0.08)',
-              borderRadius: '4px',
-              position: 'relative',
-              overflow: 'visible',
-            }}
-          >
+        <div className='relative mb-[14px]'>
+          <div className='h-2 rounded relative overflow-visible bg-slate-400/[0.08]'>
             <div
-              style={{
-                position: 'absolute',
-                left: 0,
-                top: 0,
-                height: '100%',
-                width: `${valor}%`,
-                background: `linear-gradient(to right, #f59e0b, ${color})`,
-                borderRadius: '4px',
-                transition: 'width 0.2s',
-              }}
+              className={`absolute left-0 top-0 h-full rounded transition-[width] duration-200 w-[var(--bar-w)] ${gradCls}`}
+              style={{ '--bar-w': `${valor}%` } as React.CSSProperties}
             />
           </div>
           <input
@@ -411,58 +279,25 @@ function PanelAvance({
             step={5}
             value={valor}
             onChange={(e) => handleChange(Number(e.target.value))}
-            style={{
-              position: 'absolute',
-              top: '-6px',
-              left: 0,
-              width: '100%',
-              height: '20px',
-              opacity: 0,
-              cursor: 'pointer',
-              zIndex: 1,
-              margin: 0,
-            }}
+            className='absolute top-[-6px] left-0 w-full h-5 cursor-pointer opacity-0 z-[1] m-0'
           />
           {/* Thumb visual */}
           <div
-            style={{
-              position: 'absolute',
-              top: '-3px',
-              left: `calc(${valor}% - 7px)`,
-              width: '14px',
-              height: '14px',
-              borderRadius: '50%',
-              background: color,
-              border: '2px solid #0f172a',
-              boxShadow: `0 0 0 3px ${color}30`,
-              transition: 'left 0.2s, background 0.3s',
-              pointerEvents: 'none',
-            }}
+            className={`absolute pointer-events-none transition-[left] duration-200 top-[-3px] w-[14px] h-[14px] rounded-full border-2 border-slate-950 left-[var(--thumb-left)] ${colorBgCls} ${thumbShadow}`}
+            style={{ '--thumb-left': `calc(${valor}% - 7px)` } as React.CSSProperties}
           />
         </div>
       ) : (
-        <div
-          style={{
-            height: '8px',
-            background: 'rgba(148,163,184,0.08)',
-            borderRadius: '4px',
-            overflow: 'hidden',
-            marginBottom: '14px',
-          }}
-        >
+        <div className='h-2 rounded overflow-hidden mb-[14px] bg-slate-400/[0.08]'>
           <div
-            style={{
-              height: '100%',
-              width: `${valor}%`,
-              background: color,
-              borderRadius: '4px',
-            }}
+            className={`h-full rounded w-[var(--bar-w)] ${colorBgCls}`}
+            style={{ '--bar-w': `${valor}%` } as React.CSSProperties}
           />
         </div>
       )}
 
       {/* Hitos */}
-      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+      <div className='flex justify-between'>
         {[0, 25, 50, 75, 100].map((h) => (
           <button
             key={h}
@@ -470,21 +305,7 @@ function PanelAvance({
               orden.estado === 'COMPLETADA' || orden.estado === 'CANCELADA'
             }
             onClick={() => handleChange(h)}
-            style={{
-              padding: '3px 7px',
-              borderRadius: '5px',
-              cursor: 'pointer',
-              border:
-                valor === h
-                  ? `1px solid ${color}50`
-                  : '1px solid rgba(148,163,184,0.08)',
-              background: valor === h ? `${color}12` : 'transparent',
-              color: valor === h ? color : '#334155',
-              fontSize: '10px',
-              fontWeight: '600',
-              fontFamily: "'DM Mono',monospace",
-              transition: 'all 0.15s',
-            }}
+            className={`px-[7px] py-[3px] rounded-[5px] cursor-pointer text-[10px] font-semibold transition-all duration-150 border ${valor === h ? `${hitoBorderA} ${hitoBgA} ${colorCls}` : 'border-slate-400/[0.08] bg-transparent text-slate-700'}`}
           >
             {h}%
           </button>
@@ -492,17 +313,7 @@ function PanelAvance({
       </div>
 
       {valor === 100 && orden.estado !== 'COMPLETADA' && (
-        <div
-          style={{
-            marginTop: '14px',
-            padding: '10px 14px',
-            background: 'rgba(74,222,128,0.06)',
-            border: '1px solid rgba(74,222,128,0.2)',
-            borderRadius: '8px',
-            fontSize: '12px',
-            color: '#4ade80',
-          }}
-        >
+        <div className='mt-[14px] px-[14px] py-[10px] rounded-lg text-xs text-emerald-400 bg-emerald-400/[0.06] border border-emerald-400/20'>
           Al guardar el 100%, la orden se marcará como completada
           automáticamente.
         </div>
@@ -524,14 +335,34 @@ function PanelTecnicos({
 }) {
   const [agregando, setAgregando] = useState(false);
   const [loadingId, setLoadingId] = useState<string | null>(null);
+  const [catalogo, setCatalogo] = useState<TecnicoCatalogo[]>([]);
   const [form, setForm] = useState({
     nombre: '',
     rol: '',
     fecha_desde: '',
     fecha_hasta: '',
     notas: '',
+    tecnico_catalogo_id: '',
   });
   const [errors, setErrors] = useState<{ nombre?: string }>({});
+
+  // Cargar catálogo al abrir el formulario
+  useEffect(() => {
+    if (agregando && catalogo.length === 0) {
+      obtenerTecnicos(true).then(res => {
+        if (res.data) setCatalogo(res.data);
+      });
+    }
+  }, [agregando, catalogo.length]);
+
+  const handleSeleccionarCatalogo = (id: string) => {
+    const tec = catalogo.find(t => t.id === id);
+    if (tec) {
+      setForm(p => ({ ...p, nombre: tec.nombre, rol: tec.cargo ?? '', tecnico_catalogo_id: id }));
+    } else {
+      setForm(p => ({ ...p, nombre: '', rol: '', tecnico_catalogo_id: '' }));
+    }
+  };
 
   const handleAgregar = async () => {
     if (!form.nombre.trim()) {
@@ -545,6 +376,7 @@ function PanelTecnicos({
       fecha_desde: form.fecha_desde || undefined,
       fecha_hasta: form.fecha_hasta || undefined,
       notas: form.notas || undefined,
+      tecnico_catalogo_id: form.tecnico_catalogo_id || undefined,
     });
     setLoadingId(null);
     if (res.error) {
@@ -558,6 +390,7 @@ function PanelTecnicos({
       fecha_desde: '',
       fecha_hasta: '',
       notas: '',
+      tecnico_catalogo_id: '',
     });
     setAgregando(false);
     onUpdate();
@@ -578,41 +411,15 @@ function PanelTecnicos({
   const canEdit = !['COMPLETADA', 'CANCELADA'].includes(orden.estado);
 
   return (
-    <div style={{ ...card, padding: '20px' }}>
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          marginBottom: '16px',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
-          <span style={{ fontSize: '13px' }}>👷</span>
-          <span
-            style={{
-              fontSize: '11px',
-              fontWeight: '700',
-              letterSpacing: '0.08em',
-              textTransform: 'uppercase',
-              color: '#475569',
-            }}
-          >
+    <div className={`${cardClass} p-5`}>
+      <div className='flex items-center justify-between mb-4'>
+        <div className='flex items-center gap-[7px]'>
+          <span className='text-[13px]'>👷</span>
+          <span className='text-[11px] font-bold tracking-widest uppercase text-slate-600'>
             Equipo técnico
           </span>
           {orden.tecnicos.length > 0 && (
-            <span
-              style={{
-                fontSize: '9px',
-                fontWeight: '700',
-                color: '#475569',
-                background: 'rgba(148,163,184,0.08)',
-                border: '1px solid rgba(148,163,184,0.12)',
-                borderRadius: '10px',
-                padding: '1px 6px',
-                fontFamily: "'DM Mono',monospace",
-              }}
-            >
+            <span className='text-[9px] font-bold text-slate-600 rounded-[10px] px-1.5 py-[1px] bg-slate-400/[0.08] border border-slate-400/[0.12]'>
               {orden.tecnicos.length}
             </span>
           )}
@@ -620,20 +427,7 @@ function PanelTecnicos({
         {canEdit && !agregando && (
           <button
             onClick={() => setAgregando(true)}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '5px',
-              padding: '5px 10px',
-              borderRadius: '6px',
-              border: '1px solid rgba(96,165,250,0.25)',
-              background: 'rgba(96,165,250,0.06)',
-              color: '#60a5fa',
-              fontSize: '11px',
-              fontWeight: '600',
-              cursor: 'pointer',
-              fontFamily: "'DM Sans',sans-serif",
-            }}
+            className='flex items-center gap-[5px] px-[10px] py-[5px] rounded-md text-blue-400 text-[11px] font-semibold cursor-pointer border border-blue-400/25 bg-blue-400/[0.06]'
           >
             <svg width='10' height='10' viewBox='0 0 10 10'>
               <path
@@ -649,75 +443,32 @@ function PanelTecnicos({
       </div>
 
       {orden.tecnicos.length === 0 && !agregando && (
-        <div
-          style={{
-            padding: '20px',
-            textAlign: 'center',
-            border: '1px dashed rgba(148,163,184,0.1)',
-            borderRadius: '8px',
-          }}
-        >
-          <p style={{ margin: 0, fontSize: '12px', color: '#334155' }}>
-            Sin técnicos asignados
-          </p>
+        <div className='p-5 text-center rounded-lg border border-dashed border-slate-400/10'>
+          <p className='m-0 text-xs text-slate-700'>Sin técnicos asignados</p>
         </div>
       )}
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+      <div className='flex flex-col gap-2'>
         {orden.tecnicos.map((tec) => (
           <div
             key={tec.id}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '10px',
-              padding: '10px 12px',
-              background: 'rgba(8,16,35,0.4)',
-              border: '1px solid rgba(148,163,184,0.07)',
-              borderRadius: '8px',
-            }}
+            className='flex items-center gap-2.5 px-3 py-[10px] rounded-lg bg-slate-950/40 border border-slate-400/[0.07]'
           >
             <div
-              style={{
-                width: '32px',
-                height: '32px',
-                borderRadius: '8px',
-                background: avatarColor(tec.nombre),
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '13px',
-                fontWeight: '700',
-                color: '#94a3b8',
-                flexShrink: 0,
-              }}
+              className='flex items-center justify-center text-[13px] font-bold text-slate-400 shrink-0 w-8 h-8 rounded-[8px] bg-[var(--avatar-bg)]'
+              style={{ '--avatar-bg': avatarColor(tec.nombre) } as React.CSSProperties}
             >
               {avatarLetra(tec.nombre)}
             </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div
-                style={{
-                  fontSize: '13px',
-                  fontWeight: '600',
-                  color: '#94a3b8',
-                }}
-              >
+            <div className='flex-1 min-w-0'>
+              <div className='text-[13px] font-semibold text-slate-400'>
                 {tec.nombre}
               </div>
               {tec.rol && (
-                <div style={{ fontSize: '11px', color: '#475569' }}>
-                  {tec.rol}
-                </div>
+                <div className='text-[11px] text-slate-600'>{tec.rol}</div>
               )}
               {(tec.fecha_desde || tec.fecha_hasta) && (
-                <div
-                  style={{
-                    fontSize: '10px',
-                    color: '#334155',
-                    fontFamily: "'DM Mono',monospace",
-                    marginTop: '2px',
-                  }}
-                >
+                <div className='text-[10px] text-slate-700 mt-[2px]'>
                   {tec.fecha_desde ? fmtFecha(tec.fecha_desde) : '—'} →{' '}
                   {tec.fecha_hasta ? fmtFecha(tec.fecha_hasta) : '—'}
                 </div>
@@ -727,35 +478,14 @@ function PanelTecnicos({
               <button
                 onClick={() => handleEliminar(tec.id)}
                 disabled={loadingId === tec.id}
-                style={{
-                  width: '24px',
-                  height: '24px',
-                  borderRadius: '5px',
-                  border: '1px solid rgba(148,163,184,0.08)',
-                  background: 'transparent',
-                  color: '#334155',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flexShrink: 0,
-                  transition: 'all 0.12s',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.color = '#f87171';
-                  e.currentTarget.style.borderColor = 'rgba(248,113,113,0.2)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.color = '#334155';
-                  e.currentTarget.style.borderColor = 'rgba(148,163,184,0.08)';
-                }}
+                className='flex items-center justify-center shrink-0 cursor-pointer bg-transparent transition-all duration-[120ms] w-6 h-6 rounded-[5px] border border-slate-400/[0.08] text-slate-700 hover:text-red-400 hover:border-red-400/20'
               >
                 {loadingId === tec.id ? (
                   <svg
                     width='10'
                     height='10'
                     viewBox='0 0 10 10'
-                    style={{ animation: 'spin 0.8s linear infinite' }}
+                    className='animate-spin'
                   >
                     <circle
                       cx='5'
@@ -786,128 +516,93 @@ function PanelTecnicos({
 
       {/* Form nuevo técnico */}
       {agregando && (
-        <div
-          style={{
-            marginTop: '10px',
-            padding: '14px',
-            background: 'rgba(8,16,35,0.5)',
-            border: '1px solid rgba(96,165,250,0.15)',
-            borderRadius: '9px',
-            animation: 'slideUp 0.2s ease',
-          }}
-        >
+        <div className='mt-2.5 p-[14px] rounded-[9px] bg-slate-950/50 border border-blue-400/15 animate-[slideUp_0.2s_ease]'>
+          {/* Selector catálogo */}
+          <div className='mb-3'>
+            <label className={labelClass}>Seleccionar del catálogo</label>
+            <select
+              value={form.tecnico_catalogo_id}
+              onChange={(e) => handleSeleccionarCatalogo(e.target.value)}
+              className={`${inputClass} focus:border-blue-400/35`}
+            >
+              <option value=''>— Ingresar manualmente —</option>
+              {catalogo.map(t => (
+                <option key={t.id} value={t.id}>
+                  {t.nombre}{t.cargo ? ` · ${t.cargo}` : ''}
+                </option>
+              ))}
+            </select>
+          </div>
           <div className='grid grid-cols-1 gap-2.5 sm:grid-cols-2 mb-2.5'>
             <div>
               <label
-                style={{
-                  ...labelSt,
-                  color: errors.nombre ? '#f59e0b' : '#475569',
-                }}
+                className={`text-[10px] font-semibold tracking-widest uppercase block mb-1 ${errors.nombre ? 'text-amber-500' : 'text-slate-600'}`}
               >
                 Nombre *
               </label>
               <input
                 value={form.nombre}
                 onChange={(e) =>
-                  setForm((p) => ({ ...p, nombre: e.target.value }))
+                  setForm((p) => ({ ...p, nombre: e.target.value, tecnico_catalogo_id: '' }))
                 }
                 placeholder='Ej: Juan Pérez'
-                style={{
-                  ...inputSt,
-                  borderColor: errors.nombre
-                    ? 'rgba(245,158,11,0.4)'
-                    : 'rgba(148,163,184,0.1)',
-                }}
-                onFocus={(e) =>
-                  (e.currentTarget.style.borderColor = 'rgba(96,165,250,0.35)')
-                }
-                onBlur={(e) =>
-                  (e.currentTarget.style.borderColor = errors.nombre
-                    ? 'rgba(245,158,11,0.4)'
-                    : 'rgba(148,163,184,0.1)')
-                }
+                className={`w-full px-[11px] py-2 bg-slate-950/60 rounded-[7px] text-slate-200 text-xs outline-none transition-colors duration-150 focus:border-blue-400/35 border ${errors.nombre ? 'border-amber-500/40' : 'border-slate-400/10'}`}
               />
               {errors.nombre && (
-                <span style={{ fontSize: '10px', color: '#f59e0b' }}>
+                <span className='text-[10px] text-amber-500'>
                   {errors.nombre}
                 </span>
               )}
             </div>
             <div>
-              <label style={labelSt}>Rol / función</label>
+              <label className={labelClass}>Rol / función</label>
               <input
                 value={form.rol}
                 onChange={(e) =>
                   setForm((p) => ({ ...p, rol: e.target.value }))
                 }
                 placeholder='Ej: Electricista'
-                style={inputSt}
-                onFocus={(e) =>
-                  (e.currentTarget.style.borderColor = 'rgba(96,165,250,0.35)')
-                }
-                onBlur={(e) =>
-                  (e.currentTarget.style.borderColor = 'rgba(148,163,184,0.1)')
-                }
+                className={`${inputClass} focus:border-blue-400/35`}
               />
             </div>
             <div>
-              <label style={labelSt}>Desde</label>
+              <label className={labelClass}>Desde</label>
               <input
                 type='date'
                 value={form.fecha_desde}
                 onChange={(e) =>
                   setForm((p) => ({ ...p, fecha_desde: e.target.value }))
                 }
-                style={{ ...inputSt, colorScheme: 'dark' }}
+                className={`${inputClass} [color-scheme:dark]`}
               />
             </div>
             <div>
-              <label style={labelSt}>Hasta</label>
+              <label className={labelClass}>Hasta</label>
               <input
                 type='date'
                 value={form.fecha_hasta}
                 onChange={(e) =>
                   setForm((p) => ({ ...p, fecha_hasta: e.target.value }))
                 }
-                style={{ ...inputSt, colorScheme: 'dark' }}
+                className={`${inputClass} [color-scheme:dark]`}
               />
             </div>
           </div>
-          <div
-            style={{ display: 'flex', justifyContent: 'flex-end', gap: '7px' }}
-          >
+          <div className='flex justify-end gap-[7px]'>
             <button
               onClick={() => {
                 setAgregando(false);
                 setErrors({});
+                setForm({ nombre: '', rol: '', fecha_desde: '', fecha_hasta: '', notas: '', tecnico_catalogo_id: '' });
               }}
-              style={{
-                padding: '6px 12px',
-                borderRadius: '6px',
-                border: '1px solid rgba(148,163,184,0.12)',
-                background: 'transparent',
-                color: '#64748b',
-                fontSize: '11px',
-                cursor: 'pointer',
-                fontFamily: "'DM Sans',sans-serif",
-              }}
+              className='px-3 py-1.5 rounded-md text-[11px] text-slate-500 cursor-pointer bg-transparent border border-slate-400/[0.12]'
             >
               Cancelar
             </button>
             <button
               onClick={handleAgregar}
               disabled={loadingId === 'nueva'}
-              style={{
-                padding: '6px 14px',
-                borderRadius: '6px',
-                border: 'none',
-                background: 'rgba(96,165,250,0.15)',
-                color: '#60a5fa',
-                fontSize: '11px',
-                fontWeight: '700',
-                cursor: 'pointer',
-                fontFamily: "'DM Sans',sans-serif",
-              }}
+              className='px-[14px] py-1.5 rounded-md border-0 text-blue-400 text-[11px] font-bold cursor-pointer bg-blue-400/[0.15]'
             >
               {loadingId === 'nueva' ? 'Guardando...' : 'Agregar técnico'}
             </button>
@@ -932,7 +627,7 @@ function PanelNotas({
   const [texto, setTexto] = useState(orden.notas_tecnicas ?? '');
   const [loading, setLoading] = useState(false);
   const [dirty, setDirty] = useState(false);
-  const timerRef = useRef<ReturnType<typeof setTimeout>>();
+  const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   useEffect(() => {
     setTexto(orden.notas_tecnicas ?? '');
@@ -954,39 +649,21 @@ function PanelNotas({
   const canEdit = !['COMPLETADA', 'CANCELADA'].includes(orden.estado);
 
   return (
-    <div style={{ ...card, padding: '20px' }}>
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          marginBottom: '12px',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
-          <span style={{ fontSize: '13px' }}>🔧</span>
-          <span
-            style={{
-              fontSize: '11px',
-              fontWeight: '700',
-              letterSpacing: '0.08em',
-              textTransform: 'uppercase',
-              color: '#475569',
-            }}
-          >
+    <div className={`${cardClass} p-5`}>
+      <div className='flex items-center justify-between mb-3'>
+        <div className='flex items-center gap-[7px]'>
+          <Wrench className='w-3 h-3 text-slate-600' />
+          <span className='text-[11px] font-bold tracking-widest uppercase text-slate-600'>
             Notas técnicas
           </span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+        <div className='flex items-center gap-1.5'>
           {loading && (
             <svg
               width='11'
               height='11'
               viewBox='0 0 11 11'
-              style={{
-                animation: 'spin 0.8s linear infinite',
-                color: '#475569',
-              }}
+              className='text-slate-600 animate-spin'
             >
               <circle
                 cx='5.5'
@@ -1001,14 +678,10 @@ function PanelNotas({
             </svg>
           )}
           {dirty && !loading && (
-            <span style={{ fontSize: '10px', color: '#475569' }}>
-              Guardando...
-            </span>
+            <span className='text-[10px] text-slate-600'>Guardando...</span>
           )}
           {!dirty && !loading && texto && (
-            <span style={{ fontSize: '10px', color: '#334155' }}>
-              ✓ Guardado
-            </span>
+            <span className='text-[10px] text-slate-700'>✓ Guardado</span>
           )}
         </div>
       </div>
@@ -1022,18 +695,7 @@ function PanelNotas({
             : 'Sin notas técnicas'
         }
         rows={6}
-        style={{
-          ...inputSt,
-          resize: 'vertical',
-          lineHeight: '1.7',
-          minHeight: '120px',
-          fontSize: '13px',
-          color: texto ? '#94a3b8' : '#334155',
-          cursor: canEdit ? 'text' : 'default',
-          borderColor: dirty
-            ? 'rgba(96,165,250,0.25)'
-            : 'rgba(148,163,184,0.1)',
-        }}
+        className={`w-full px-[11px] py-2 bg-slate-950/60 rounded-[7px] outline-none transition-colors duration-150 resize-y leading-[1.7] text-[13px] min-h-[120px] ${texto ? 'text-slate-400' : 'text-slate-700'} ${canEdit ? 'cursor-text' : 'cursor-default'} ${dirty ? 'border border-blue-400/25' : 'border border-slate-400/10'}`}
       />
     </div>
   );
@@ -1054,123 +716,55 @@ function ModalCierre({
   const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0]);
 
   return (
-    <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        background: 'rgba(0,0,0,0.7)',
-        backdropFilter: 'blur(4px)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 100,
-        animation: 'fadeIn 0.15s ease',
-      }}
-    >
-      <div
-        style={{
-          background: '#0f172a',
-          border: '1px solid rgba(148,163,184,0.12)',
-          borderRadius: '16px',
-          padding: '28px',
-          maxWidth: '420px',
-          width: '90%',
-          animation: 'scaleIn 0.2s cubic-bezier(0.34,1.56,0.64,1)',
-        }}
-      >
-        <div style={{ fontSize: '32px', marginBottom: '10px' }}>✅</div>
-        <h3
-          style={{
-            margin: '0 0 6px',
-            fontSize: '15px',
-            fontWeight: '700',
-            color: '#e2e8f0',
-            fontFamily: "'DM Sans',sans-serif",
-          }}
-        >
+    <div className='fixed inset-0 flex items-center justify-center z-[100] backdrop-blur-sm bg-black/70 animate-[fadeIn_0.15s_ease]'>
+      <div className='rounded-2xl p-7 w-[90%] max-w-[420px] bg-slate-900 border border-slate-400/[0.12] animate-[scaleIn_0.2s_cubic-bezier(0.34,1.56,0.64,1)]'>
+        <div className='mb-[10px]'><CheckCircle2 className='w-8 h-8 text-emerald-400' /></div>
+        <h3 className='m-0 mb-[6px] text-[15px] font-bold text-slate-200'>
           Cerrar orden de servicio
         </h3>
-        <p
-          style={{
-            margin: '0 0 20px',
-            fontSize: '13px',
-            color: '#64748b',
-            lineHeight: '1.6',
-          }}
-        >
+        <p className='m-0 mb-5 text-[13px] text-slate-500 leading-[1.6]'>
           La orden se marcará como completada. Este estado no se puede revertir
           fácilmente.
         </p>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+        <div className='flex flex-col gap-[14px]'>
           <div>
-            <label style={labelSt}>Fecha de cierre real</label>
+            <label className={labelClass}>Fecha de cierre real</label>
             <input
               type='date'
               value={fecha}
               onChange={(e) => setFecha(e.target.value)}
-              style={{ ...inputSt, colorScheme: 'dark' }}
+              className={`${inputClass} [color-scheme:dark]`}
             />
           </div>
           <div>
-            <label style={labelSt}>Observaciones de cierre</label>
+            <label className={labelClass}>Observaciones de cierre</label>
             <textarea
               value={obs}
               onChange={(e) => setObs(e.target.value)}
               placeholder='Trabajo completado, entregables, observaciones finales...'
               rows={3}
-              style={{ ...inputSt, resize: 'vertical', lineHeight: '1.6' }}
+              className={`${inputClass} resize-y leading-[1.6]`}
             />
           </div>
         </div>
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'flex-end',
-            gap: '10px',
-            marginTop: '20px',
-          }}
-        >
+        <div className='flex justify-end gap-2.5 mt-5'>
           <button
             onClick={onCancelar}
-            style={{
-              padding: '8px 16px',
-              borderRadius: '8px',
-              border: '1px solid rgba(148,163,184,0.12)',
-              background: 'transparent',
-              color: '#64748b',
-              fontSize: '13px',
-              cursor: 'pointer',
-              fontFamily: "'DM Sans',sans-serif",
-            }}
+            className='px-4 py-2 rounded-lg text-[13px] text-slate-500 cursor-pointer bg-transparent border border-slate-400/[0.12]'
           >
             Cancelar
           </button>
           <button
             onClick={() => onConfirmar(obs, fecha)}
             disabled={loading}
-            style={{
-              padding: '8px 20px',
-              borderRadius: '8px',
-              border: 'none',
-              background:
-                'linear-gradient(135deg,rgba(74,222,128,0.8),rgba(34,197,94,0.8))',
-              color: '#0f172a',
-              fontSize: '13px',
-              fontWeight: '700',
-              cursor: loading ? 'not-allowed' : 'pointer',
-              fontFamily: "'DM Sans',sans-serif",
-              opacity: loading ? 0.6 : 1,
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-            }}
+            className={`flex items-center gap-1.5 px-5 py-2 rounded-lg border-0 text-slate-900 text-[13px] font-bold bg-gradient-to-br from-emerald-400/80 to-green-500/80 ${loading ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
           >
             {loading && (
               <svg
                 width='12'
                 height='12'
                 viewBox='0 0 12 12'
-                style={{ animation: 'spin 0.8s linear infinite' }}
+                className='animate-spin'
               >
                 <circle
                   cx='6'
@@ -1198,6 +792,9 @@ export default function OrdenDetalle({ ordenId }: Props) {
   const [orden, setOrden] = useState<OrdenCompleta | null>(null);
   const [loading, setLoading] = useState(true);
   const [accionLoading, setAccionLoading] = useState(false);
+  const [generandoRemito,  setGenerandoRemito]  = useState(false);
+  const [generandoFactura, setGenerandoFactura] = useState(false);
+  const [pdfLoading, setPdfLoading] = useState(false);
   const [toast, setToast] = useState<{
     mensaje: string;
     tipo: 'ok' | 'error';
@@ -1241,203 +838,111 @@ export default function OrdenDetalle({ ordenId }: Props) {
     cargar();
   };
 
+  const handleGenerarRemito = async () => {
+    if (!orden) return;
+    setGenerandoRemito(true);
+    const res = await generarRemitoDesdeOrden(orden.id);
+    setGenerandoRemito(false);
+    if (res.error) {
+      showToast(res.error, 'error');
+      return;
+    }
+    showToast(res.mensaje ?? 'Remito generado', 'ok');
+    window.location.href = `/logistica/remitos/${res.data!.id}`;
+  };
+
+  const handleGenerarFactura = async () => {
+    if (!orden) return;
+    const remito = (orden as any).remito;
+    if (!remito) { showToast('Primero generá el remito de esta orden', 'error'); return; }
+    if (remito.factura_id) { window.location.href = `/facturas/${remito.factura_id}`; return; }
+    setGenerandoFactura(true);
+    const res = await generarFacturaDesdeRemito(remito.id);
+    setGenerandoFactura(false);
+    if (res.error) { showToast(res.error, 'error'); return; }
+    showToast('Factura generada correctamente', 'ok');
+    window.location.href = `/facturas/${res.data!.id}`;
+  };
+
+  const handlePDF = async () => {
+    if (!orden) return;
+    setPdfLoading(true);
+    const err = await descargarPDF('orden_servicio', orden.id, `OS-${orden.numero}.pdf`);
+    setPdfLoading(false);
+    if (err) showToast(`Error al generar PDF: ${err}`, 'error');
+  };
+
   const trans = orden ? (TRANSICIONES[orden.estado] ?? []) : [];
   const dias = orden ? diasRestantes(orden.fecha_fin_estimada) : null;
   const vencida = dias !== null && dias < 0 && orden?.estado === 'EN_PROGRESO';
 
   return (
     <>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@300;400;500&display=swap');
-        *{box-sizing:border-box}body{margin:0;background:#060d1a;font-family:'DM Sans',sans-serif;-webkit-font-smoothing:antialiased}
-        option{background:#0f172a;color:#e2e8f0}input:focus,select:focus,textarea:focus{outline:none!important}
-        ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:rgba(148,163,184,0.15);border-radius:2px}
-        @keyframes shimmer{0%,100%{opacity:.4}50%{opacity:.8}}@keyframes slideUp{from{transform:translateY(8px);opacity:0}to{transform:translateY(0);opacity:1}}
-        @keyframes fadeIn{from{opacity:0}to{opacity:1}}@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
-        @keyframes scaleIn{from{transform:scale(0.96);opacity:0}to{transform:scale(1);opacity:1}}
-        input[type=range]{-webkit-appearance:none;appearance:none;background:transparent}
-        input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:0;height:0}
-      `}</style>
-
       <div className='px-3 py-3 pb-10 sm:px-5 sm:py-4 sm:pb-12 lg:px-5'>
-        <div style={{ width: '100%', margin: '0 auto' }}>
+        <div className='w-full mx-auto'>
           {/* Breadcrumb */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              marginBottom: '20px',
-            }}
-          >
+          <div className='flex items-center gap-2 mb-5'>
             <a
               href='/ordenes'
-              style={{
-                fontSize: '11px',
-                color: '#334155',
-                textDecoration: 'none',
-                letterSpacing: '0.08em',
-                textTransform: 'uppercase',
-              }}
+              className='flex items-center gap-1 text-[11px] text-slate-700 no-underline tracking-widest uppercase hover:text-slate-400 transition-colors'
             >
+              <ArrowLeft className='w-3 h-3' />
               Órdenes
             </a>
-            <span style={{ color: '#1e293b' }}>›</span>
-            <span
-              style={{
-                fontSize: '11px',
-                color: '#475569',
-                letterSpacing: '0.08em',
-                textTransform: 'uppercase',
-              }}
-            >
+            <span className='text-[#1e293b]'>›</span>
+            <span className='text-[11px] text-slate-600 tracking-widest uppercase'>
               {loading ? '...' : orden?.numero}
             </span>
           </div>
 
           {/* Header */}
-          <div style={{ ...card, padding: '24px', marginBottom: '20px' }}>
+          <div className={`${cardClass} p-6 mb-5`}>
             {loading ? (
-              <div
-                style={{ display: 'flex', gap: '14px', alignItems: 'center' }}
-              >
-                <div
-                  style={{
-                    flex: 1,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '8px',
-                  }}
-                >
+              <div className='flex gap-[14px] items-center'>
+                <div className='flex-1 flex flex-col gap-2'>
                   <Skeleton w='150px' h='13px' />
                   <Skeleton w='300px' h='20px' />
                   <Skeleton w='200px' h='13px' />
                 </div>
               </div>
             ) : orden ? (
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'flex-start',
-                  justifyContent: 'space-between',
-                  gap: '16px',
-                  flexWrap: 'wrap',
-                }}
-              >
+              <div className='flex items-start justify-between gap-4 flex-wrap'>
                 <div>
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '10px',
-                      marginBottom: '6px',
-                      flexWrap: 'wrap',
-                    }}
-                  >
-                    <span
-                      style={{
-                        fontSize: '13px',
-                        fontWeight: '700',
-                        color: '#60a5fa',
-                        fontFamily: "'DM Mono',monospace",
-                      }}
-                    >
+                  <div className='flex items-center gap-2.5 mb-1.5 flex-wrap'>
+                    <span className='text-[13px] font-bold text-blue-400'>
                       {orden.numero}
                     </span>
                     {orden.numero_presupuesto && (
                       <a
                         href={`/presupuestos/${orden.presupuesto_id}`}
-                        style={{
-                          fontSize: '11px',
-                          color: '#475569',
-                          fontFamily: "'DM Mono',monospace",
-                          textDecoration: 'none',
-                          background: 'rgba(245,158,11,0.06)',
-                          border: '1px solid rgba(245,158,11,0.15)',
-                          borderRadius: '4px',
-                          padding: '1px 7px',
-                        }}
-                        onMouseEnter={(e) =>
-                          (e.currentTarget.style.color = '#f59e0b')
-                        }
-                        onMouseLeave={(e) =>
-                          (e.currentTarget.style.color = '#475569')
-                        }
+                        className='inline-flex items-center gap-1 text-[11px] text-slate-600 no-underline rounded px-[7px] py-[1px] bg-amber-500/[0.06] border border-amber-500/[0.15] transition-colors duration-150 hover:text-amber-500'
                       >
-                        📄 {orden.numero_presupuesto}
+                        <FileText className='w-3 h-3' /> {orden.numero_presupuesto}
                       </a>
                     )}
                     <BadgeEstado estado={orden.estado} />
                     {vencida && (
-                      <span
-                        style={{
-                          fontSize: '10px',
-                          color: '#f87171',
-                          background: 'rgba(248,113,113,0.08)',
-                          border: '1px solid rgba(248,113,113,0.2)',
-                          borderRadius: '4px',
-                          padding: '1px 7px',
-                          fontWeight: '600',
-                        }}
-                      >
-                        ⚠ Vencida hace {Math.abs(dias!)} días
+                      <span className='inline-flex items-center gap-1 text-[10px] text-red-400 rounded px-[7px] py-[1px] font-semibold bg-red-400/[0.08] border border-red-400/20'>
+                        <AlertTriangle className='w-3 h-3' /> Vencida hace {Math.abs(dias!)} días
                       </span>
                     )}
                   </div>
-                  <h1
-                    style={{
-                      margin: '0 0 6px',
-                      fontSize: '20px',
-                      fontWeight: '700',
-                      color: '#e2e8f0',
-                      letterSpacing: '-0.02em',
-                    }}
-                  >
+                  <h1 className='m-0 mb-1.5 text-xl font-bold text-slate-200 tracking-[-0.02em]'>
                     {orden.titulo}
                   </h1>
                   <a
                     href={`/clientes/${orden.cliente_id}`}
-                    style={{
-                      fontSize: '13px',
-                      color: '#64748b',
-                      textDecoration: 'none',
-                    }}
-                    onMouseEnter={(e) =>
-                      (e.currentTarget.style.color = '#94a3b8')
-                    }
-                    onMouseLeave={(e) =>
-                      (e.currentTarget.style.color = '#64748b')
-                    }
+                    className='inline-flex items-center gap-1 text-[13px] text-slate-500 no-underline transition-colors duration-150 hover:text-slate-400'
                   >
-                    👤 {orden.razon_social}
+                    <User className='w-3 h-3' /> {orden.razon_social}
                   </a>
                 </div>
 
                 {/* Acciones de estado */}
-                <div
-                  style={{
-                    display: 'flex',
-                    gap: '8px',
-                    flexWrap: 'wrap',
-                    flexShrink: 0,
-                  }}
-                >
+                <div className='flex gap-2 flex-wrap shrink-0'>
                   <a
                     href={`/ordenes/${orden.id}/editar`}
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      padding: '8px 14px',
-                      borderRadius: '8px',
-                      border: '1px solid rgba(148,163,184,0.15)',
-                      background: 'rgba(15,23,42,0.6)',
-                      color: '#64748b',
-                      fontSize: '12px',
-                      fontWeight: '600',
-                      textDecoration: 'none',
-                      fontFamily: "'DM Sans',sans-serif",
-                    }}
+                    className='inline-flex items-center gap-1.5 px-[14px] py-2 rounded-lg text-xs font-semibold text-slate-500 no-underline border border-slate-400/[0.15] bg-slate-950/60'
                   >
                     <svg width='11' height='11' viewBox='0 0 11 11'>
                       <path
@@ -1459,23 +964,9 @@ export default function OrdenDetalle({ ordenId }: Props) {
                           key={est}
                           onClick={() => handleCambioEstado(est)}
                           disabled={accionLoading}
-                          style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '6px',
-                            padding: '8px 14px',
-                            borderRadius: '8px',
-                            border: `1px solid ${cfg.border}`,
-                            background: cfg.bg,
-                            color: cfg.color,
-                            fontSize: '12px',
-                            fontWeight: '600',
-                            cursor: 'pointer',
-                            fontFamily: "'DM Sans',sans-serif",
-                            opacity: accionLoading ? 0.6 : 1,
-                          }}
+                          className={`inline-flex items-center gap-1.5 px-[14px] py-2 rounded-lg text-xs font-semibold cursor-pointer border ${cfg.badge} ${accionLoading ? 'opacity-60' : ''}`}
                         >
-                          {cfg.icon} → {cfg.label}
+                          {cfg.icon} <span>→ {cfg.label}</span>
                         </button>
                       );
                     })}
@@ -1483,36 +974,35 @@ export default function OrdenDetalle({ ordenId }: Props) {
                     <button
                       onClick={() => setModalCierre(true)}
                       disabled={accionLoading}
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        padding: '8px 16px',
-                        borderRadius: '8px',
-                        border: 'none',
-                        background:
-                          'linear-gradient(135deg,rgba(74,222,128,0.8),rgba(34,197,94,0.8))',
-                        color: '#0f172a',
-                        fontSize: '12px',
-                        fontWeight: '700',
-                        cursor: 'pointer',
-                        fontFamily: "'DM Sans',sans-serif",
-                        boxShadow: '0 4px 12px rgba(74,222,128,0.15)',
-                      }}
+                      className='inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border-0 text-slate-900 text-xs font-bold cursor-pointer bg-gradient-to-br from-emerald-400/80 to-green-500/80 shadow-[0_4px_12px_rgba(74,222,128,0.15)]'
                     >
-                      ✅ Cerrar orden
+                      <CheckCircle2 className='w-4 h-4' /> Cerrar orden
                     </button>
                   )}
+                  {orden.estado === 'COMPLETADA' && (
+                    <button
+                      onClick={handleGenerarRemito}
+                      disabled={generandoRemito}
+                      className='inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border-0 text-slate-900 text-xs font-bold cursor-pointer bg-gradient-to-br from-amber-400/80 to-orange-500/80 disabled:opacity-60'
+                    >
+                      {generandoRemito
+                        ? <Loader2 className='w-4 h-4 animate-spin' />
+                        : <Truck className='w-4 h-4' />}
+                      Generar Remito
+                    </button>
+                  )}
+                  <button
+                    onClick={handlePDF}
+                    disabled={pdfLoading}
+                    className='inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-slate-400/[0.15] bg-slate-900/60 text-slate-500 text-xs font-semibold cursor-pointer disabled:opacity-50'
+                  >
+                    {pdfLoading ? <Loader2 className='w-3.5 h-3.5 animate-spin' /> : <FileText className='w-3.5 h-3.5' />}
+                    PDF
+                  </button>
                 </div>
               </div>
             ) : (
-              <div
-                style={{
-                  textAlign: 'center',
-                  padding: '20px',
-                  color: '#475569',
-                }}
-              >
+              <div className='text-center p-5 text-slate-600'>
                 Orden no encontrada
               </div>
             )}
@@ -1521,33 +1011,12 @@ export default function OrdenDetalle({ ordenId }: Props) {
           {orden && (
             <div className='grid grid-cols-1 gap-4 xl:grid-cols-[1fr_320px] xl:items-start'>
               {/* Columna principal */}
-              <div
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '16px',
-                }}
-              >
+              <div className='flex flex-col gap-4'>
                 {/* Datos generales */}
-                <div style={{ ...card, padding: '20px' }}>
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '7px',
-                      marginBottom: '16px',
-                    }}
-                  >
-                    <span style={{ fontSize: '13px' }}>📋</span>
-                    <span
-                      style={{
-                        fontSize: '11px',
-                        fontWeight: '700',
-                        letterSpacing: '0.08em',
-                        textTransform: 'uppercase',
-                        color: '#475569',
-                      }}
-                    >
+                <div className={`${cardClass} p-5`}>
+                  <div className='flex items-center gap-[7px] mb-4'>
+                    <ClipboardList className='w-3 h-3 text-slate-600' />
+                    <span className='text-[11px] font-bold tracking-widest uppercase text-slate-600'>
                       Datos generales
                     </span>
                   </div>
@@ -1558,27 +1027,11 @@ export default function OrdenDetalle({ ordenId }: Props) {
                     />
                     <InfoPar label='Fin estimado'>
                       <div>
-                        <div
-                          style={{
-                            fontSize: '13px',
-                            color: '#94a3b8',
-                            fontFamily: "'DM Mono',monospace",
-                          }}
-                        >
+                        <div className='text-[13px] text-slate-400'>
                           {fmtFecha(orden.fecha_fin_estimada)}
                         </div>
                         {dias !== null && orden.estado === 'EN_PROGRESO' && (
-                          <div
-                            style={{
-                              fontSize: '11px',
-                              marginTop: '2px',
-                              color: vencida
-                                ? '#f87171'
-                                : dias <= 3
-                                  ? '#f59e0b'
-                                  : '#475569',
-                            }}
-                          >
+                          <div className={`text-[11px] mt-[2px] ${vencida ? 'text-red-400' : dias! <= 3 ? 'text-amber-500' : 'text-slate-600'}`}>
                             {vencida
                               ? `${Math.abs(dias)} días vencida`
                               : `${dias} días restantes`}
@@ -1592,13 +1045,7 @@ export default function OrdenDetalle({ ordenId }: Props) {
                     />
                   </div>
                   {orden.objetivo_tecnico && (
-                    <div
-                      style={{
-                        marginTop: '16px',
-                        paddingTop: '16px',
-                        borderTop: '1px solid rgba(148,163,184,0.06)',
-                      }}
-                    >
+                    <div className='mt-4 pt-4 border-t border-slate-400/[0.06]'>
                       <InfoPar
                         label='Objetivo técnico'
                         value={orden.objetivo_tecnico}
@@ -1606,7 +1053,7 @@ export default function OrdenDetalle({ ordenId }: Props) {
                     </div>
                   )}
                   {orden.descripcion && (
-                    <div style={{ marginTop: '14px' }}>
+                    <div className='mt-[14px]'>
                       <InfoPar
                         label='Descripción / alcance'
                         value={orden.descripcion}
@@ -1627,37 +1074,14 @@ export default function OrdenDetalle({ ordenId }: Props) {
 
                 {/* Observaciones de cierre */}
                 {orden.observaciones_cierre && (
-                  <div style={{ ...card, padding: '20px' }}>
-                    <div
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '7px',
-                        marginBottom: '12px',
-                      }}
-                    >
-                      <span style={{ fontSize: '13px' }}>📝</span>
-                      <span
-                        style={{
-                          fontSize: '11px',
-                          fontWeight: '700',
-                          letterSpacing: '0.08em',
-                          textTransform: 'uppercase',
-                          color: '#4ade80',
-                        }}
-                      >
+                  <div className={`${cardClass} p-5`}>
+                    <div className='flex items-center gap-[7px] mb-3'>
+                      <PenLine className='w-3 h-3 text-emerald-400' />
+                      <span className='text-[11px] font-bold tracking-widest uppercase text-emerald-400'>
                         Observaciones de cierre
                       </span>
                     </div>
-                    <p
-                      style={{
-                        margin: 0,
-                        fontSize: '13px',
-                        color: '#64748b',
-                        lineHeight: '1.7',
-                        whiteSpace: 'pre-wrap',
-                      }}
-                    >
+                    <p className='m-0 text-[13px] text-slate-500 leading-[1.7] whitespace-pre-wrap'>
                       {orden.observaciones_cierre}
                     </p>
                   </div>
@@ -1665,34 +1089,13 @@ export default function OrdenDetalle({ ordenId }: Props) {
               </div>
 
               {/* Columna lateral */}
-              <div
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '16px',
-                }}
-              >
+              <div className='flex flex-col gap-4'>
                 {/* KPIs laterales */}
-                <div style={{ ...card, padding: '18px' }}>
-                  <div
-                    style={{
-                      fontSize: '10px',
-                      fontWeight: '700',
-                      letterSpacing: '0.08em',
-                      textTransform: 'uppercase',
-                      color: '#334155',
-                      marginBottom: '14px',
-                    }}
-                  >
+                <div className={`${cardClass} p-[18px]`}>
+                  <div className='text-[10px] font-bold tracking-widest uppercase text-slate-700 mb-[14px]'>
                     Resumen
                   </div>
-                  <div
-                    style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '10px',
-                    }}
-                  >
+                  <div className='flex flex-col gap-2.5'>
                     {[
                       {
                         label: 'Creada el',
@@ -1712,26 +1115,12 @@ export default function OrdenDetalle({ ordenId }: Props) {
                     ].map(({ label, value, mono }) => (
                       <div
                         key={label}
-                        style={{
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'center',
-                          paddingBottom: '8px',
-                          borderBottom: '1px solid rgba(148,163,184,0.05)',
-                        }}
+                        className='flex justify-between items-center pb-2 border-b border-slate-400/[0.05]'
                       >
-                        <span style={{ fontSize: '11px', color: '#334155' }}>
+                        <span className='text-[11px] text-slate-700'>
                           {label}
                         </span>
-                        <span
-                          style={{
-                            fontSize: '12px',
-                            color: '#64748b',
-                            fontFamily: mono
-                              ? "'DM Mono',monospace"
-                              : "'DM Sans',sans-serif",
-                          }}
-                        >
+                        <span className='text-xs text-slate-500'>
                           {value}
                         </span>
                       </div>
@@ -1748,107 +1137,63 @@ export default function OrdenDetalle({ ordenId }: Props) {
 
                 {/* Notas para el cliente */}
                 {orden.notas_cliente && (
-                  <div style={{ ...card, padding: '18px' }}>
-                    <div
-                      style={{
-                        fontSize: '10px',
-                        fontWeight: '700',
-                        letterSpacing: '0.08em',
-                        textTransform: 'uppercase',
-                        color: '#475569',
-                        marginBottom: '10px',
-                      }}
-                    >
+                  <div className={`${cardClass} p-[18px]`}>
+                    <div className='text-[10px] font-bold tracking-widest uppercase text-slate-600 mb-2.5'>
                       Notas al cliente
                     </div>
-                    <p
-                      style={{
-                        margin: 0,
-                        fontSize: '12px',
-                        color: '#64748b',
-                        lineHeight: '1.7',
-                        whiteSpace: 'pre-wrap',
-                      }}
-                    >
+                    <p className='m-0 text-xs text-slate-500 leading-[1.7] whitespace-pre-wrap'>
                       {orden.notas_cliente}
                     </p>
                   </div>
                 )}
 
                 {/* Acceso rápido */}
-                <div style={{ ...card, padding: '18px' }}>
-                  <div
-                    style={{
-                      fontSize: '10px',
-                      fontWeight: '700',
-                      letterSpacing: '0.08em',
-                      textTransform: 'uppercase',
-                      color: '#334155',
-                      marginBottom: '12px',
-                    }}
-                  >
+                <div className={`${cardClass} p-[18px]`}>
+                  <div className='text-[10px] font-bold tracking-widest uppercase text-slate-700 mb-3'>
                     Accesos rápidos
                   </div>
-                  <div
-                    style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '6px',
-                    }}
-                  >
-                    {[
+                  <div className='flex flex-col gap-1.5'>
+                    {/* Links estáticos */}
+                    {([
                       {
                         href: `/clientes/${orden.cliente_id}`,
                         label: 'Ver ficha del cliente',
-                        icon: '👤',
+                        icon: <User className='w-4 h-4' />,
                       },
                       ...(orden.presupuesto_id
-                        ? [
-                            {
-                              href: `/presupuestos/${orden.presupuesto_id}`,
-                              label: 'Ver presupuesto',
-                              icon: '📄',
-                            },
-                          ]
+                        ? [{ href: `/presupuestos/${orden.presupuesto_id}`, label: 'Ver presupuesto', icon: <FileText className='w-4 h-4' /> }]
                         : []),
-                      {
-                        href: `/facturas/nueva?orden=${orden.id}&cliente=${orden.cliente_id}`,
-                        label: 'Generar factura',
-                        icon: '🧾',
-                      },
-                    ].map(({ href, label, icon }) => (
+                      ...((orden as any).remito
+                        ? [{ href: `/logistica/remitos/${(orden as any).remito.id}`, label: `Ver remito ${(orden as any).remito.numero}`, icon: <FileText className='w-4 h-4' /> }]
+                        : []),
+                      ...((orden as any).remito?.factura_id
+                        ? [{ href: `/facturas/${(orden as any).remito.factura_id}`, label: 'Ver factura', icon: <span className='text-xs'>🧾</span> }]
+                        : []),
+                    ] as { href: string; label: string; icon: ReactNode }[]).map(({ href, label, icon }) => (
                       <a
                         key={href}
                         href={href}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '8px',
-                          padding: '8px 10px',
-                          borderRadius: '7px',
-                          textDecoration: 'none',
-                          fontSize: '12px',
-                          color: '#64748b',
-                          border: '1px solid rgba(148,163,184,0.07)',
-                          background: 'rgba(8,16,35,0.3)',
-                          transition: 'all 0.12s',
-                          fontFamily: "'DM Sans',sans-serif",
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.background =
-                            'rgba(148,163,184,0.05)';
-                          e.currentTarget.style.color = '#94a3b8';
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.background =
-                            'rgba(8,16,35,0.3)';
-                          e.currentTarget.style.color = '#64748b';
-                        }}
+                        className='flex items-center gap-2 px-[10px] py-2 rounded-[7px] no-underline text-xs text-slate-500 transition-all duration-[120ms] border border-slate-400/[0.07] bg-slate-950/30 hover:bg-slate-400/[0.05] hover:text-slate-400'
                       >
-                        <span style={{ fontSize: '12px' }}>{icon}</span>
+                        {icon}
                         {label}
                       </a>
                     ))}
+
+                    {/* Botón generar factura — solo si hay remito sin factura */}
+                    {!(orden as any).remito?.factura_id && (
+                      <button
+                        onClick={handleGenerarFactura}
+                        disabled={generandoFactura}
+                        className='flex items-center gap-2 px-[10px] py-2 rounded-[7px] text-xs text-slate-500 transition-all duration-[120ms] border border-slate-400/[0.07] bg-slate-950/30 hover:bg-slate-400/[0.05] hover:text-slate-400 disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed text-left'
+                      >
+                        {generandoFactura
+                          ? <Loader2 className='w-4 h-4 animate-spin' />
+                          : <span className='text-xs'>🧾</span>
+                        }
+                        {generandoFactura ? 'Generando…' : 'Generar factura'}
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>

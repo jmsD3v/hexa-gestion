@@ -106,6 +106,7 @@ export interface Auditable {
 
 export interface AuditableConUsuario extends Auditable {
   creado_por: string | null;
+  actualizado_por?: string | null;
 }
 
 // ── Profile / Usuario ─────────────────────────────────────────

@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: `Tipo PDF no soportado: ${tipo}` }, { status: 400 })
     }
 
-    return new NextResponse(pdfBuffer, {
+    return new NextResponse(new Uint8Array(pdfBuffer), {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
@@ -62,9 +62,10 @@ export async function POST(request: NextRequest) {
       },
     })
   } catch (error) {
-    console.error('[PDF ERROR]', error)
+    const msg = error instanceof Error ? error.message : String(error)
+    console.error('[PDF ERROR]', msg)
     return NextResponse.json(
-      { error: 'Error al generar el PDF' },
+      { error: process.env.NODE_ENV === 'development' ? msg : 'Error al generar el PDF' },
       { status: 500 }
     )
   }

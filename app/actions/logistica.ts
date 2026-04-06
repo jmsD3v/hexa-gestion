@@ -244,12 +244,28 @@ export async function obtenerRemito(id: string): Promise<ApiResponse<RemitoCompl
   }
 }
 
+const TRANSICIONES_REMITO: Record<string, string[]> = {
+  BORRADOR:  ['EMITIDO', 'ANULADO'],
+  EMITIDO:   ['ENTREGADO', 'ANULADO'],
+  ENTREGADO: [],
+  ANULADO:   [],
+}
+
 export async function crearRemito(dto: CrearRemitoDTO): Promise<ApiResponse<Remito>> {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { data: null, error: 'No autenticado' }
   if (!dto.tipo)           return { data: null, error: 'El tipo de remito es requerido' }
   if (!dto.items?.length)  return { data: null, error: 'Debe incluir al menos un ítem' }
+
+  // Guard: si se vincula a una orden, debe estar completada
+  if (dto.orden_id) {
+    const { data: orden } = await supabase
+      .from('ordenes_servicio').select('estado').eq('id', dto.orden_id).single()
+    if (!orden) return { data: null, error: 'Orden vinculada no encontrada' }
+    if (orden.estado !== 'COMPLETADA')
+      return { data: null, error: 'La orden debe estar completada para generar un remito' }
+  }
 
   const { data: numero } = await supabase.rpc('generar_numero_documento', { p_tipo: 'remito' })
   if (!numero) return { data: null, error: 'Error al generar número' }
@@ -282,6 +298,14 @@ export async function cambiarEstadoRemito(id: string, estado: EstadoRemito): Pro
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { data: null, error: 'No autenticado' }
+
+  const { data: actual } = await supabase.from('remitos').select('estado').eq('id', id).single()
+  if (!actual) return { data: null, error: 'Remito no encontrado' }
+
+  const transicionesValidas = TRANSICIONES_REMITO[actual.estado] ?? []
+  if (!transicionesValidas.includes(estado)) {
+    return { data: null, error: `No se puede pasar de "${actual.estado}" a "${estado}"` }
+  }
 
   const { error } = await supabase.from('remitos').update({ estado, actualizado_por: user.id }).eq('id', id)
   if (error) return { data: null, error: error.message }
@@ -354,6 +378,78 @@ export async function cambiarEstadoNotaPedido(
     PENDIENTE: 'Pendiente', PARCIAL: 'Parcial', RECIBIDO: 'Recibido', ANULADO: 'Anulado',
   }
   return { data: null, error: null, mensaje: `Estado actualizado: ${labels[estado]}` }
+}
+
+// ── Generar remito desde orden completada ─────────────────────────────────────
+
+export async function generarRemitoDesdeOrden(
+  ordenId: string,
+): Promise<ApiResponse<Remito>> {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { data: null, error: 'No autenticado' }
+
+  const { data: orden } = await supabase
+    .from('ordenes_servicio')
+    .select('id, numero, titulo, cliente_id, presupuesto_id, estado')
+    .eq('id', ordenId)
+    .single()
+
+  if (!orden) return { data: null, error: 'Orden no encontrada' }
+  if (orden.estado !== 'COMPLETADA')
+    return { data: null, error: 'Solo se puede generar un remito para una orden completada' }
+
+  // Pre-cargar ítems desde el presupuesto si existe
+  let items: Array<{ descripcion: string; cantidad: number; unidad_medida: string; precio_unitario?: number }> = []
+
+  if (orden.presupuesto_id) {
+    const { data: presItems } = await supabase
+      .from('presupuestos_items')
+      .select('descripcion, cantidad, precio_unitario, unidad_medida')
+      .eq('presupuesto_id', orden.presupuesto_id)
+
+    if (presItems?.length) {
+      items = presItems.map((it: { descripcion: string; cantidad: number; precio_unitario: number | null; unidad_medida: string | null }) => ({
+        descripcion: it.descripcion,
+        cantidad: it.cantidad,
+        unidad_medida: it.unidad_medida ?? 'un',
+        precio_unitario: it.precio_unitario ?? undefined,
+      }))
+    }
+  }
+
+  // Fallback: ítem único con el título de la orden
+  if (!items.length) {
+    items = [{ descripcion: orden.titulo, cantidad: 1, unidad_medida: 'un' }]
+  }
+
+  const result = await crearRemito({
+    tipo: 'LEGAL_SALIDA' as TipoRemito,
+    cliente_id: orden.cliente_id,
+    orden_id: ordenId,
+    items,
+  })
+
+  if (result.data) {
+    // Auto-emitir: la OS ya está completada, el remito sale directamente
+    await supabase.from('remitos').update({ estado: 'EMITIDO' }).eq('id', result.data.id)
+    result.data = { ...result.data, estado: 'EMITIDO' }
+
+    // Evento calendario: servicio ejecutado
+    await supabase.from('eventos_calendario').insert({
+      tipo: 'SERVICIO_EJECUTADO',
+      titulo: `Remito generado: OS ${orden.numero}`,
+      descripcion: `Remito ${result.data.numero} generado para la orden "${orden.titulo}"`,
+      fecha_inicio: new Date().toISOString(),
+      entidad_tipo: 'remito',
+      entidad_id: result.data.id,
+      cliente_id: orden.cliente_id,
+      color: '#10b981',
+      creado_por: user.id,
+    })
+  }
+
+  return result
 }
 
 export async function actualizarRecepcionItem(

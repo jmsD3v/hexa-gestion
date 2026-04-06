@@ -123,7 +123,7 @@ export interface FiltrosCliente {
   activo?: boolean
   pagina?: number
   por_pagina?: number
-  orden_por?: keyof Cliente
+  orden_por?: keyof ClienteListaItem
   orden_dir?: 'asc' | 'desc'
 }
 

@@ -34,7 +34,7 @@ import type {
   EstadoNotaPedido,
   EstadoRemito,
   TipoRemito,
-} from '@/types/database';
+} from '@/types';
 import {
   obtenerNotasPedido,
   obtenerRemitos,
@@ -72,108 +72,29 @@ interface KPIs {
 
 const NOTA_ESTADO_CONFIG: Record<
   EstadoNotaPedido,
-  {
-    label: string;
-    color: string;
-    bg: string;
-    border: string;
-    icon: React.FC<any>;
-  }
+  { label: string; badge: string; dot: string; icon: React.FC<any> }
 > = {
-  PENDIENTE: {
-    label: 'Pendiente',
-    color: '#f59e0b',
-    bg: 'rgba(245,158,11,0.08)',
-    border: 'rgba(245,158,11,0.2)',
-    icon: Clock,
-  },
-  PARCIAL: {
-    label: 'Parcial',
-    color: '#60a5fa',
-    bg: 'rgba(96,165,250,0.08)',
-    border: 'rgba(96,165,250,0.2)',
-    icon: Circle,
-  },
-  RECIBIDO: {
-    label: 'Recibido',
-    color: '#4ade80',
-    bg: 'rgba(74,222,128,0.08)',
-    border: 'rgba(74,222,128,0.2)',
-    icon: CheckCircle2,
-  },
-  ANULADO: {
-    label: 'Anulado',
-    color: '#f87171',
-    bg: 'rgba(248,113,113,0.08)',
-    border: 'rgba(248,113,113,0.2)',
-    icon: XCircle,
-  },
+  PENDIENTE: { label: 'Pendiente', badge: 'text-amber-500 bg-amber-500/[0.08] border-amber-500/20',  dot: 'bg-amber-500',  icon: Clock },
+  PARCIAL:   { label: 'Parcial',   badge: 'text-blue-400 bg-blue-400/[0.08] border-blue-400/20',     dot: 'bg-blue-400',   icon: Circle },
+  RECIBIDO:  { label: 'Recibido',  badge: 'text-green-400 bg-green-400/[0.08] border-green-400/20',  dot: 'bg-green-400',  icon: CheckCircle2 },
+  ANULADO:   { label: 'Anulado',   badge: 'text-red-400 bg-red-400/[0.08] border-red-400/20',        dot: 'bg-red-400',    icon: XCircle },
 };
 
 const REMITO_ESTADO_CONFIG: Record<
   EstadoRemito,
-  {
-    label: string;
-    color: string;
-    bg: string;
-    border: string;
-    icon: React.FC<any>;
-  }
+  { label: string; badge: string; dot: string; icon: React.FC<any> }
 > = {
-  BORRADOR: {
-    label: 'Borrador',
-    color: '#94a3b8',
-    bg: 'rgba(148,163,184,0.08)',
-    border: 'rgba(148,163,184,0.15)',
-    icon: Circle,
-  },
-  EMITIDO: {
-    label: 'Emitido',
-    color: '#60a5fa',
-    bg: 'rgba(96,165,250,0.08)',
-    border: 'rgba(96,165,250,0.2)',
-    icon: Clock,
-  },
-  ENTREGADO: {
-    label: 'Entregado',
-    color: '#4ade80',
-    bg: 'rgba(74,222,128,0.08)',
-    border: 'rgba(74,222,128,0.2)',
-    icon: CheckCircle2,
-  },
-  ANULADO: {
-    label: 'Anulado',
-    color: '#f87171',
-    bg: 'rgba(248,113,113,0.08)',
-    border: 'rgba(248,113,113,0.2)',
-    icon: XCircle,
-  },
+  BORRADOR:  { label: 'Borrador',  badge: 'text-slate-400 bg-slate-400/[0.08] border-slate-400/15',  dot: 'bg-slate-400',  icon: Circle },
+  EMITIDO:   { label: 'Emitido',   badge: 'text-blue-400 bg-blue-400/[0.08] border-blue-400/20',     dot: 'bg-blue-400',   icon: Clock },
+  ENTREGADO: { label: 'Entregado', badge: 'text-green-400 bg-green-400/[0.08] border-green-400/20',  dot: 'bg-green-400',  icon: CheckCircle2 },
+  ANULADO:   { label: 'Anulado',   badge: 'text-red-400 bg-red-400/[0.08] border-red-400/20',        dot: 'bg-red-400',    icon: XCircle },
 };
 
-const TIPO_REMITO_LABEL: Record<
-  TipoRemito,
-  { label: string; color: string; bg: string }
-> = {
-  INTERNO_ENTRADA: {
-    label: 'Int. Entrada',
-    color: '#a78bfa',
-    bg: 'rgba(167,139,250,0.08)',
-  },
-  INTERNO_SALIDA: {
-    label: 'Int. Salida',
-    color: '#818cf8',
-    bg: 'rgba(129,140,248,0.08)',
-  },
-  LEGAL_ENTRADA: {
-    label: 'Legal Ent.',
-    color: '#2dd4bf',
-    bg: 'rgba(45,212,191,0.08)',
-  },
-  LEGAL_SALIDA: {
-    label: 'Legal Sal.',
-    color: '#fb923c',
-    bg: 'rgba(251,146,60,0.08)',
-  },
+const TIPO_REMITO_LABEL: Record<TipoRemito, { label: string; badge: string }> = {
+  INTERNO_ENTRADA: { label: 'Int. Entrada', badge: 'text-violet-400 bg-violet-400/[0.08] border-violet-400/20' },
+  INTERNO_SALIDA:  { label: 'Int. Salida',  badge: 'text-indigo-400 bg-indigo-400/[0.08] border-indigo-400/20' },
+  LEGAL_ENTRADA:   { label: 'Legal Ent.',   badge: 'text-teal-400 bg-teal-400/[0.08] border-teal-400/20'       },
+  LEGAL_SALIDA:    { label: 'Legal Sal.',   badge: 'text-orange-400 bg-orange-400/[0.08] border-orange-400/20' },
 };
 
 // ── KPI Card ──────────────────────────────────────────────────────────────────
@@ -181,28 +102,22 @@ const TIPO_REMITO_LABEL: Record<
 function KPICard({
   label,
   value,
-  color = '#94a3b8',
+  colorCls = 'text-slate-400',
   warning = false,
 }: {
   label: string;
   value: number;
-  color?: string;
+  colorCls?: string;
   warning?: boolean;
 }) {
   return (
     <div
-      className={`bg-slate-800/70 backdrop-blur-sm rounded-xl border p-4 ${warning && value > 0 ? 'border-amber-600/20' : 'border-slate-700/80'}`}
+      className={`bg-slate-900/70 backdrop-blur-xl rounded-lg border p-4 ${warning && value > 0 ? 'border-amber-500/20' : 'border-slate-400/10'}`}
     >
       <span className='text-[10px] font-semibold tracking-wider uppercase text-slate-500 block mb-1.5'>
         {label}
       </span>
-      <span
-        className='text-xl font-extrabold font-mono tracking-tight block'
-        style={{
-          color: warning && value > 0 ? '#f59e0b' : color,
-          fontFamily: "'DM Mono', monospace",
-        }}
-      >
+      <span className={`text-xl font-extrabold font-mono tracking-tight block ${warning && value > 0 ? 'text-amber-500' : colorCls}`}>
         {value}
       </span>
     </div>
@@ -215,15 +130,8 @@ function NotaBadge({ estado }: { estado: EstadoNotaPedido }) {
   const c = NOTA_ESTADO_CONFIG[estado];
   const Icon = c.icon;
   return (
-    <span
-      className='inline-flex items-center gap-1.5 px-2 py-1 rounded-xl text-[10px] font-bold tracking-wide'
-      style={{
-        color: c.color,
-        background: c.bg,
-        border: `1px solid ${c.border}`,
-      }}
-    >
-      <span className='w-1 h-1 rounded-full' style={{ background: c.color }} />
+    <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-xl text-[10px] font-bold tracking-wide border ${c.badge}`}>
+      <span className={`w-1 h-1 rounded-full ${c.dot}`} />
       {c.label}
     </span>
   );
@@ -233,15 +141,8 @@ function RemitoBadge({ estado }: { estado: EstadoRemito }) {
   const c = REMITO_ESTADO_CONFIG[estado];
   const Icon = c.icon;
   return (
-    <span
-      className='inline-flex items-center gap-1.5 px-2 py-1 rounded-xl text-[10px] font-bold tracking-wide'
-      style={{
-        color: c.color,
-        background: c.bg,
-        border: `1px solid ${c.border}`,
-      }}
-    >
-      <span className='w-1 h-1 rounded-full' style={{ background: c.color }} />
+    <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-xl text-[10px] font-bold tracking-wide border ${c.badge}`}>
+      <span className={`w-1 h-1 rounded-full ${c.dot}`} />
       {c.label}
     </span>
   );
@@ -250,14 +151,7 @@ function RemitoBadge({ estado }: { estado: EstadoRemito }) {
 function TipoBadge({ tipo }: { tipo: TipoRemito }) {
   const c = TIPO_REMITO_LABEL[tipo];
   return (
-    <span
-      className='inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold font-mono tracking-wide'
-      style={{
-        color: c.color,
-        background: c.bg,
-        border: `1px solid ${c.color}20`,
-      }}
-    >
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold font-mono tracking-wide border ${c.badge}`}>
       {c.label}
     </span>
   );
@@ -293,7 +187,7 @@ function NotaMenu({
   return (
     <div className='relative'>
       {toast && (
-        <div className='fixed bottom-4 right-4 bg-slate-800 text-white text-sm px-4 py-2 rounded-lg shadow z-50'>
+        <div className='fixed bottom-6 right-6 bg-emerald-600 text-white text-xs font-semibold px-4 py-3 rounded-[10px] shadow-2xl z-50'>
           {toast}
         </div>
       )}
@@ -306,10 +200,10 @@ function NotaMenu({
       {open && (
         <>
           <div className='fixed inset-0 z-10' onClick={() => setOpen(false)} />
-          <div className='absolute right-0 top-full mt-1 w-44 bg-slate-800 border border-slate-700 rounded-xl shadow-lg z-20 py-1 overflow-hidden'>
+          <div className='absolute right-0 top-full mt-1 w-44 bg-slate-950 border border-slate-400/15 rounded-[9px] shadow-2xl z-20 py-1 overflow-hidden'>
             <a
               href={`/logistica/notas/${nota.id}`}
-              className='flex items-center gap-2 px-3 py-2 text-sm text-slate-300 hover:bg-slate-700'
+              className='flex items-center gap-2 px-3 py-2 text-xs text-slate-400 hover:bg-slate-400/5 hover:text-slate-100 transition-colors'
             >
               <Eye className='w-4 h-4' /> Ver detalle
             </a>
@@ -375,7 +269,7 @@ function RemitoMenu({
   return (
     <div className='relative'>
       {toast && (
-        <div className='fixed bottom-4 right-4 bg-slate-800 text-white text-sm px-4 py-2 rounded-lg shadow z-50'>
+        <div className='fixed bottom-6 right-6 bg-emerald-600 text-white text-xs font-semibold px-4 py-3 rounded-[10px] shadow-2xl z-50'>
           {toast}
         </div>
       )}
@@ -388,10 +282,10 @@ function RemitoMenu({
       {open && (
         <>
           <div className='fixed inset-0 z-10' onClick={() => setOpen(false)} />
-          <div className='absolute right-0 top-full mt-1 w-48 bg-slate-800 border border-slate-700 rounded-xl shadow-lg z-20 py-1 overflow-hidden'>
+          <div className='absolute right-0 top-full mt-1 w-48 bg-slate-950 border border-slate-400/15 rounded-[9px] shadow-2xl z-20 py-1 overflow-hidden'>
             <a
               href={`/logistica/remitos/${remito.id}`}
-              className='flex items-center gap-2 px-3 py-2 text-sm text-slate-300 hover:bg-slate-700'
+              className='flex items-center gap-2 px-3 py-2 text-xs text-slate-400 hover:bg-slate-400/5 hover:text-slate-100 transition-colors'
             >
               <Eye className='w-4 h-4' /> Ver detalle
             </a>
@@ -402,7 +296,7 @@ function RemitoMenu({
                   key={t}
                   onClick={() => handleEstado(t)}
                   disabled={loading}
-                  className='w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-300 hover:bg-slate-700'
+                  className='w-full flex items-center gap-2 px-3 py-2 text-xs text-slate-400 hover:bg-slate-400/5 hover:text-slate-100 transition-colors'
                 >
                   <ArrowRight className='w-4 h-4 text-emerald-500' />{' '}
                   {estadoLabel[t]}
@@ -536,7 +430,7 @@ function TablaNotas({
             {filas.map((n) => (
               <tr
                 key={n.id}
-                className='hover:bg-slate-800/50 transition-colors group'
+                className='hover:bg-slate-400/3 transition-colors group'
               >
                 <td className='px-4 py-3'>
                   <a
@@ -574,7 +468,7 @@ function TablaNotas({
                   )}
                 </td>
                 <td className='px-4 py-3 text-center'>
-                  <span className='inline-flex items-center justify-center w-6 h-6 rounded-full bg-slate-700 text-xs font-semibold text-slate-300'>
+                  <span className='inline-flex items-center justify-center w-6 h-6 rounded-full bg-slate-400/10 text-xs font-semibold text-slate-400'>
                     {n.cantidad_items}
                   </span>
                 </td>
@@ -742,7 +636,7 @@ function TablaRemitos({
             {filas.map((r) => (
               <tr
                 key={r.id}
-                className='hover:bg-slate-800/50 transition-colors group'
+                className='hover:bg-slate-400/3 transition-colors group'
               >
                 <td className='px-4 py-3'>
                   <a
@@ -770,7 +664,7 @@ function TablaRemitos({
                   {r.transportista ?? '—'}
                 </td>
                 <td className='px-4 py-3 text-center'>
-                  <span className='inline-flex items-center justify-center w-6 h-6 rounded-full bg-slate-700 text-xs font-semibold text-slate-300'>
+                  <span className='inline-flex items-center justify-center w-6 h-6 rounded-full bg-slate-400/10 text-xs font-semibold text-slate-400'>
                     {r.cantidad_items}
                   </span>
                 </td>
@@ -800,14 +694,14 @@ function TablaRemitos({
             <button
               onClick={() => setPagina((p) => Math.max(1, p - 1))}
               disabled={pagina === 1}
-              className='px-3 py-1.5 text-xs bg-slate-700 border border-slate-600 rounded-lg hover:bg-slate-600 text-slate-200'
+              className='px-3 py-1.5 text-xs bg-transparent border border-slate-400/10 rounded-lg hover:bg-slate-400/5 hover:text-slate-300 text-slate-500 transition-colors'
             >
               Anterior
             </button>
             <button
               onClick={() => setPagina((p) => p + 1)}
               disabled={pagina >= Math.ceil(total / POR_PAGINA)}
-              className='px-3 py-1.5 text-xs bg-slate-700 border border-slate-600 rounded-lg hover:bg-slate-600 text-slate-200'
+              className='px-3 py-1.5 text-xs bg-transparent border border-slate-400/10 rounded-lg hover:bg-slate-400/5 hover:text-slate-300 text-slate-500 transition-colors'
             >
               Siguiente
             </button>
@@ -855,27 +749,11 @@ export default function LogisticaListado() {
 
   return (
     <>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700;800&family=DM+Mono:wght@300;400;500;700&display=swap');
-        .logistica-ui { font-family: 'DM Sans', sans-serif; }
-        .logistica-ui .font-mono { font-family: 'DM Mono', monospace !important; }
-        ::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:rgba(148,163,184,0.15);border-radius:2px}
-        @media (max-width: 640px) {
-          .logistica-scroll { overflow-x: hidden !important; }
-          .logistica-table { font-size: 0.75rem !important; }
-          .logistica-table th, .logistica-table td { padding: 0.375rem 0.5rem !important; font-size: 0.75rem !important; }
-          .logistica-table th { font-size: 0.7rem !important; }
-        }
-      `}</style>
       <div
-        className='logistica-ui min-h-screen bg-slate-900'
-        style={{
-          background:
-            'radial-gradient(ellipse 100% 50% at 5% 0%, rgba(96,165,250,0.03), transparent 55%), #060d1a',
-        }}
+        className='min-h-screen bg-slate-950 bg-gradient-to-b from-blue-950/5 to-slate-950'
       >
         {/* Header */}
-        <div className='bg-slate-800/70 backdrop-blur-sm border-b border-slate-700/80 px-6 py-5'>
+        <div className='bg-slate-900/80 backdrop-blur-sm border-b border-slate-400/10 px-3 py-4 sm:px-5 sm:py-5 lg:px-6'>
           <div className='max-w-7xl mx-auto flex items-center justify-between flex-wrap gap-4'>
             <div>
               <div className='flex items-center gap-2 mb-1'>
@@ -899,7 +777,7 @@ export default function LogisticaListado() {
                   ? '/logistica/notas/nueva'
                   : '/logistica/remitos/nuevo'
               }
-              className='inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-[13px] font-bold rounded-lg transition-colors shadow-sm'
+              className='inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-br from-emerald-600/80 to-emerald-700/80 hover:from-emerald-600 hover:to-emerald-700 text-slate-950 text-[13px] font-bold rounded-lg transition-all shadow-sm shadow-emerald-600/15'
             >
               <Plus className='w-4 h-4' />
               {tab === 'notas' ? 'Nueva nota de pedido' : 'Nuevo remito'}
@@ -907,30 +785,30 @@ export default function LogisticaListado() {
           </div>
         </div>
 
-        <div className='max-w-7xl mx-auto px-6 py-6 space-y-5'>
+        <div className='max-w-7xl mx-auto px-3 py-4 sm:px-5 sm:py-5 lg:px-6 lg:py-6 space-y-5'>
           {/* KPIs */}
-          <div className='grid grid-cols-2 lg:grid-cols-4 gap-3'>
+          <div className='grid grid-cols-1 min-[420px]:grid-cols-2 lg:grid-cols-4 gap-3'>
             <KPICard
               label='Notas pendientes'
               value={kpis?.notas_pendientes ?? 0}
-              color='#f59e0b'
+              colorCls='text-amber-500'
               warning
             />
             <KPICard
               label='Recepción parcial'
               value={kpis?.notas_parciales ?? 0}
-              color='#60a5fa'
+              colorCls='text-blue-400'
               warning
             />
             <KPICard
               label='Remitos emitidos (mes)'
               value={kpis?.remitos_emitidos_mes ?? 0}
-              color='#4ade80'
+              colorCls='text-green-400'
             />
             <KPICard
               label='Entregados (mes)'
               value={kpis?.remitos_entregados_mes ?? 0}
-              color='#4ade80'
+              colorCls='text-green-400'
             />
           </div>
 
@@ -999,8 +877,7 @@ export default function LogisticaListado() {
               {/* Filtros expandibles */}
               {filtrosOpen && (
                 <div
-                  className='flex flex-wrap gap-2 pt-2 border-t border-slate-700/30'
-                  style={{ animation: 'fadeIn 0.15s ease' }}
+                  className='flex flex-wrap gap-2 pt-2 border-t border-slate-700/30 animate-fade-in'
                 >
                   {tab === 'notas' ? (
                     <>

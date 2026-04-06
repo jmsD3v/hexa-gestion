@@ -3,7 +3,7 @@
 // Cliente Supabase para Server Components y Server Actions
 // ============================================================
 
-import { createServerClient } from '@supabase/ssr';
+import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 
 export function createClient() {
@@ -16,7 +16,7 @@ export function createClient() {
           const cookieStore = await cookies();
           return cookieStore.getAll();
         },
-        async setAll(cookiesToSet) {
+        async setAll(cookiesToSet: Array<{ name: string; value: string; options: CookieOptions }>) {
           const cookieStore = await cookies();
           try {
             cookiesToSet.forEach(({ name, value, options }) =>

@@ -12,9 +12,9 @@ import {
   useCallback,
   useTransition,
   useRef,
-  type CSSProperties,
   type ReactNode,
 } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import type { EstadoFactura, TipoComprobanteAFIP, Factura } from '@/types';
 import {
   obtenerFacturas,
@@ -26,6 +26,7 @@ import {
   shouldUsePlatformMocks,
 } from '@/app/actions/platform-mocks';
 import { formatearMonto } from '@/lib/calculos';
+import { FileText, User, DollarSign, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -35,44 +36,14 @@ type FacturaRow = Factura & { razon_social: string };
 
 const ESTADO_CFG: Record<
   EstadoFactura,
-  { label: string; color: string; bg: string; border: string }
+  { label: string; badge: string; text: string; dot: string }
 > = {
-  BORRADOR: {
-    label: 'Borrador',
-    color: '#94a3b8',
-    bg: 'rgba(148,163,184,0.08)',
-    border: 'rgba(148,163,184,0.15)',
-  },
-  EMITIDA: {
-    label: 'Emitida',
-    color: '#60a5fa',
-    bg: 'rgba(96,165,250,0.08)',
-    border: 'rgba(96,165,250,0.2)',
-  },
-  PENDIENTE_COBRO: {
-    label: 'Pend. cobro',
-    color: '#f59e0b',
-    bg: 'rgba(245,158,11,0.08)',
-    border: 'rgba(245,158,11,0.2)',
-  },
-  COBRADA_PARCIAL: {
-    label: 'Cobro parcial',
-    color: '#a78bfa',
-    bg: 'rgba(167,139,250,0.08)',
-    border: 'rgba(167,139,250,0.2)',
-  },
-  COBRADA: {
-    label: 'Cobrada',
-    color: '#4ade80',
-    bg: 'rgba(74,222,128,0.08)',
-    border: 'rgba(74,222,128,0.2)',
-  },
-  ANULADA: {
-    label: 'Anulada',
-    color: '#f87171',
-    bg: 'rgba(248,113,113,0.08)',
-    border: 'rgba(248,113,113,0.2)',
-  },
+  BORRADOR:        { label: 'Borrador',      badge: 'text-slate-400 bg-slate-400/[0.08] border-slate-400/15',   text: 'text-slate-400',  dot: 'bg-slate-400'   },
+  EMITIDA:         { label: 'Emitida',       badge: 'text-blue-400 bg-blue-400/[0.08] border-blue-400/20',      text: 'text-blue-400',   dot: 'bg-blue-400'    },
+  PENDIENTE_COBRO: { label: 'Pend. cobro',   badge: 'text-amber-500 bg-amber-500/[0.08] border-amber-500/20',   text: 'text-amber-500',  dot: 'bg-amber-500'   },
+  COBRADA_PARCIAL: { label: 'Cobro parcial', badge: 'text-violet-400 bg-violet-400/[0.08] border-violet-400/20', text: 'text-violet-400', dot: 'bg-violet-400' },
+  COBRADA:         { label: 'Cobrada',       badge: 'text-green-400 bg-green-400/[0.08] border-green-400/20',   text: 'text-green-400',  dot: 'bg-green-400'   },
+  ANULADA:         { label: 'Anulada',       badge: 'text-red-400 bg-red-400/[0.08] border-red-400/20',         text: 'text-red-400',    dot: 'bg-red-400'     },
 };
 
 const COMP_LABEL: Record<TipoComprobanteAFIP, string> = {
@@ -137,8 +108,7 @@ function Skeleton({
 }) {
   return (
     <div
-      className='bg-slate-400/10 animate-pulse'
-      style={{ width: w, height: h, borderRadius: r }}
+      className={`bg-slate-400/10 animate-pulse w-[${w}] h-[${h}] rounded-[${r}]`}
     />
   );
 }
@@ -147,14 +117,14 @@ function KPICard({
   label,
   value,
   sub,
-  color = '#94a3b8',
+  textCls = 'text-slate-400',
   loading,
   alert,
 }: {
   label: string;
   value: string;
   sub?: string;
-  color?: string;
+  textCls?: string;
   loading?: boolean;
   alert?: boolean;
 }) {
@@ -170,10 +140,7 @@ function KPICard({
       {loading ? (
         <Skeleton w='80px' h='22px' />
       ) : (
-        <span
-          style={{ color }}
-          className='text-xl font-black font-mono tracking-tighter block'
-        >
+        <span className={`text-xl font-black font-mono tracking-tighter block ${textCls}`}>
           {value}
         </span>
       )}
@@ -187,34 +154,21 @@ function KPICard({
 function BadgeEstado({ estado }: { estado: EstadoFactura }) {
   const cfg = ESTADO_CFG[estado];
   return (
-    <span
-      style={{ color: cfg.color, background: cfg.bg, borderColor: cfg.border }}
-      className='inline-flex items-center gap-1 px-2 py-0.5 rounded-2xl text-[10px] font-bold tracking-wide border whitespace-nowrap'
-    >
-      <span
-        style={{ background: cfg.color }}
-        className='w-1 h-1 rounded-full inline-block'
-      />
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-2xl text-[10px] font-bold tracking-wide border whitespace-nowrap ${cfg.badge}`}>
+      <span className={`w-1 h-1 rounded-full inline-block ${cfg.dot}`} />
       {cfg.label}
     </span>
   );
 }
 
 function BadgeComprobante({ tipo }: { tipo: TipoComprobanteAFIP }) {
-  const color = tipo.endsWith('_A')
-    ? '#f59e0b'
+  const cls = tipo.endsWith('_A')
+    ? 'text-amber-500 border-amber-500/20 bg-amber-500/10'
     : tipo.endsWith('_B')
-      ? '#60a5fa'
-      : '#94a3b8';
+      ? 'text-blue-400 border-blue-400/20 bg-blue-400/10'
+      : 'text-slate-400 border-slate-400/20 bg-slate-400/10';
   return (
-    <span
-      style={{
-        color,
-        borderColor: `${color}20`,
-        backgroundColor: `${color}10`,
-      }}
-      className='inline-flex px-1.75 py-0.5 rounded text-[10px] font-bold font-mono tracking-wide border whitespace-nowrap'
-    >
+    <span className={`inline-flex px-1.75 py-0.5 rounded text-[10px] font-bold font-mono tracking-wide border whitespace-nowrap ${cls}`}>
       {COMP_LABEL[tipo]}
     </span>
   );
@@ -245,33 +199,35 @@ function MenuAcciones({ factura }: { factura: FacturaRow }) {
       </button>
       {abierto && (
         <div className='absolute right-0 top-[calc(100%+4px)] z-30 bg-slate-950 border border-slate-400/15 rounded-[9px] p-1 w-48 shadow-2xl animate-in fade-in duration-120 scale-95'>
-          {[
-            {
-              href: `/facturas/${factura.id}`,
-              label: 'Ver detalle',
-              icon: '👁',
-            },
-            {
-              href: `/facturas/${factura.id}/pdf`,
-              label: 'Ver PDF',
-              icon: '📄',
-              target: '_blank',
-            },
-            {
-              href: `/clientes/${factura.cliente_id}`,
-              label: 'Ver cliente',
-              icon: '👤',
-            },
-            ...(factura.estado !== 'COBRADA' && factura.estado !== 'ANULADA'
-              ? [
-                  {
-                    href: `/facturas/${factura.id}#cobros`,
-                    label: 'Registrar cobro',
-                    icon: '💰',
-                  },
-                ]
-              : []),
-          ].map(({ href, label, icon, target }) => (
+          {(
+            [
+              {
+                href: `/facturas/${factura.id}`,
+                label: 'Ver detalle',
+                icon: <svg width='13' height='13' viewBox='0 0 13 13' fill='none'><circle cx='6.5' cy='6.5' r='4' stroke='currentColor' strokeWidth='1.3' /><circle cx='6.5' cy='6.5' r='1.3' fill='currentColor' /></svg>,
+              },
+              {
+                href: `/facturas/${factura.id}/pdf`,
+                label: 'Ver PDF',
+                icon: <FileText className='w-4 h-4' />,
+                target: '_blank',
+              },
+              {
+                href: `/clientes/${factura.cliente_id}`,
+                label: 'Ver cliente',
+                icon: <User className='w-4 h-4' />,
+              },
+              ...(factura.estado !== 'COBRADA' && factura.estado !== 'ANULADA'
+                ? [
+                    {
+                      href: `/facturas/${factura.id}#cobros`,
+                      label: 'Registrar cobro',
+                      icon: <DollarSign className='w-4 h-4' />,
+                    },
+                  ]
+                : []),
+            ] as { href: string; label: string; icon: ReactNode; target?: string }[]
+          ).map(({ href, label, icon, target }) => (
             <a
               key={href}
               href={href}
@@ -279,7 +235,7 @@ function MenuAcciones({ factura }: { factura: FacturaRow }) {
               onClick={() => setAbierto(false)}
               className='flex items-center gap-2 px-2.5 py-1.75 rounded text-xs text-slate-400 no-underline transition-colors duration-100 hover:bg-slate-400/5 hover:text-slate-100 font-sans'
             >
-              <span className='text-[11px]'>{icon}</span>
+              {icon}
               {label}
             </a>
           ))}
@@ -320,6 +276,9 @@ function BtnPag({
 // ─── Componente principal ─────────────────────────────────────────────────────
 
 export default function FacturasListado() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
   const [rows, setRows] = useState<FacturaRow[]>([]);
   const [total, setTotal] = useState(0);
   const [totalPags, setTotalPags] = useState(1);
@@ -334,15 +293,38 @@ export default function FacturasListado() {
   const [loadingKpis, setLoadingKpis] = useState(true);
   const [, startTransition] = useTransition();
 
-  const [busqueda, setBusqueda] = useState('');
-  const [estado, setEstado] = useState<EstadoFactura | ''>('');
-  const [fechaDesde, setFechaDesde] = useState('');
-  const [fechaHasta, setFechaHasta] = useState('');
-  const [pagina, setPagina] = useState(1);
+  const [busqueda, setBusqueda] = useState(() => searchParams.get('q') ?? '');
+  const [estado, setEstado] = useState<EstadoFactura | ''>(() => (searchParams.get('estado') as EstadoFactura) ?? '');
+  const [fechaDesde, setFechaDesde] = useState(() => searchParams.get('desde') ?? '');
+  const [fechaHasta, setFechaHasta] = useState(() => searchParams.get('hasta') ?? '');
+  const [pagina, setPagina] = useState(() => Number(searchParams.get('pag') ?? 1));
   const [porPagina, setPorPagina] = useState(20);
+  const [ordenPor, setOrdenPor] = useState<'numero' | 'fecha_emision' | 'total' | 'fecha_vencimiento'>(() => (searchParams.get('ob') as any) ?? 'fecha_emision');
+  const [ordenDir, setOrdenDir] = useState<'asc' | 'desc'>(() => (searchParams.get('od') as any) ?? 'desc');
   const [filtrosAbiertos, setFiltrosAbiertos] = useState(false);
 
   const busquedaTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const actualizarUrl = useCallback((params: Record<string, string>) => {
+    const sp = new URLSearchParams(searchParams.toString());
+    Object.entries(params).forEach(([k, v]) => v ? sp.set(k, v) : sp.delete(k));
+    router.replace(`?${sp.toString()}`, { scroll: false });
+  }, [searchParams, router]);
+
+  const handleSort = (col: typeof ordenPor) => {
+    const dir = ordenPor === col && ordenDir === 'desc' ? 'asc' : 'desc';
+    setOrdenPor(col);
+    setOrdenDir(dir);
+    setPagina(1);
+    actualizarUrl({ ob: col, od: dir, pag: '' });
+  };
+
+  const SortIcon = ({ col }: { col: typeof ordenPor }) => {
+    if (ordenPor !== col) return <ArrowUpDown className='w-3 h-3 text-slate-600' />;
+    return ordenDir === 'asc'
+      ? <ArrowUp className='w-3 h-3 text-emerald-400' />
+      : <ArrowDown className='w-3 h-3 text-emerald-400' />;
+  };
 
   const cargar = useCallback(() => {
     startTransition(async () => {
@@ -369,6 +351,8 @@ export default function FacturasListado() {
         fecha_hasta: fechaHasta || undefined,
         pagina,
         por_pagina: porPagina,
+        orden_por: ordenPor,
+        orden_dir: ordenDir,
       });
       setLoading(false);
       if (res.data) {
@@ -377,7 +361,7 @@ export default function FacturasListado() {
         setTotalPags(res.data.total_paginas);
       }
     });
-  }, [busqueda, estado, fechaDesde, fechaHasta, pagina, porPagina]);
+  }, [busqueda, estado, fechaDesde, fechaHasta, pagina, porPagina, ordenPor, ordenDir]);
 
   useEffect(() => {
     cargar();
@@ -397,7 +381,10 @@ export default function FacturasListado() {
   const handleBusqueda = (v: string) => {
     setBusqueda(v);
     if (busquedaTimer.current) clearTimeout(busquedaTimer.current);
-    busquedaTimer.current = setTimeout(() => setPagina(1), 350);
+    busquedaTimer.current = setTimeout(() => {
+      setPagina(1);
+      actualizarUrl({ q: v, pag: '' });
+    }, 350);
   };
   const hayFiltros = !!(estado || fechaDesde || fechaHasta);
   const limpiarFiltros = () => {
@@ -405,6 +392,7 @@ export default function FacturasListado() {
     setFechaDesde('');
     setFechaHasta('');
     setPagina(1);
+    actualizarUrl({ estado: '', desde: '', hasta: '', pag: '' });
   };
   const desde = (pagina - 1) * porPagina + 1;
   const hasta = Math.min(pagina * porPagina, total);
@@ -418,17 +406,6 @@ export default function FacturasListado() {
 
   return (
     <>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@300;400;500&display=swap');
-        *{box-sizing:border-box}body{margin:0;background:#060d1a;font-family:'DM Sans',sans-serif;-webkit-font-smoothing:antialiased}
-        option{background:#0f172a;color:#e2e8f0}input:focus,select:focus{outline:none!important}
-        ::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:rgba(148,163,184,0.15);border-radius:2px}
-        @keyframes shimmer{0%,100%{opacity:.4}50%{opacity:.8}}@keyframes slideUp{from{transform:translateY(8px);opacity:0}to{transform:translateY(0);opacity:1}}
-        @keyframes fadeIn{from{opacity:0}to{opacity:1}}@keyframes scaleIn{from{transform:scale(0.96);opacity:0}to{transform:scale(1);opacity:1}}
-        table{border-collapse:collapse;width:100%}tr:hover td{background:rgba(148,163,184,0.02)!important}
-        .table-wrapper{overflow-x:auto}
-      `}</style>
-
       <div className='min-h-screen bg-slate-950 bg-gradient-to-b from-emerald-950/5 to-slate-950 px-3 py-5 pb-20 sm:px-5 sm:py-8 lg:px-6'>
         <div className='mx-auto max-w-5xl min-w-0'>
           {/* Header */}
@@ -471,30 +448,30 @@ export default function FacturasListado() {
           </div>
 
           {/* KPIs */}
-          <div className='mb-5 grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 xl:grid-cols-4'>
+          <div className='mb-5 grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 md:grid-cols-2 lg:grid-cols-4'>
             <KPICard
               label='Facturado este mes'
               value={kpis ? formatearMonto(kpis.total_facturado_mes) : '—'}
-              color='#4ade80'
+              textCls='text-green-400'
               loading={loadingKpis}
             />
             <KPICard
               label='Cobrado este mes'
               value={kpis ? formatearMonto(kpis.total_cobrado_mes) : '—'}
               sub={kpis ? `${kpis.tasa_cobro}% de tasa de cobro` : undefined}
-              color='#60a5fa'
+              textCls='text-blue-400'
               loading={loadingKpis}
             />
             <KPICard
               label='Saldo total pendiente'
               value={kpis ? formatearMonto(kpis.saldo_total_pendiente) : '—'}
-              color='#f59e0b'
+              textCls='text-amber-500'
               loading={loadingKpis}
             />
             <KPICard
               label='Facturas vencidas'
               value={kpis ? String(kpis.facturas_vencidas) : '—'}
-              color='#f87171'
+              textCls='text-red-400'
               loading={loadingKpis}
               alert={!!(kpis && kpis.facturas_vencidas > 0)}
             />
@@ -558,28 +535,19 @@ export default function FacturasListado() {
               {/* Chips de estado */}
               <div className='flex w-full flex-wrap gap-1 sm:w-auto'>
                 {ESTADOS_FILTRO.map((f) => {
-                  const cfg = f.value ? ESTADO_CFG[f.value] : null;
+                  const selected = estado === f.value;
+                  const selectedCls = f.value
+                    ? ESTADO_CFG[f.value]?.badge
+                    : 'text-amber-500 bg-amber-500/[0.07] border-amber-500/30';
                   return (
                     <button
                       key={f.value}
                       onClick={() => {
                         setEstado(f.value as EstadoFactura | '');
                         setPagina(1);
+                        actualizarUrl({ estado: f.value, pag: '' });
                       }}
-                      className={`px-2.75 py-1.5 rounded text-[11px] font-semibold font-sans cursor-pointer transition-all duration-120 whitespace-nowrap ${
-                        estado === f.value
-                          ? `border border-current bg-opacity-15`
-                          : 'border border-slate-400/10 bg-transparent text-slate-600'
-                      }`}
-                      style={
-                        estado === f.value
-                          ? {
-                              borderColor: cfg?.border,
-                              backgroundColor: cfg?.bg,
-                              color: cfg?.color,
-                            }
-                          : {}
-                      }
+                      className={`px-2.75 py-1.5 rounded text-[11px] font-semibold font-sans cursor-pointer transition-all duration-120 whitespace-nowrap border ${selected ? selectedCls : 'border-slate-400/10 bg-transparent text-slate-600'}`}
                     >
                       {f.label}
                     </button>
@@ -622,9 +590,9 @@ export default function FacturasListado() {
             {filtrosAbiertos && (
               <div className='flex gap-3 mt-3.5 pt-3.5 border-t border-slate-400/10 flex-wrap animate-in fade-in duration-150'>
                 {[
-                  { label: 'Desde', v: fechaDesde, set: setFechaDesde },
-                  { label: 'Hasta', v: fechaHasta, set: setFechaHasta },
-                ].map(({ label, v, set }) => (
+                  { label: 'Desde', v: fechaDesde, set: setFechaDesde, key: 'desde' },
+                  { label: 'Hasta', v: fechaHasta, set: setFechaHasta, key: 'hasta' },
+                ].map(({ label, v, set, key }) => (
                   <div key={label} className='flex flex-col gap-1 min-w-35'>
                     <label className='text-[10px] font-semibold tracking-widest uppercase text-slate-500'>
                       {label}
@@ -635,9 +603,9 @@ export default function FacturasListado() {
                       onChange={(e) => {
                         set(e.target.value);
                         setPagina(1);
+                        actualizarUrl({ [key]: e.target.value, pag: '' });
                       }}
-                      className='bg-slate-800/50 border border-slate-400/10 rounded-lg px-3 py-2 text-sm text-slate-100 font-sans transition-all duration-120 focus:border-emerald-500/40 focus:bg-slate-800/70 focus:outline-none'
-                      style={{ colorScheme: 'dark' }}
+                      className='bg-slate-800/50 border border-slate-400/10 rounded-lg px-3 py-2 text-sm text-slate-100 font-sans transition-all duration-120 focus:border-emerald-500/40 focus:bg-slate-800/70 focus:outline-none [color-scheme:dark]'
                     />
                   </div>
                 ))}
@@ -647,40 +615,41 @@ export default function FacturasListado() {
 
           {/* Tabla */}
           <div className='bg-slate-900/70 border border-slate-400/10 rounded-lg backdrop-blur-xl overflow-hidden'>
-            <div className='table-wrapper overflow-x-auto'>
+            <div className='overflow-x-auto'>
               <table className='min-w-full'>
                 <thead>
                   <tr className='border-b border-slate-400/10'>
                     {[
-                      { label: 'Número', w: '100px', col: 'numero' },
-                      { label: 'Tipo', w: '80px', col: 'tipo' },
-                      { label: 'Cliente', w: 'auto', col: 'cliente' },
-                      { label: 'Emisión', w: '75px', col: 'emision' },
-                      { label: 'Vence', w: '85px', col: 'vence' },
-                      { label: 'Total', w: '120px', col: 'total' },
-                      { label: 'Saldo', w: '120px', col: 'saldo' },
-                      { label: 'Estado', w: '120px', col: 'estado' },
-                      { label: '', w: '36px', col: 'acciones' },
+                      { label: 'Número',  w: '100px', col: 'numero',  sort: 'numero'            as const },
+                      { label: 'Tipo',    w: '80px',  col: 'tipo',    sort: null },
+                      { label: 'Cliente', w: 'auto',  col: 'cliente', sort: null },
+                      { label: 'Emisión', w: '75px',  col: 'emision', sort: 'fecha_emision'      as const },
+                      { label: 'Vence',   w: '85px',  col: 'vence',   sort: 'fecha_vencimiento'  as const },
+                      { label: 'Total',   w: '120px', col: 'total',   sort: 'total'              as const },
+                      { label: 'Saldo',   w: '120px', col: 'saldo',   sort: null },
+                      { label: 'Estado',  w: '120px', col: 'estado',  sort: null },
+                      { label: '',        w: '36px',  col: 'acciones',sort: null },
                     ].map((col) => (
                       <th
-                        key={col.label}
+                        key={col.label || col.col}
                         data-col={col.col}
-                        className={`px-3.5 py-2.75 max-[780px]:px-1 max-[780px]:py-1 max-[780px]:text-[10px] text-[10px] font-bold tracking-widest uppercase text-slate-500 whitespace-nowrap bg-slate-800/50 ${
-                          col.col === 'tipo' ||
-                          col.col === 'emision' ||
-                          col.col === 'vence'
-                            ? 'max-[780px]:hidden'
-                            : ''
-                        } ${col.col === 'cliente' ? 'max-[780px]:max-w-14 max-[780px]:text-[9px]' : ''} ${
-                          col.col === 'acciones' ? 'max-[780px]:px-0.5' : ''
-                        } ${
-                          ['Total', 'Saldo'].includes(col.label)
-                            ? 'text-right'
-                            : ''
-                        }`}
-                        style={{ width: col.w }}
+                        onClick={col.sort ? () => handleSort(col.sort!) : undefined}
+                        className={[
+                          'px-3.5 py-2.75 max-[780px]:px-1 max-[780px]:py-1 max-[780px]:text-[10px] text-[10px] font-bold tracking-widest uppercase text-slate-500 whitespace-nowrap bg-slate-800/50',
+                          col.col === 'tipo' || col.col === 'emision' || col.col === 'vence' ? 'max-[780px]:hidden' : '',
+                          col.col === 'cliente' ? 'max-[780px]:max-w-14 max-[780px]:text-[9px]' : '',
+                          col.col === 'acciones' ? 'max-[780px]:px-0.5' : '',
+                          ['Total', 'Saldo'].includes(col.label) ? 'text-right' : '',
+                          col.sort ? 'cursor-pointer select-none hover:text-slate-400 transition-colors' : '',
+                          `[width:${col.w}]`,
+                        ].join(' ')}
                       >
-                        {col.label}
+                        {col.sort ? (
+                          <span className='inline-flex items-center gap-1'>
+                            {col.label}
+                            <SortIcon col={col.sort} />
+                          </span>
+                        ) : col.label}
                       </th>
                     ))}
                   </tr>
@@ -809,7 +778,7 @@ export default function FacturasListado() {
                             data-col='total'
                             className='px-3.5 py-3 max-[780px]:px-1 max-[780px]:py-1 text-right'
                           >
-                            <span className='text-sm font-semibold text-slate-400 font-mono whitespace-nowrap max-[780px]:text-xs'>
+                            <span className='text-sm font-semibold text-slate-400 font-mono tabular-nums whitespace-nowrap max-[780px]:text-xs'>
                               {formatearMonto(row.total)}
                             </span>
                           </td>
@@ -821,19 +790,13 @@ export default function FacturasListado() {
                             {row.saldo_pendiente > 0 ? (
                               <div>
                                 <span
-                                  className={`text-sm font-bold font-mono whitespace-nowrap max-[780px]:text-xs ${vencida ? 'text-red-400' : 'text-amber-500'}`}
+                                  className={`text-sm font-bold font-mono tabular-nums whitespace-nowrap max-[780px]:text-xs ${vencida ? 'text-red-400' : 'text-amber-500'}`}
                                 >
                                   {formatearMonto(row.saldo_pendiente)}
                                 </span>
                                 <div className='h-0.5 bg-slate-400/10 rounded-full mt-0.75 overflow-hidden max-[780px]:hidden'>
                                   <div
-                                    className='h-full'
-                                    style={{
-                                      width: `${saldoPct}%`,
-                                      backgroundColor: vencida
-                                        ? '#f87171'
-                                        : '#f59e0b',
-                                    }}
+                                    className={`h-full ${vencida ? 'bg-red-400' : 'bg-amber-500'} w-[${saldoPct}%]`}
                                   />
                                 </div>
                               </div>
@@ -872,11 +835,11 @@ export default function FacturasListado() {
                   {desde}–{hasta} de {total}
                 </span>
                 <div className='flex gap-1'>
-                  <BtnPag onClick={() => setPagina(1)} disabled={pagina === 1}>
+                  <BtnPag onClick={() => { setPagina(1); actualizarUrl({ pag: '1' }); }} disabled={pagina === 1}>
                     «
                   </BtnPag>
                   <BtnPag
-                    onClick={() => setPagina((p) => p - 1)}
+                    onClick={() => { setPagina((p) => { const n = p - 1; actualizarUrl({ pag: String(n) }); return n; }); }}
                     disabled={pagina === 1}
                   >
                     ‹
@@ -884,20 +847,20 @@ export default function FacturasListado() {
                   {ventanaPags().map((p) => (
                     <BtnPag
                       key={p}
-                      onClick={() => setPagina(p)}
+                      onClick={() => { setPagina(p); actualizarUrl({ pag: String(p) }); }}
                       active={p === pagina}
                     >
                       {String(p)}
                     </BtnPag>
                   ))}
                   <BtnPag
-                    onClick={() => setPagina((p) => p + 1)}
+                    onClick={() => { setPagina((p) => { const n = p + 1; actualizarUrl({ pag: String(n) }); return n; }); }}
                     disabled={pagina === totalPags}
                   >
                     ›
                   </BtnPag>
                   <BtnPag
-                    onClick={() => setPagina(totalPags)}
+                    onClick={() => { setPagina(totalPags); actualizarUrl({ pag: String(totalPags) }); }}
                     disabled={pagina === totalPags}
                   >
                     »

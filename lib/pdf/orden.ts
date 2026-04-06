@@ -37,7 +37,7 @@ export async function generarPDFOrden(
     .from('ordenes_servicio')
     .select(`
       *,
-      cliente:clientes(razon_social, cuit, condicion_iva, email, telefono, domicilio, localidad, provincia),
+      cliente:clientes(razon_social, cuit, condicion_iva, email, telefono),
       direccion:clientes_direcciones(etiqueta, calle, numero, ciudad, provincia),
       presupuesto:presupuestos(numero),
       tecnicos:ordenes_tecnicos(*)
@@ -145,11 +145,12 @@ export async function generarPDFOrden(
     // Barra de avance
     const barY = y + 57
     const barW = mitad - 16
+    const pct = orden.porcentaje_avance ?? 0
     doc.rect(rCol + 8, barY, barW, 7).fill('#f1f5f9')
-    doc.rect(rCol + 8, barY, barW * (orden.porcentaje_avance / 100), 7)
-       .fill(orden.porcentaje_avance >= 100 ? '#16a34a' : '#3b82f6')
+    doc.rect(rCol + 8, barY, barW * (pct / 100), 7)
+       .fill(pct >= 100 ? '#16a34a' : '#3b82f6')
     doc.fontSize(7).font('Helvetica-Bold').fillColor(GRIS)
-       .text(`${orden.porcentaje_avance}%`, rCol + barW + 12, barY - 1)
+       .text(`${pct}%`, rCol + barW + 12, barY - 1)
 
     // Presupuesto vinculado
     if (orden.presupuesto?.numero) {
@@ -173,8 +174,8 @@ export async function generarPDFOrden(
 
     y = seccion('OBJETO DEL SERVICIO', y)
     doc.fillColor('#111827').fontSize(10).font('Helvetica-Bold')
-       .text(orden.titulo, M, y, { width: ANCHO })
-    y += doc.heightOfString(orden.titulo, { width: ANCHO }) + 6
+       .text(orden.titulo ?? '', M, y, { width: ANCHO })
+    y += doc.heightOfString(orden.titulo ?? '', { width: ANCHO }) + 6
 
     if (orden.descripcion) {
       doc.fontSize(8.5).font('Helvetica').fillColor(GRIS)
@@ -262,6 +263,9 @@ export async function generarPDFOrden(
     // ════════════════════════════════════════════════════════
     // FIRMA CLIENTE
     // ════════════════════════════════════════════════════════
+
+    // Si el contenido llegó muy abajo, agregar página nueva para dejar espacio a las firmas
+    if (y > doc.page.height - 120) { doc.addPage(); y = M }
 
     const firmaY = doc.page.height - 90
     doc.moveTo(M + 30, firmaY).lineTo(M + 210, firmaY).strokeColor(LINEA).lineWidth(0.8).stroke()

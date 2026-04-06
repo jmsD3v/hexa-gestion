@@ -44,3 +44,7 @@ pnpm-debug.log*
 .pnpm-debug.log*
 supabase/.temp/
 supabase/.branches/
+
+# Config local de Claude Code
+.claude/settings.local.json
+.claude/worktrees/

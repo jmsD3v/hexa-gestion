@@ -309,6 +309,7 @@ CREATE TABLE ordenes_servicio (
   observaciones_cierre TEXT,
   -- Auditoría
   creado_por          UUID REFERENCES profiles(id),
+  actualizado_por     UUID REFERENCES profiles(id),
   creado_en           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   actualizado_en      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -343,6 +344,7 @@ CREATE TABLE notas_pedido (
   estado          TEXT NOT NULL DEFAULT 'PENDIENTE' CHECK (estado IN ('PENDIENTE', 'PARCIAL', 'RECIBIDO', 'ANULADO')),
   notas           TEXT,
   creado_por      UUID REFERENCES profiles(id),
+  actualizado_por UUID REFERENCES profiles(id),
   creado_en       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   actualizado_en  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -392,6 +394,7 @@ CREATE TABLE remitos (
   notas           TEXT,
   -- Auditoría
   creado_por      UUID REFERENCES profiles(id),
+  actualizado_por UUID REFERENCES profiles(id),
   creado_en       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   actualizado_en  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -447,6 +450,7 @@ CREATE TABLE facturas (
   notas               TEXT,
   -- Auditoría
   creado_por          UUID REFERENCES profiles(id),
+  actualizado_por     UUID REFERENCES profiles(id),
   creado_en           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   actualizado_en      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -714,38 +718,229 @@ CREATE TRIGGER trg_notas_pedido_updated_at
 
 -- ============================================================
 -- ROW LEVEL SECURITY (RLS)
+-- Regla general:
+--   - Todos los usuarios autenticados pueden LEER (SELECT)
+--   - Usuarios con rol != 'viewer' pueden escribir (INSERT/UPDATE/DELETE)
+--   - configuracion_empresa solo la modifican admin/superadmin
+--   - audit_log: solo admin/superadmin leen; cualquier autenticado inserta
 -- ============================================================
-ALTER TABLE clientes ENABLE ROW LEVEL SECURITY;
-ALTER TABLE presupuestos ENABLE ROW LEVEL SECURITY;
-ALTER TABLE ordenes_servicio ENABLE ROW LEVEL SECURITY;
-ALTER TABLE facturas ENABLE ROW LEVEL SECURITY;
-ALTER TABLE recibos ENABLE ROW LEVEL SECURITY;
-ALTER TABLE remitos ENABLE ROW LEVEL SECURITY;
-ALTER TABLE notas_pedido ENABLE ROW LEVEL SECURITY;
-ALTER TABLE documentos ENABLE ROW LEVEL SECURITY;
-ALTER TABLE audit_log ENABLE ROW LEVEL SECURITY;
 
--- Política base: usuarios autenticados ven todo (se restringe por rol en la app)
--- En producción esto se reemplaza por políticas granulares por rol
+ALTER TABLE clientes               ENABLE ROW LEVEL SECURITY;
+ALTER TABLE clientes_direcciones   ENABLE ROW LEVEL SECURITY;
+ALTER TABLE presupuestos           ENABLE ROW LEVEL SECURITY;
+ALTER TABLE presupuestos_items     ENABLE ROW LEVEL SECURITY;
+ALTER TABLE presupuestos_incidencias ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ordenes_servicio       ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ordenes_tecnicos       ENABLE ROW LEVEL SECURITY;
+ALTER TABLE facturas               ENABLE ROW LEVEL SECURITY;
+ALTER TABLE facturas_items         ENABLE ROW LEVEL SECURITY;
+ALTER TABLE recibos                ENABLE ROW LEVEL SECURITY;
+ALTER TABLE remitos                ENABLE ROW LEVEL SECURITY;
+ALTER TABLE remitos_items          ENABLE ROW LEVEL SECURITY;
+ALTER TABLE notas_pedido           ENABLE ROW LEVEL SECURITY;
+ALTER TABLE notas_pedido_items     ENABLE ROW LEVEL SECURITY;
+ALTER TABLE documentos             ENABLE ROW LEVEL SECURITY;
+ALTER TABLE audit_log              ENABLE ROW LEVEL SECURITY;
+ALTER TABLE eventos_calendario     ENABLE ROW LEVEL SECURITY;
+ALTER TABLE numeradores            ENABLE ROW LEVEL SECURITY;
+ALTER TABLE configuracion_empresa  ENABLE ROW LEVEL SECURITY;
+ALTER TABLE servicios_catalogo     ENABLE ROW LEVEL SECURITY;
 
+-- ── clientes ──────────────────────────────────────────────────
 CREATE POLICY "Usuarios autenticados pueden leer clientes"
   ON clientes FOR SELECT USING (auth.role() = 'authenticated');
 
-CREATE POLICY "Usuarios autenticados pueden leer presupuestos"
-  ON presupuestos FOR SELECT USING (auth.role() = 'authenticated');
-
-CREATE POLICY "Usuarios autenticados pueden leer facturas"
-  ON facturas FOR SELECT USING (auth.role() = 'authenticated');
-
--- Los viewers no pueden escribir (la app maneja el control fino)
 CREATE POLICY "Usuarios no-viewer pueden escribir clientes"
   ON clientes FOR ALL USING (
     auth.role() = 'authenticated' AND
     EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND rol != 'viewer')
   );
 
--- Audit: solo lectura para admin/superadmin
+-- ── clientes_direcciones ──────────────────────────────────────
+CREATE POLICY "Usuarios autenticados pueden leer clientes_direcciones"
+  ON clientes_direcciones FOR SELECT USING (auth.role() = 'authenticated');
+
+CREATE POLICY "Usuarios no-viewer pueden escribir clientes_direcciones"
+  ON clientes_direcciones FOR ALL USING (
+    auth.role() = 'authenticated' AND
+    EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND rol != 'viewer')
+  );
+
+-- ── presupuestos ──────────────────────────────────────────────
+CREATE POLICY "Usuarios autenticados pueden leer presupuestos"
+  ON presupuestos FOR SELECT USING (auth.role() = 'authenticated');
+
+CREATE POLICY "Usuarios no-viewer pueden escribir presupuestos"
+  ON presupuestos FOR ALL USING (
+    auth.role() = 'authenticated' AND
+    EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND rol != 'viewer')
+  );
+
+-- ── presupuestos_items ────────────────────────────────────────
+CREATE POLICY "Usuarios autenticados pueden leer presupuestos_items"
+  ON presupuestos_items FOR SELECT USING (auth.role() = 'authenticated');
+
+CREATE POLICY "Usuarios no-viewer pueden escribir presupuestos_items"
+  ON presupuestos_items FOR ALL USING (
+    auth.role() = 'authenticated' AND
+    EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND rol != 'viewer')
+  );
+
+-- ── presupuestos_incidencias ──────────────────────────────────
+CREATE POLICY "Usuarios autenticados pueden leer presupuestos_incidencias"
+  ON presupuestos_incidencias FOR SELECT USING (auth.role() = 'authenticated');
+
+CREATE POLICY "Usuarios no-viewer pueden escribir presupuestos_incidencias"
+  ON presupuestos_incidencias FOR ALL USING (
+    auth.role() = 'authenticated' AND
+    EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND rol != 'viewer')
+  );
+
+-- ── ordenes_servicio ──────────────────────────────────────────
+CREATE POLICY "Usuarios autenticados pueden leer ordenes"
+  ON ordenes_servicio FOR SELECT USING (auth.role() = 'authenticated');
+
+CREATE POLICY "Usuarios no-viewer pueden escribir ordenes"
+  ON ordenes_servicio FOR ALL USING (
+    auth.role() = 'authenticated' AND
+    EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND rol != 'viewer')
+  );
+
+-- ── ordenes_tecnicos ──────────────────────────────────────────
+CREATE POLICY "Usuarios autenticados pueden leer ordenes_tecnicos"
+  ON ordenes_tecnicos FOR SELECT USING (auth.role() = 'authenticated');
+
+CREATE POLICY "Usuarios no-viewer pueden escribir ordenes_tecnicos"
+  ON ordenes_tecnicos FOR ALL USING (
+    auth.role() = 'authenticated' AND
+    EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND rol != 'viewer')
+  );
+
+-- ── facturas ──────────────────────────────────────────────────
+CREATE POLICY "Usuarios autenticados pueden leer facturas"
+  ON facturas FOR SELECT USING (auth.role() = 'authenticated');
+
+CREATE POLICY "Usuarios no-viewer pueden escribir facturas"
+  ON facturas FOR ALL USING (
+    auth.role() = 'authenticated' AND
+    EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND rol != 'viewer')
+  );
+
+-- ── facturas_items ────────────────────────────────────────────
+CREATE POLICY "Usuarios autenticados pueden leer facturas_items"
+  ON facturas_items FOR SELECT USING (auth.role() = 'authenticated');
+
+CREATE POLICY "Usuarios no-viewer pueden escribir facturas_items"
+  ON facturas_items FOR ALL USING (
+    auth.role() = 'authenticated' AND
+    EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND rol != 'viewer')
+  );
+
+-- ── recibos ───────────────────────────────────────────────────
+CREATE POLICY "Usuarios autenticados pueden leer recibos"
+  ON recibos FOR SELECT USING (auth.role() = 'authenticated');
+
+CREATE POLICY "Usuarios no-viewer pueden escribir recibos"
+  ON recibos FOR ALL USING (
+    auth.role() = 'authenticated' AND
+    EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND rol != 'viewer')
+  );
+
+-- ── remitos ───────────────────────────────────────────────────
+CREATE POLICY "Usuarios autenticados pueden leer remitos"
+  ON remitos FOR SELECT USING (auth.role() = 'authenticated');
+
+CREATE POLICY "Usuarios no-viewer pueden escribir remitos"
+  ON remitos FOR ALL USING (
+    auth.role() = 'authenticated' AND
+    EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND rol != 'viewer')
+  );
+
+-- ── remitos_items ─────────────────────────────────────────────
+CREATE POLICY "Usuarios autenticados pueden leer remitos_items"
+  ON remitos_items FOR SELECT USING (auth.role() = 'authenticated');
+
+CREATE POLICY "Usuarios no-viewer pueden escribir remitos_items"
+  ON remitos_items FOR ALL USING (
+    auth.role() = 'authenticated' AND
+    EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND rol != 'viewer')
+  );
+
+-- ── notas_pedido ──────────────────────────────────────────────
+CREATE POLICY "Usuarios autenticados pueden leer notas_pedido"
+  ON notas_pedido FOR SELECT USING (auth.role() = 'authenticated');
+
+CREATE POLICY "Usuarios no-viewer pueden escribir notas_pedido"
+  ON notas_pedido FOR ALL USING (
+    auth.role() = 'authenticated' AND
+    EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND rol != 'viewer')
+  );
+
+-- ── notas_pedido_items ────────────────────────────────────────
+CREATE POLICY "Usuarios autenticados pueden leer notas_pedido_items"
+  ON notas_pedido_items FOR SELECT USING (auth.role() = 'authenticated');
+
+CREATE POLICY "Usuarios no-viewer pueden escribir notas_pedido_items"
+  ON notas_pedido_items FOR ALL USING (
+    auth.role() = 'authenticated' AND
+    EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND rol != 'viewer')
+  );
+
+-- ── documentos ───────────────────────────────────────────────
+CREATE POLICY "Usuarios autenticados pueden leer documentos"
+  ON documentos FOR SELECT USING (auth.role() = 'authenticated');
+
+CREATE POLICY "Usuarios no-viewer pueden escribir documentos"
+  ON documentos FOR ALL USING (
+    auth.role() = 'authenticated' AND
+    EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND rol != 'viewer')
+  );
+
+-- ── eventos_calendario ────────────────────────────────────────
+CREATE POLICY "Usuarios autenticados pueden leer eventos_calendario"
+  ON eventos_calendario FOR SELECT USING (auth.role() = 'authenticated');
+
+CREATE POLICY "Usuarios no-viewer pueden escribir eventos_calendario"
+  ON eventos_calendario FOR ALL USING (
+    auth.role() = 'authenticated' AND
+    EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND rol != 'viewer')
+  );
+
+-- ── numeradores ───────────────────────────────────────────────
+CREATE POLICY "Usuarios autenticados pueden leer numeradores"
+  ON numeradores FOR SELECT USING (auth.role() = 'authenticated');
+
+CREATE POLICY "Usuarios no-viewer pueden escribir numeradores"
+  ON numeradores FOR ALL USING (
+    auth.role() = 'authenticated' AND
+    EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND rol != 'viewer')
+  );
+
+-- ── configuracion_empresa ─────────────────────────────────────
+CREATE POLICY "Usuarios autenticados pueden leer configuracion"
+  ON configuracion_empresa FOR SELECT USING (auth.role() = 'authenticated');
+
+CREATE POLICY "Solo admin puede modificar configuracion"
+  ON configuracion_empresa FOR ALL USING (
+    auth.role() = 'authenticated' AND
+    EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND rol IN ('superadmin', 'admin'))
+  );
+
+-- ── servicios_catalogo ────────────────────────────────────────
+CREATE POLICY "Usuarios autenticados pueden leer servicios_catalogo"
+  ON servicios_catalogo FOR SELECT USING (auth.role() = 'authenticated');
+
+CREATE POLICY "Usuarios no-viewer pueden escribir servicios_catalogo"
+  ON servicios_catalogo FOR ALL USING (
+    auth.role() = 'authenticated' AND
+    EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND rol != 'viewer')
+  );
+
+-- ── audit_log ─────────────────────────────────────────────────
 CREATE POLICY "Solo admin puede leer audit log"
   ON audit_log FOR SELECT USING (
     EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND rol IN ('superadmin', 'admin'))
   );
+
+CREATE POLICY "Sistema puede escribir audit log"
+  ON audit_log FOR INSERT WITH CHECK (auth.role() = 'authenticated');

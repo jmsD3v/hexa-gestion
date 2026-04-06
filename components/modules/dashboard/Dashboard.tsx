@@ -126,10 +126,10 @@ function KPICard({
 }: KPICardProps) {
   const inner = (
     <div
-      className={`bg-slate-800/70 backdrop-blur-sm rounded-2xl border p-5 flex flex-col gap-3 transition-all h-full ${
+      className={`bg-slate-900/70 backdrop-blur-xl rounded-lg border p-5 flex flex-col gap-3 transition-all h-full ${
         alert
-          ? 'border-red-600 bg-red-900/20'
-          : 'border-slate-700 hover:border-slate-600 hover:shadow-sm'
+          ? 'border-red-500/25 bg-red-900/10'
+          : 'border-slate-400/10 hover:border-slate-400/20'
       } ${href ? 'cursor-pointer' : ''}`}
     >
       <div className='flex items-start justify-between'>
@@ -148,8 +148,8 @@ function KPICard({
       </div>
       {loading ? (
         <div className='space-y-1.5 flex-1 flex flex-col justify-center'>
-          <div className='h-7 w-24 bg-slate-700 rounded animate-pulse' />
-          <div className='h-3.5 w-32 bg-slate-700 rounded animate-pulse' />
+          <div className='h-7 w-24 bg-slate-400/10 rounded animate-pulse' />
+          <div className='h-3.5 w-32 bg-slate-400/10 rounded animate-pulse' />
         </div>
       ) : (
         <div className='flex-1 flex flex-col justify-center'>
@@ -223,7 +223,7 @@ function FilaActividad({ item }: { item: ActividadReciente }) {
   return (
     <Link
       href={item.href}
-      className='flex items-center gap-3 px-4 py-3 hover:bg-slate-800/50 rounded-xl transition-colors group'
+      className='flex items-center gap-3 px-4 py-3 hover:bg-slate-400/3 rounded-xl transition-colors group'
     >
       <div
         className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${tipoClr}`}
@@ -274,7 +274,7 @@ function AccesoRapido({
   return (
     <Link
       href={href}
-      className='flex flex-col items-center gap-2 p-3 sm:p-4 bg-slate-800 border border-slate-700 rounded-2xl hover:border-slate-600 hover:shadow-sm transition-all group text-center'
+      className='flex flex-col items-center gap-2 p-3 sm:p-4 bg-slate-900/70 border border-slate-400/10 rounded-xl hover:border-slate-400/20 hover:bg-slate-900/90 transition-all group text-center'
     >
       <div
         className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${color}`}
@@ -310,10 +310,8 @@ export default function Dashboard({
     async (showRefresh = false) => {
       if (showRefresh) setRefreshing(true);
 
-      // En desarrollo usa mocks automáticamente
       const shouldUseMocks =
         useMocks ||
-        process.env.NODE_ENV === 'development' ||
         process.env.NEXT_PUBLIC_USE_MOCKS === 'true';
 
       if (shouldUseMocks) {
@@ -352,21 +350,11 @@ export default function Dashboard({
 
   return (
     <>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700;800&family=DM+Mono:wght@300;400;500;700&display=swap');
-        .dashboard-ui { font-family: 'DM Sans', sans-serif; }
-        .dashboard-ui .font-mono { font-family: 'DM Mono', monospace !important; }
-        ::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:rgba(148,163,184,0.15);border-radius:2px}
-      `}</style>
       <div
-        className='dashboard-ui min-h-screen bg-slate-900'
-        style={{
-          background:
-            'radial-gradient(ellipse 100% 50% at 5% 0%, rgba(74,222,128,0.03), transparent 55%), #060d1a',
-        }}
+        className='min-h-screen bg-slate-950 bg-gradient-to-b from-emerald-950/5 to-slate-950'
       >
         {/* Header */}
-        <div className='bg-slate-800/70 backdrop-blur-sm border-b border-slate-700/80 px-4 sm:px-6 py-4 sm:py-5'>
+        <div className='bg-slate-900/80 backdrop-blur-sm border-b border-slate-400/10 px-4 sm:px-6 py-4 sm:py-5'>
           <div className='max-w-7xl mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3'>
             <div className='min-w-0'>
               <h1 className='text-lg sm:text-xl font-bold text-slate-100 truncate'>
@@ -385,7 +373,7 @@ export default function Dashboard({
             <button
               onClick={() => cargar(true)}
               disabled={refreshing}
-              className='flex items-center gap-1.5 px-3 py-2 text-sm text-slate-400 border border-slate-700 rounded-xl hover:bg-slate-700 transition-colors disabled:opacity-50 flex-shrink-0 w-full sm:w-auto justify-center'
+              className='flex items-center gap-1.5 px-3 py-2 text-sm text-slate-400 border border-slate-400/10 rounded-xl hover:bg-slate-400/5 transition-colors disabled:opacity-50 flex-shrink-0 w-full sm:w-auto justify-center'
             >
               <RefreshCw
                 className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`}
@@ -550,7 +538,7 @@ export default function Dashboard({
             </h2>
             <div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
               {/* Ventas Mensuales */}
-              <div className='bg-slate-800/70 backdrop-blur-sm rounded-2xl border border-slate-700 p-4'>
+              <div className='bg-slate-900/70 backdrop-blur-xl rounded-lg border border-slate-400/10 p-4'>
                 <div className='flex items-center justify-between mb-3'>
                   <h3 className='text-sm font-semibold text-slate-100'>
                     Ventas Mensuales
@@ -563,7 +551,7 @@ export default function Dashboard({
               </div>
 
               {/* Distribución de Órdenes */}
-              <div className='bg-slate-800/70 backdrop-blur-sm rounded-2xl border border-slate-700 p-4'>
+              <div className='bg-slate-900/70 backdrop-blur-xl rounded-lg border border-slate-400/10 p-4'>
                 <div className='flex items-center justify-between mb-3'>
                   <h3 className='text-sm font-semibold text-slate-100'>
                     Estados de Órdenes
@@ -577,8 +565,7 @@ export default function Dashboard({
                   {mockOrdersDistribution.map((item) => (
                     <div key={item.label} className='flex items-center gap-2'>
                       <div
-                        className='w-2 h-2 rounded-full'
-                        style={{ backgroundColor: item.color }}
+                        className={`w-2 h-2 rounded-full ${item.colorCls}`}
                       />
                       <span className='text-slate-300'>{item.label}</span>
                       <span className='ml-auto text-slate-400'>
@@ -590,7 +577,7 @@ export default function Dashboard({
               </div>
 
               {/* Top Clientes */}
-              <div className='bg-slate-800/70 backdrop-blur-sm rounded-2xl border border-slate-700 p-4'>
+              <div className='bg-slate-900/70 backdrop-blur-xl rounded-lg border border-slate-400/10 p-4'>
                 <div className='flex items-center justify-between mb-3'>
                   <h3 className='text-sm font-semibold text-slate-100'>
                     Top Clientes
@@ -607,8 +594,8 @@ export default function Dashboard({
           {/* Panel inferior: Actividad + Accesos rápidos */}
           <div className='grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6'>
             {/* Actividad reciente */}
-            <div className='lg:col-span-2 bg-slate-800/70 backdrop-blur-sm rounded-2xl border border-slate-700 shadow-sm overflow-hidden'>
-              <div className='px-4 sm:px-5 py-3 sm:py-4 border-b border-slate-700 flex items-center justify-between'>
+            <div className='lg:col-span-2 bg-slate-900/70 backdrop-blur-xl rounded-lg border border-slate-400/10 overflow-hidden'>
+              <div className='px-4 sm:px-5 py-3 sm:py-4 border-b border-slate-400/5 flex items-center justify-between'>
                 <div className='flex items-center gap-2'>
                   <Clock className='w-4 h-4 text-slate-500 flex-shrink-0' />
                   <h2 className='text-sm font-semibold text-slate-100 truncate'>
@@ -624,12 +611,12 @@ export default function Dashboard({
                 <div className='p-4 space-y-2'>
                   {[1, 2, 3, 4, 5, 6].map((i) => (
                     <div key={i} className='flex items-center gap-3 px-2 py-2'>
-                      <div className='w-8 h-8 rounded-lg bg-slate-700 animate-pulse flex-shrink-0' />
+                      <div className='w-8 h-8 rounded-lg bg-slate-400/10 animate-pulse flex-shrink-0' />
                       <div className='flex-1 space-y-1.5 min-w-0'>
-                        <div className='h-3 w-32 bg-slate-700 rounded animate-pulse' />
-                        <div className='h-3.5 w-48 bg-slate-700 rounded animate-pulse' />
+                        <div className='h-3 w-32 bg-slate-400/10 rounded animate-pulse' />
+                        <div className='h-3.5 w-48 bg-slate-400/10 rounded animate-pulse' />
                       </div>
-                      <div className='h-5 w-16 bg-slate-700 rounded-full animate-pulse flex-shrink-0' />
+                      <div className='h-5 w-16 bg-slate-400/10 rounded-full animate-pulse flex-shrink-0' />
                     </div>
                   ))}
                 </div>
@@ -639,7 +626,7 @@ export default function Dashboard({
                   <p className='text-sm'>Sin actividad reciente</p>
                 </div>
               ) : (
-                <div className='p-2 divide-y divide-slate-700'>
+                <div className='p-2 divide-y divide-slate-400/5'>
                   {actividad.map((item) => (
                     <FilaActividad key={item.id} item={item} />
                   ))}
@@ -650,7 +637,7 @@ export default function Dashboard({
             {/* Panel derecho: Accesos rápidos + estado */}
             <div className='space-y-4'>
               {/* Accesos rápidos */}
-              <div className='bg-slate-800/70 backdrop-blur-sm rounded-2xl border border-slate-700 shadow-sm p-4'>
+              <div className='bg-slate-900/70 backdrop-blur-xl rounded-lg border border-slate-400/10 p-4'>
                 <h2 className='text-sm font-semibold text-slate-100 mb-3'>
                   Crear nuevo
                 </h2>
@@ -695,7 +682,7 @@ export default function Dashboard({
               </div>
 
               {/* Resumen de estado del sistema */}
-              <div className='bg-slate-800/70 backdrop-blur-sm rounded-2xl border border-slate-700 shadow-sm p-4'>
+              <div className='bg-slate-900/70 backdrop-blur-xl rounded-lg border border-slate-400/10 p-4'>
                 <h2 className='text-sm font-semibold text-slate-100 mb-3'>
                   Estado del sistema
                 </h2>
@@ -736,8 +723,8 @@ export default function Dashboard({
                         </div>
                         <div className='h-1.5 bg-slate-700 rounded-full overflow-hidden'>
                           <div
-                            className={`h-full rounded-full transition-all duration-700 ${item.color}`}
-                            style={{ width: `${pct}%` }}
+                            className={`h-full rounded-full transition-all duration-700 ${item.color} w-[var(--bar-pct)]`}
+                            style={{ '--bar-pct': `${pct}%` } as React.CSSProperties}
                           />
                         </div>
                       </div>

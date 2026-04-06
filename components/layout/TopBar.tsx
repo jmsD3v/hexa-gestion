@@ -91,7 +91,7 @@ function Iniciales({
   }
   const ini = `${(nombre ?? '?')[0]}${(apellido ?? '')[0] ?? ''}`.toUpperCase();
   return (
-    <div className='w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center text-white text-xs font-bold shadow-sm flex-shrink-0'>
+    <div className='w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-600 to-emerald-800 flex items-center justify-center text-white text-xs font-bold shadow-sm flex-shrink-0'>
       {ini}
     </div>
   );
@@ -152,17 +152,18 @@ export default function TopBar({ profile }: { profile: ProfileData | null }) {
   };
 
   return (
-    <header className='h-14 bg-slate-800 border-b border-slate-700 flex items-center px-4 sm:px-5 gap-2 sm:gap-4 shrink-0'>
+    <header className='h-14 bg-slate-900 border-b border-slate-800 flex items-center px-4 sm:px-5 gap-2 sm:gap-4 shrink-0'>
       {/* Menu toggle para móvil */}
       <button
         onClick={toggle}
-        className='md:hidden p-2 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-slate-700 transition-colors flex-shrink-0'
+        className='md:hidden p-2 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors flex-shrink-0'
+        aria-label='Abrir menú lateral'
       >
-        <Menu className='w-4 h-4' />
+        <Menu className='w-4 h-4' aria-hidden='true' />
       </button>
 
       {/* Breadcrumb */}
-      <nav className='flex-1 flex items-center gap-1.5 min-w-0'>
+      <nav className='flex-1 flex items-center gap-1.5 min-w-0' aria-label='Ruta de navegación'>
         {crumbs.map((c, i) => (
           <span key={c.href} className='flex items-center gap-1.5 min-w-0'>
             {i > 0 && (
@@ -171,7 +172,7 @@ export default function TopBar({ profile }: { profile: ProfileData | null }) {
             {i < crumbs.length - 1 ? (
               <Link
                 href={c.href}
-                className='text-sm text-slate-400 hover:text-slate-200 transition-colors truncate'
+                className='text-sm text-slate-400 hover:text-slate-200 transition-colors truncate cursor-pointer'
               >
                 {c.label}
               </Link>
@@ -187,15 +188,21 @@ export default function TopBar({ profile }: { profile: ProfileData | null }) {
       {/* Acciones */}
       <div className='flex items-center gap-2 flex-shrink-0'>
         {/* Notificaciones (placeholder — Fase 2) */}
-        <button className='relative p-2 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-slate-700 transition-colors'>
-          <Bell className='w-4 h-4' />
+        <button
+          className='relative p-2 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors'
+          aria-label='Notificaciones'
+        >
+          <Bell className='w-4 h-4' aria-hidden='true' />
         </button>
 
         {/* Perfil dropdown */}
         <div className='relative'>
           <button
             onClick={() => setOpen((v) => !v)}
-            className='flex items-center gap-2 pl-1 pr-2 py-1 rounded-xl hover:bg-slate-700 transition-colors'
+            className='flex items-center gap-2 pl-1 pr-2 py-1 rounded-xl hover:bg-slate-800 transition-colors'
+            aria-label='Menú de usuario'
+            aria-expanded={open}
+            aria-haspopup='menu'
           >
             <Iniciales
               nombre={perfilActivo?.nombre ?? null}
@@ -206,7 +213,7 @@ export default function TopBar({ profile }: { profile: ProfileData | null }) {
               <p className='text-xs font-semibold text-slate-100 leading-tight'>
                 {nombreCompleto}
               </p>
-              <p className='text-[10px] text-slate-400 leading-tight capitalize'>
+              <p className='text-xs text-slate-400 leading-tight capitalize'>
                 {perfilActivo?.rol ?? 'operador'}
               </p>
             </div>
@@ -221,13 +228,13 @@ export default function TopBar({ profile }: { profile: ProfileData | null }) {
                 className='fixed inset-0 z-30'
                 onClick={() => setOpen(false)}
               />
-              <div className='absolute right-0 top-full mt-1 w-52 bg-slate-800 border border-slate-700 rounded-xl shadow-lg z-40 overflow-hidden py-1'>
+              <div className='absolute right-0 top-full mt-1 w-52 bg-slate-950 border border-slate-400/15 rounded-xl shadow-[0_8px_24px_rgba(0,0,0,0.5)] z-40 overflow-hidden py-1' role='menu'>
                 {/* Info usuario */}
-                <div className='px-3 py-2.5 border-b border-slate-700'>
+                <div className='px-3 py-2.5 border-b border-slate-400/10'>
                   <p className='text-xs font-semibold text-slate-100 truncate'>
                     {nombreCompleto}
                   </p>
-                  <p className='text-[11px] text-slate-400 truncate'>
+                  <p className='text-xs text-slate-400 truncate'>
                     {perfilActivo?.email ?? ''}
                   </p>
                 </div>
@@ -235,7 +242,7 @@ export default function TopBar({ profile }: { profile: ProfileData | null }) {
                 <Link
                   href='/configuracion'
                   onClick={() => setOpen(false)}
-                  className='flex items-center gap-2.5 px-3 py-2 text-sm text-slate-300 hover:bg-slate-700 transition-colors'
+                  className='flex items-center gap-2.5 px-3 py-2 text-sm text-slate-300 hover:bg-slate-800/60 transition-colors'
                 >
                   <Settings className='w-4 h-4 text-slate-400' />
                   Configuración
@@ -244,16 +251,16 @@ export default function TopBar({ profile }: { profile: ProfileData | null }) {
                 <Link
                   href='/configuracion#perfil'
                   onClick={() => setOpen(false)}
-                  className='flex items-center gap-2.5 px-3 py-2 text-sm text-slate-300 hover:bg-slate-700 transition-colors'
+                  className='flex items-center gap-2.5 px-3 py-2 text-sm text-slate-300 hover:bg-slate-800/60 transition-colors'
                 >
                   <User className='w-4 h-4 text-slate-400' />
                   Mi perfil
                 </Link>
 
-                <div className='border-t border-slate-700 mt-1 pt-1'>
+                <div className='border-t border-slate-400/10 mt-1 pt-1'>
                   <button
                     onClick={handleLogout}
-                    className='w-full flex items-center gap-2.5 px-3 py-2 text-sm text-red-400 hover:bg-red-900/20 transition-colors'
+                    className='w-full flex items-center gap-2.5 px-3 py-2 text-sm text-red-400 hover:bg-red-500/10 transition-colors'
                   >
                     <LogOut className='w-4 h-4' />
                     Cerrar sesión

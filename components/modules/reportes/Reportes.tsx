@@ -27,6 +27,8 @@ import {
   Calendar,
   ChevronDown,
   RefreshCw,
+  Download,
+  Loader2,
 } from 'lucide-react';
 import {
   obtenerSerieFacturacion,
@@ -34,6 +36,8 @@ import {
   obtenerSeriePresupuestos,
   obtenerRankingClientes,
   obtenerResumenPeriodo,
+  exportarFacturasPeriodo,
+  exportarOrdenesPeriodo,
 } from '@/app/actions/reportes';
 import {
   getMockRankingClientes,
@@ -91,13 +95,13 @@ function rangoDesde(meses: number): { desde: string; hasta: string } {
 function TooltipCustom({ active, payload, label, dinero = false }: any) {
   if (!active || !payload?.length) return null;
   return (
-    <div className='bg-slate-800 border border-slate-700 rounded-xl shadow-lg px-3 py-2.5 text-sm'>
+    <div className='bg-slate-950 border border-slate-400/15 rounded-lg shadow-2xl px-3 py-2.5 text-sm'>
       <p className='font-semibold text-slate-200 mb-1.5'>{label}</p>
       {payload.map((p: any) => (
         <div key={p.dataKey} className='flex items-center gap-2'>
           <span
-            className='w-2.5 h-2.5 rounded-full flex-shrink-0'
-            style={{ backgroundColor: p.color }}
+            className='w-2.5 h-2.5 rounded-full flex-shrink-0 bg-[var(--dot-color)]'
+            style={{ '--dot-color': p.color } as React.CSSProperties}
           />
           <span className='text-slate-400 text-xs'>{p.name}:</span>
           <span className='font-semibold text-slate-200'>
@@ -125,7 +129,7 @@ function KpiCard({
   sub?: string;
 }) {
   return (
-    <div className='bg-slate-800 rounded-2xl border border-slate-700 p-4 shadow-sm'>
+    <div className='bg-slate-900/70 rounded-lg border border-slate-400/10 p-4'>
       <div
         className={`w-9 h-9 rounded-xl flex items-center justify-center mb-3 ${color}`}
       >
@@ -150,8 +154,8 @@ function ChartPanel({
   loading: boolean;
 }) {
   return (
-    <div className='bg-slate-800 rounded-2xl border border-slate-700 shadow-sm overflow-hidden'>
-      <div className='px-5 py-4 border-b border-slate-700'>
+    <div className='bg-slate-900/70 rounded-lg border border-slate-400/10 overflow-hidden'>
+      <div className='px-5 py-4 border-b border-slate-400/10'>
         <h2 className='text-sm font-semibold text-slate-100'>{titulo}</h2>
       </div>
       <div className='p-4'>
@@ -186,17 +190,17 @@ function FilaRanking({
       </span>
       <div className='flex-1 min-w-0'>
         <div className='flex items-baseline justify-between mb-1'>
-          <p className='text-sm font-medium text-slate-800 truncate'>
+          <p className='text-sm font-medium text-slate-200 truncate'>
             {item.nombre}
           </p>
-          <span className='text-sm font-bold text-slate-900 ml-2 flex-shrink-0'>
+          <span className='text-sm font-bold text-slate-100 ml-2 flex-shrink-0'>
             {fmt$(item.valor)}
           </span>
         </div>
-        <div className='h-1.5 bg-slate-100 rounded-full overflow-hidden'>
+        <div className='h-1.5 bg-slate-400/10 rounded-full overflow-hidden'>
           <div
-            className='h-full rounded-full bg-gradient-to-r from-blue-500 to-blue-400 transition-all duration-700'
-            style={{ width: `${pct}%` }}
+            className='h-full rounded-full bg-gradient-to-r from-blue-500 to-blue-400 transition-all duration-700 w-[var(--bar-pct)]'
+            style={{ '--bar-pct': `${pct}%` } as React.CSSProperties}
           />
         </div>
         <p className='text-[10px] text-slate-400 mt-0.5'>
@@ -211,9 +215,39 @@ function FilaRanking({
 // COMPONENTE PRINCIPAL
 // ════════════════════════════════════════════════════════════
 
+// ── Utilidad CSV ──────────────────────────────────────────────
+
+function descargarCSV(
+  filas: Record<string, unknown>[],
+  columnas: { key: string; label: string }[],
+  nombre: string,
+) {
+  const header = columnas.map((c) => `"${c.label}"`).join(',');
+  const rows = filas.map((f) =>
+    columnas
+      .map((c) => {
+        const v = f[c.key] ?? '';
+        return typeof v === 'string' ? `"${v.replace(/"/g, '""')}"` : String(v);
+      })
+      .join(','),
+  );
+  const csv = '\uFEFF' + [header, ...rows].join('\r\n'); // BOM para Excel
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = nombre;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 export default function Reportes() {
   const [periodo, setPeriodo] = useState<PeriodoKey>('12m');
   const [showPeriodos, setShowP] = useState(false);
+  const [showExport, setShowExport] = useState(false);
+  const [exportando, setExportando] = useState(false);
 
   const [resumen, setResumen] = useState<ResumenPeriodo | null>(null);
   const [serieFactura, setSerieF] = useState<PuntoSerie[]>([]);
@@ -273,26 +307,104 @@ export default function Reportes() {
   }, [cargar]);
 
   const periodoLabel = PERIODOS.find((p) => p.key === periodo)?.label ?? '';
+  const { desde, hasta } = rangoDesde(meses);
+
+  const handleExportar = async (tipo: 'facturas' | 'ordenes' | 'ranking' | 'facturacion') => {
+    setShowExport(false);
+    setExportando(true);
+
+    const fechaNombre = `${desde}_${hasta}`;
+
+    if (tipo === 'ranking') {
+      descargarCSV(
+        ranking as unknown as Record<string, unknown>[],
+        [
+          { key: 'nombre', label: 'Cliente' },
+          { key: 'cantidad', label: 'Cant. facturas' },
+          { key: 'valor', label: 'Total facturado (ARS)' },
+        ],
+        `ranking_clientes_${fechaNombre}.csv`,
+      );
+    }
+
+    if (tipo === 'facturacion') {
+      descargarCSV(
+        serieFactura as unknown as Record<string, unknown>[],
+        [
+          { key: 'label', label: 'Mes' },
+          { key: 'valor', label: 'Facturado (ARS)' },
+          { key: 'valor2', label: 'Cobrado (ARS)' },
+        ],
+        `serie_facturacion_${fechaNombre}.csv`,
+      );
+    }
+
+    if (tipo === 'facturas') {
+      const res = await exportarFacturasPeriodo(desde, hasta);
+      if (res.data) {
+        descargarCSV(
+          res.data as unknown as Record<string, unknown>[],
+          [
+            { key: 'numero', label: 'Número' },
+            { key: 'fecha_emision', label: 'Fecha' },
+            { key: 'tipo_comprobante', label: 'Tipo' },
+            { key: 'cliente', label: 'Cliente' },
+            { key: 'estado', label: 'Estado' },
+            { key: 'subtotal', label: 'Subtotal (ARS)' },
+            { key: 'iva_monto', label: 'IVA (ARS)' },
+            { key: 'total', label: 'Total (ARS)' },
+            { key: 'cobrado', label: 'Cobrado (ARS)' },
+            { key: 'saldo_pendiente', label: 'Saldo (ARS)' },
+          ],
+          `facturas_${fechaNombre}.csv`,
+        );
+      }
+    }
+
+    if (tipo === 'ordenes') {
+      const res = await exportarOrdenesPeriodo(desde, hasta);
+      if (res.data) {
+        descargarCSV(
+          res.data as unknown as Record<string, unknown>[],
+          [
+            { key: 'numero', label: 'Número' },
+            { key: 'titulo', label: 'Título' },
+            { key: 'cliente', label: 'Cliente' },
+            { key: 'estado', label: 'Estado' },
+            { key: 'fecha_inicio', label: 'Inicio' },
+            { key: 'fecha_fin_real', label: 'Fin real' },
+            { key: 'presupuesto', label: 'Presupuesto' },
+          ],
+          `ordenes_${fechaNombre}.csv`,
+        );
+      }
+    }
+
+    setExportando(false);
+  };
 
   return (
     <>
-      <style>{`::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:rgba(148,163,184,0.15);border-radius:2px}`}</style>
-      <div className='min-h-screen bg-slate-900'>
+      <div className='min-h-screen bg-slate-950 bg-gradient-to-b from-violet-950/5 to-slate-950'>
         {/* Header */}
-        <div className='bg-slate-800 border-b border-slate-700 px-6 py-5'>
+        <div className='bg-slate-900/80 backdrop-blur-sm border-b border-slate-400/10 px-6 py-5'>
           <div className='max-w-7xl mx-auto flex items-center justify-between flex-wrap gap-3'>
-            <div>
-              <h1 className='text-xl font-bold text-slate-100'>Reportes</h1>
-              <p className='text-sm text-slate-400 mt-0.5'>
-                Análisis de rendimiento comercial y operativo
-              </p>
+            <div className='min-w-0'>
+              <div className='mb-1 flex items-center gap-2'>
+                <span className='text-[11px] text-slate-500 tracking-widest uppercase'>Hexa Gestión</span>
+                <span className='text-slate-500'>›</span>
+                <span className='text-[11px] text-slate-600 tracking-widest uppercase'>Reportes</span>
+              </div>
+              <h1 className='text-[32px] leading-none font-bold tracking-tight text-slate-100 max-[780px]:text-[22px]'>
+                Reportes
+              </h1>
             </div>
             <div className='flex items-center gap-2'>
               {/* Selector de período */}
               <div className='relative'>
                 <button
                   onClick={() => setShowP((v) => !v)}
-                  className='flex items-center gap-2 px-4 py-2 bg-slate-700 border border-slate-600 rounded-xl text-sm font-medium text-slate-200 hover:bg-slate-600 transition-colors shadow-sm'
+                  className='flex items-center gap-2 px-4 py-2 bg-transparent border border-slate-400/10 rounded-[7px] text-sm font-medium text-slate-400 hover:bg-slate-400/5 hover:text-slate-200 transition-colors'
                 >
                   <Calendar className='w-4 h-4 text-slate-400' />
                   {periodoLabel}
@@ -301,7 +413,7 @@ export default function Reportes() {
                   />
                 </button>
                 {showPeriodos && (
-                  <div className='absolute right-0 top-full mt-1 w-48 bg-slate-800 border border-slate-700 rounded-xl shadow-lg z-20 overflow-hidden'>
+                  <div className='absolute right-0 top-full mt-1 w-48 bg-slate-950 border border-slate-400/15 rounded-[9px] shadow-2xl z-20 overflow-hidden'>
                     {PERIODOS.map((p) => (
                       <button
                         key={p.key}
@@ -311,8 +423,8 @@ export default function Reportes() {
                         }}
                         className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${
                           periodo === p.key
-                            ? 'bg-blue-900/40 text-blue-400 font-semibold'
-                            : 'text-slate-300 hover:bg-slate-700'
+                            ? 'bg-emerald-500/10 text-emerald-400 font-semibold'
+                            : 'text-slate-400 hover:bg-slate-400/5 hover:text-slate-200'
                         }`}
                       >
                         {p.label}
@@ -321,10 +433,43 @@ export default function Reportes() {
                   </div>
                 )}
               </div>
+              {/* Exportar */}
+              <div className='relative'>
+                <button
+                  onClick={() => setShowExport((v) => !v)}
+                  disabled={exportando || loadingCh}
+                  className='flex items-center gap-1.5 px-3 py-2 bg-transparent border border-slate-400/10 rounded-[7px] text-sm font-medium text-slate-400 hover:bg-slate-400/5 hover:text-slate-200 transition-colors disabled:opacity-50'
+                >
+                  {exportando
+                    ? <Loader2 className='w-3.5 h-3.5 animate-spin' />
+                    : <Download className='w-3.5 h-3.5' />}
+                  Exportar
+                  <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform ${showExport ? 'rotate-180' : ''}`} />
+                </button>
+                {showExport && (
+                  <div className='absolute right-0 top-full mt-1 w-56 bg-slate-950 border border-slate-400/15 rounded-[9px] shadow-2xl z-30 overflow-hidden'>
+                    {[
+                      { key: 'facturas',    label: 'Facturas del período', sub: 'Detalle completo' },
+                      { key: 'ordenes',     label: 'Órdenes del período',  sub: 'Con estado y fechas' },
+                      { key: 'facturacion', label: 'Serie facturación',    sub: 'Datos del gráfico' },
+                      { key: 'ranking',     label: 'Ranking clientes',     sub: 'Top por facturación' },
+                    ].map((op) => (
+                      <button
+                        key={op.key}
+                        onClick={() => handleExportar(op.key as any)}
+                        className='w-full text-left px-4 py-3 hover:bg-slate-400/5 transition-colors border-b border-slate-400/5 last:border-0'
+                      >
+                        <div className='text-sm font-medium text-slate-200'>{op.label}</div>
+                        <div className='text-xs text-slate-500'>{op.sub} · CSV</div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
               <button
                 onClick={() => cargar(true)}
                 disabled={refreshing}
-                className='flex items-center gap-1.5 px-3 py-2 border border-slate-200 rounded-xl text-sm text-slate-500 hover:bg-slate-50 transition-colors disabled:opacity-50'
+                className='flex items-center gap-1.5 px-3 py-2 border border-slate-400/10 rounded-[7px] text-sm text-slate-400 hover:bg-slate-400/5 transition-colors disabled:opacity-50'
               >
                 <RefreshCw
                   className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`}
@@ -341,7 +486,7 @@ export default function Reportes() {
               ? Array.from({ length: 6 }).map((_, i) => (
                   <div
                     key={i}
-                    className='h-28 bg-white rounded-2xl border border-slate-200 animate-pulse'
+                    className='h-28 bg-slate-900/70 rounded-lg border border-slate-400/10 animate-pulse'
                   />
                 ))
               : resumen && (
@@ -350,14 +495,14 @@ export default function Reportes() {
                       label='Facturado'
                       value={fmtK(resumen.facturado)}
                       icon={TrendingUp}
-                      color='bg-blue-100 text-blue-600'
+                      color='bg-blue-500/15 text-blue-400'
                       sub={periodoLabel}
                     />
                     <KpiCard
                       label='Cobrado'
                       value={fmtK(resumen.cobrado)}
                       icon={TrendingUp}
-                      color='bg-emerald-100 text-emerald-600'
+                      color='bg-emerald-500/15 text-emerald-400'
                       sub={
                         resumen.facturado > 0
                           ? `${Math.round((resumen.cobrado / resumen.facturado) * 100)}% del facturado`
@@ -368,26 +513,26 @@ export default function Reportes() {
                       label='Saldo pendiente'
                       value={fmtK(resumen.facturado - resumen.cobrado)}
                       icon={TrendingUp}
-                      color='bg-amber-100 text-amber-600'
+                      color='bg-amber-500/15 text-amber-400'
                     />
                     <KpiCard
                       label='Órdenes cerradas'
                       value={String(resumen.ordenes_cerradas)}
                       icon={ClipboardList}
-                      color='bg-violet-100 text-violet-600'
+                      color='bg-violet-500/15 text-violet-400'
                     />
                     <KpiCard
                       label='Pres. aprobados'
                       value={String(resumen.presupuestos_aprobados)}
                       icon={FileText}
-                      color='bg-indigo-100 text-indigo-600'
+                      color='bg-indigo-500/15 text-indigo-400'
                       sub={`${resumen.tasa_conversion}% tasa`}
                     />
                     <KpiCard
                       label='Ticket promedio'
                       value={fmtK(resumen.ticket_promedio)}
                       icon={Users}
-                      color='bg-rose-100 text-rose-600'
+                      color='bg-rose-500/15 text-rose-400'
                     />
                   </>
                 )}
@@ -400,7 +545,7 @@ export default function Reportes() {
                 data={serieFactura}
                 margin={{ top: 4, right: 16, left: 0, bottom: 0 }}
               >
-                <CartesianGrid strokeDasharray='3 3' stroke='#f1f5f9' />
+                <CartesianGrid strokeDasharray='3 3' stroke='#1e293b' />
                 <XAxis
                   dataKey='label'
                   tick={{ fontSize: 11, fill: '#94a3b8' }}
@@ -419,7 +564,7 @@ export default function Reportes() {
                   iconType='circle'
                   iconSize={8}
                   formatter={(v) => (
-                    <span style={{ fontSize: 11, color: '#64748b' }}>{v}</span>
+                    <span className='text-[11px] text-slate-500'>{v}</span>
                   )}
                 />
                 <Line
@@ -457,7 +602,7 @@ export default function Reportes() {
                   margin={{ top: 4, right: 8, left: 0, bottom: 0 }}
                   barSize={10}
                 >
-                  <CartesianGrid strokeDasharray='3 3' stroke='#f1f5f9' />
+                  <CartesianGrid strokeDasharray='3 3' stroke='#1e293b' />
                   <XAxis
                     dataKey='label'
                     tick={{ fontSize: 10, fill: '#94a3b8' }}
@@ -475,7 +620,7 @@ export default function Reportes() {
                     iconType='circle'
                     iconSize={7}
                     formatter={(v) => (
-                      <span style={{ fontSize: 10, color: '#64748b' }}>
+                      <span className='text-[10px] text-slate-500'>
                         {v}
                       </span>
                     )}
@@ -506,7 +651,7 @@ export default function Reportes() {
                   margin={{ top: 4, right: 8, left: 0, bottom: 0 }}
                   barSize={10}
                 >
-                  <CartesianGrid strokeDasharray='3 3' stroke='#f1f5f9' />
+                  <CartesianGrid strokeDasharray='3 3' stroke='#1e293b' />
                   <XAxis
                     dataKey='label'
                     tick={{ fontSize: 10, fill: '#94a3b8' }}
@@ -524,7 +669,7 @@ export default function Reportes() {
                     iconType='circle'
                     iconSize={7}
                     formatter={(v) => (
-                      <span style={{ fontSize: 10, color: '#64748b' }}>
+                      <span className='text-[10px] text-slate-500'>
                         {v}
                       </span>
                     )}
@@ -547,22 +692,22 @@ export default function Reportes() {
           </div>
 
           {/* Ranking clientes */}
-          <div className='bg-slate-800 rounded-2xl border border-slate-700 shadow-sm overflow-hidden'>
-            <div className='px-5 py-4 border-b border-slate-100 flex items-center justify-between'>
+          <div className='bg-slate-900/70 rounded-lg border border-slate-400/10 overflow-hidden'>
+            <div className='px-5 py-4 border-b border-slate-400/10 flex items-center justify-between'>
               <div className='flex items-center gap-2'>
                 <Users className='w-4 h-4 text-slate-400' />
-                <h2 className='text-sm font-semibold text-slate-800'>
+                <h2 className='text-sm font-semibold text-slate-100'>
                   Top clientes por facturación acumulada
                 </h2>
               </div>
               <span className='text-xs text-slate-400'>Histórico total</span>
             </div>
-            <div className='px-5 py-3 divide-y divide-slate-50'>
+            <div className='px-5 py-3 divide-y divide-slate-400/5'>
               {loadingCh ? (
                 Array.from({ length: 5 }).map((_, i) => (
                   <div key={i} className='py-2.5'>
-                    <div className='h-4 bg-slate-100 rounded animate-pulse mb-1.5 w-48' />
-                    <div className='h-1.5 bg-slate-100 rounded animate-pulse w-full' />
+                    <div className='h-4 bg-slate-400/10 rounded animate-pulse mb-1.5 w-48' />
+                    <div className='h-1.5 bg-slate-400/10 rounded animate-pulse w-full' />
                   </div>
                 ))
               ) : ranking.length === 0 ? (

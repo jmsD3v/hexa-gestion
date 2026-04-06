@@ -6,13 +6,8 @@
 // actividad reciente y acciones rápidas.
 // ============================================================
 
-import {
-  useState,
-  useEffect,
-  useCallback,
-  type CSSProperties,
-  type ReactNode,
-} from 'react';
+import { useState, useEffect, useCallback, type ReactNode } from 'react';
+import { ArrowLeft, ClipboardList, BarChart3, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import type {
   ClienteConDirecciones,
   ClienteKPIs,
@@ -36,6 +31,7 @@ import {
   shouldUsePlatformMocks,
 } from '@/app/actions/platform-mocks';
 import { formatearMonto } from '@/lib/calculos';
+import { cn } from '@/lib/utils';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -75,12 +71,15 @@ const IVA_LABEL: Record<CondicionIVA, string> = {
   CONSUMIDOR_FINAL: 'Consumidor Final',
   NO_RESPONSABLE: 'No Responsable',
 };
-const IVA_COLOR: Record<CondicionIVA, string> = {
-  RESPONSABLE_INSCRIPTO: '#60a5fa',
-  MONOTRIBUTISTA: '#a78bfa',
-  EXENTO: '#34d399',
-  CONSUMIDOR_FINAL: '#94a3b8',
-  NO_RESPONSABLE: '#64748b',
+const IVA_BADGE_CLS: Record<CondicionIVA, string> = {
+  RESPONSABLE_INSCRIPTO:
+    'text-blue-400 bg-blue-400/[0.08] border-blue-400/[0.19]',
+  MONOTRIBUTISTA:
+    'text-violet-400 bg-violet-400/[0.08] border-violet-400/[0.19]',
+  EXENTO: 'text-emerald-400 bg-emerald-400/[0.08] border-emerald-400/[0.19]',
+  CONSUMIDOR_FINAL:
+    'text-slate-400 bg-slate-400/[0.08] border-slate-400/[0.19]',
+  NO_RESPONSABLE: 'text-slate-500 bg-slate-500/[0.08] border-slate-500/[0.19]',
 };
 const PROVINCIAS = [
   'Buenos Aires',
@@ -145,34 +144,12 @@ const fmtFechaCorta = (iso: string | null) =>
 
 // ─── Estilos base ─────────────────────────────────────────────────────────────
 
-const card: CSSProperties = {
-  background: 'rgba(15,23,42,0.7)',
-  border: '1px solid rgba(148,163,184,0.08)',
-  borderRadius: '12px',
-  backdropFilter: 'blur(12px)',
-};
-const inputSt: CSSProperties = {
-  width: '100%',
-  padding: '8px 11px',
-  background: 'rgba(8,16,35,0.6)',
-  border: '1px solid rgba(148,163,184,0.1)',
-  borderRadius: '7px',
-  color: '#e2e8f0',
-  fontSize: '12px',
-  fontFamily: "'DM Sans',sans-serif",
-  outline: 'none',
-  boxSizing: 'border-box',
-  transition: 'border-color 0.15s',
-};
-const labelSt: CSSProperties = {
-  fontSize: '10px',
-  fontWeight: '600',
-  letterSpacing: '0.08em',
-  textTransform: 'uppercase',
-  color: '#475569',
-  display: 'block',
-  marginBottom: '4px',
-};
+const cardClass =
+  'bg-slate-900/70 border border-slate-400/10 rounded-xl backdrop-blur-sm';
+const inputClass =
+  'w-full px-3 py-2 bg-slate-950/60 border border-slate-400/10 rounded-lg text-slate-200 text-xs outline-none transition-colors';
+const labelClass =
+  'text-xs font-semibold tracking-widest uppercase text-slate-600 block mb-1';
 
 // ─── Subcomponentes ───────────────────────────────────────────────────────────
 
@@ -187,13 +164,7 @@ function Skeleton({
 }) {
   return (
     <div
-      style={{
-        width: w,
-        height: h,
-        borderRadius: r,
-        background: 'rgba(148,163,184,0.07)',
-        animation: 'shimmer 1.4s ease infinite',
-      }}
+      className={`bg-slate-400/[0.07] animate-pulse w-[${w}] h-[${h}] rounded-[${r}]`}
     />
   );
 }
@@ -210,25 +181,17 @@ function InfoPar({
   children?: ReactNode;
 }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-      <span
-        style={{
-          fontSize: '10px',
-          fontWeight: '600',
-          letterSpacing: '0.08em',
-          textTransform: 'uppercase',
-          color: '#334155',
-        }}
-      >
+    <div className='flex flex-col gap-0.5'>
+      <span className='text-xs font-semibold tracking-widest uppercase text-[#334155]'>
         {label}
       </span>
       {children ?? (
         <span
-          style={{
-            fontSize: '12px',
-            color: value ? '#94a3b8' : '#1e293b',
-            fontFamily: mono ? "'DM Mono',monospace" : "'DM Sans',sans-serif",
-          }}
+          className={cn(
+            'text-xs',
+            mono ? 'font-mono' : '',
+            value ? 'text-slate-400' : 'text-slate-800',
+          )}
         >
           {value || '—'}
         </span>
@@ -241,54 +204,30 @@ function KPICard({
   label,
   value,
   sub,
-  color = '#94a3b8',
+  colorCls = 'text-slate-400',
   loading,
 }: {
   label: string;
   value: string;
   sub?: string;
-  color?: string;
+  colorCls?: string;
   loading?: boolean;
 }) {
   return (
-    <div
-      style={{
-        ...card,
-        padding: '14px',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '5px',
-      }}
-    >
-      <span
-        style={{
-          fontSize: '10px',
-          fontWeight: '600',
-          letterSpacing: '0.08em',
-          textTransform: 'uppercase',
-          color: '#334155',
-        }}
-      >
+    <div className={cn(cardClass, 'p-[14px] flex flex-col gap-[5px]')}>
+      <span className='text-xs font-semibold tracking-widest uppercase text-[#334155]'>
         {label}
       </span>
       {loading ? (
         <Skeleton w='80px' h='22px' />
       ) : (
         <span
-          style={{
-            fontSize: '20px',
-            fontWeight: '700',
-            color,
-            fontFamily: "'DM Mono',monospace",
-            letterSpacing: '-0.02em',
-          }}
+          className={`font-mono text-[20px] font-bold tracking-[-0.02em] ${colorCls}`}
         >
           {value}
         </span>
       )}
-      {sub && !loading && (
-        <span style={{ fontSize: '11px', color: '#334155' }}>{sub}</span>
-      )}
+      {sub && !loading && <span className='text-xs text-[#334155]'>{sub}</span>}
     </div>
   );
 }
@@ -296,30 +235,14 @@ function KPICard({
 function BadgeEstado({ activo }: { activo: boolean }) {
   return (
     <span
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: '4px',
-        padding: '2px 8px',
-        borderRadius: '20px',
-        fontSize: '10px',
-        fontWeight: '600',
-        background: activo ? 'rgba(74,222,128,0.08)' : 'rgba(248,113,113,0.08)',
-        border: activo
-          ? '1px solid rgba(74,222,128,0.25)'
-          : '1px solid rgba(248,113,113,0.25)',
-        color: activo ? '#4ade80' : '#f87171',
-      }}
+      className={cn(
+        'inline-flex items-center gap-1 px-2 py-0.5 rounded-[20px] text-xs font-semibold',
+        activo
+          ? 'bg-emerald-400/[0.08] border border-emerald-400/25 text-[#4ade80]'
+          : 'bg-red-400/[0.08] border border-red-400/25 text-red-400',
+      )}
     >
-      <span
-        style={{
-          width: '5px',
-          height: '5px',
-          borderRadius: '50%',
-          background: 'currentColor',
-          display: 'inline-block',
-        }}
-      />
+      <span className='inline-block w-[5px] h-[5px] rounded-full bg-current' />
       {activo ? 'Activo' : 'Inactivo'}
     </span>
   );
@@ -332,39 +255,15 @@ function Toast({ toast, onClose }: { toast: ToastState; onClose: () => void }) {
   }, [onClose]);
   return (
     <div
-      style={{
-        position: 'fixed',
-        bottom: '24px',
-        right: '24px',
-        zIndex: 200,
-        display: 'flex',
-        alignItems: 'center',
-        gap: '10px',
-        padding: '12px 18px',
-        borderRadius: '10px',
-        background: 'rgba(15,23,42,0.97)',
-        border: `1px solid ${toast.tipo === 'ok' ? 'rgba(74,222,128,0.3)' : 'rgba(248,113,113,0.3)'}`,
-        backdropFilter: 'blur(12px)',
-        boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
-        animation: 'slideUp 0.25s cubic-bezier(0.34,1.56,0.64,1)',
-        maxWidth: '320px',
-      }}
+      className={`fixed bottom-6 right-6 z-[200] flex items-center gap-2.5 px-[18px] py-3 rounded-[10px] bg-slate-950/[0.97] backdrop-blur-sm shadow-[0_8px_32px_rgba(0,0,0,0.4)] max-w-[320px] animate-modal-in ${toast.tipo === 'ok' ? 'border border-emerald-400/30' : 'border border-red-400/30'}`}
     >
       <span
-        style={{
-          fontSize: '13px',
-          color: toast.tipo === 'ok' ? '#4ade80' : '#f87171',
-          fontWeight: '600',
-        }}
+        className={`text-[13px] font-semibold ${toast.tipo === 'ok' ? 'text-emerald-400' : 'text-red-400'}`}
       >
         {toast.tipo === 'ok' ? '✓' : '✕'}
       </span>
       <span
-        style={{
-          fontSize: '13px',
-          color: toast.tipo === 'ok' ? '#4ade80' : '#f87171',
-          fontFamily: "'DM Sans',sans-serif",
-        }}
+        className={`text-[13px] ${toast.tipo === 'ok' ? 'text-emerald-400' : 'text-red-400'}`}
       >
         {toast.mensaje}
       </span>
@@ -372,19 +271,11 @@ function Toast({ toast, onClose }: { toast: ToastState; onClose: () => void }) {
   );
 }
 
-function SectionTitle({ icon, title }: { icon: string; title: string }) {
+function SectionTitle({ icon, title }: { icon: ReactNode; title: string }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-      <span style={{ fontSize: '12px' }}>{icon}</span>
-      <span
-        style={{
-          fontSize: '11px',
-          fontWeight: '700',
-          letterSpacing: '0.08em',
-          textTransform: 'uppercase',
-          color: '#475569',
-        }}
-      >
+    <div className='flex items-center gap-1.5'>
+      <span className='text-slate-500 flex items-center'>{icon}</span>
+      <span className='text-xs font-bold tracking-widest uppercase text-slate-600'>
         {title}
       </span>
     </div>
@@ -412,27 +303,14 @@ function BtnIcono({
       title={title}
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
-      style={{
-        width: '26px',
-        height: '26px',
-        borderRadius: '6px',
-        border: '1px solid rgba(148,163,184,0.08)',
-        background: 'transparent',
-        color: danger && hov ? '#f87171' : '#475569',
-        cursor: loading ? 'not-allowed' : 'pointer',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        transition: 'all 0.12s',
-        opacity: loading ? 0.5 : 1,
-      }}
+      className={`flex items-center justify-center w-[26px] h-[26px] rounded-md border border-slate-400/[0.08] bg-transparent transition-all ${danger && hov ? 'text-red-400' : 'text-slate-600'} ${loading ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
     >
       {loading ? (
         <svg
           width='10'
           height='10'
           viewBox='0 0 10 10'
-          style={{ animation: 'spin 0.8s linear infinite' }}
+          className='animate-spin'
         >
           <circle
             cx='5'
@@ -500,14 +378,19 @@ function DireccionForm({
 
   return (
     <div
-      className='p-4 sm:p-[18px] animate-[slideUp_0.2s_ease]'
-      style={{ ...card, border: '1px solid rgba(245,158,11,0.15)' }}
+      className={cn(
+        cardClass,
+        'p-4 sm:p-[18px] animate-[slideUp_0.2s_ease] border-amber-500/15',
+      )}
     >
       <div className='grid grid-cols-1 gap-3 sm:grid-cols-2'>
         {fields.map(({ k, label, ph, col }) => (
-          <div key={k} style={{ gridColumn: col }}>
+          <div key={k} className={col ? 'col-[1/-1]' : ''}>
             <label
-              style={{ ...labelSt, color: errors[k] ? '#f59e0b' : '#475569' }}
+              className={cn(
+                labelClass,
+                errors[k] ? 'text-amber-500' : 'text-slate-600',
+              )}
             >
               {label}
             </label>
@@ -515,40 +398,23 @@ function DireccionForm({
               value={form[k] as string}
               onChange={(e) => set(k, e.target.value)}
               placeholder={ph}
-              style={{
-                ...inputSt,
-                borderColor: errors[k]
-                  ? 'rgba(245,158,11,0.4)'
-                  : 'rgba(148,163,184,0.1)',
-              }}
-              onFocus={(e) =>
-                (e.currentTarget.style.borderColor = 'rgba(245,158,11,0.35)')
-              }
-              onBlur={(e) =>
-                (e.currentTarget.style.borderColor = errors[k]
-                  ? 'rgba(245,158,11,0.4)'
-                  : 'rgba(148,163,184,0.1)')
-              }
+              className={`w-full px-3 py-2 bg-slate-950/60 rounded-lg text-slate-200 text-xs outline-none transition-colors focus:border-amber-500/35 border ${errors[k] ? 'border-amber-500/40' : 'border-slate-400/10'}`}
             />
             {errors[k] && (
-              <span style={{ fontSize: '10px', color: '#f59e0b' }}>
-                {errors[k]}
-              </span>
+              <span className='text-xs text-amber-500'>{errors[k]}</span>
             )}
           </div>
         ))}
         <div>
-          <label style={labelSt}>Provincia</label>
-          <div style={{ position: 'relative' }}>
+          <label className={labelClass}>Provincia</label>
+          <div className='relative'>
             <select
               value={form.provincia}
               onChange={(e) => set('provincia', e.target.value)}
-              style={{
-                ...inputSt,
-                appearance: 'none',
-                paddingRight: '26px',
-                cursor: 'pointer',
-              }}
+              className={cn(
+                inputClass,
+                'appearance-none pr-[26px] cursor-pointer',
+              )}
             >
               {PROVINCIAS.map((p) => (
                 <option key={p} value={p}>
@@ -561,14 +427,7 @@ function DireccionForm({
               height='10'
               viewBox='0 0 10 10'
               fill='none'
-              style={{
-                position: 'absolute',
-                right: '8px',
-                top: '50%',
-                transform: 'translateY(-50%)',
-                pointerEvents: 'none',
-                color: '#475569',
-              }}
+              className='absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-slate-600'
             >
               <path
                 d='M2 4L5 7L8 4'
@@ -581,108 +440,60 @@ function DireccionForm({
           </div>
         </div>
         <div>
-          <label style={labelSt}>Distancia (km)</label>
+          <label className={labelClass}>Distancia (km)</label>
           <input
             type='number'
             min='0'
             value={form.distancia_km}
             onChange={(e) => set('distancia_km', e.target.value)}
             placeholder='0'
-            style={inputSt}
+            className={inputClass}
           />
         </div>
         <div className='col-[1/-1] flex items-center gap-2.5'>
           <div
             onClick={() => set('es_principal', !form.es_principal)}
-            style={{
-              width: '32px',
-              height: '18px',
-              borderRadius: '9px',
-              cursor: 'pointer',
-              background: form.es_principal
-                ? 'rgba(245,158,11,0.4)'
-                : 'rgba(148,163,184,0.12)',
-              border: `1px solid ${form.es_principal ? 'rgba(245,158,11,0.5)' : 'rgba(148,163,184,0.15)'}`,
-              position: 'relative',
-              transition: 'all 0.2s',
-              flexShrink: 0,
-            }}
+            className={`relative shrink-0 cursor-pointer rounded-[9px] transition-all w-8 h-[18px] border ${form.es_principal ? 'bg-amber-500/40 border-amber-500/50' : 'bg-slate-400/[0.12] border-slate-400/15'}`}
           >
             <div
-              style={{
-                position: 'absolute',
-                top: '2px',
-                left: form.es_principal ? '15px' : '2px',
-                width: '12px',
-                height: '12px',
-                borderRadius: '50%',
-                background: form.es_principal ? '#f59e0b' : '#475569',
-                transition: 'all 0.2s',
-              }}
+              className={`absolute top-0.5 rounded-full w-3 h-3 transition-all ${form.es_principal ? 'left-[15px] bg-amber-500' : 'left-[2px] bg-slate-600'}`}
             />
           </div>
           <span
-            style={{
-              fontSize: '12px',
-              color: form.es_principal ? '#f59e0b' : '#475569',
-            }}
+            className={`text-xs ${form.es_principal ? 'text-amber-500' : 'text-slate-600'}`}
           >
             Marcar como dirección principal
           </span>
         </div>
-        <div style={{ gridColumn: '1/-1' }}>
-          <label style={labelSt}>Notas</label>
+        <div className='col-[1/-1]'>
+          <label className={labelClass}>Notas</label>
           <textarea
             value={form.notas}
             onChange={(e) => set('notas', e.target.value)}
             placeholder='Observaciones...'
             rows={2}
-            style={{ ...inputSt, resize: 'vertical', lineHeight: '1.5' }}
+            className={cn(inputClass, 'resize-y leading-relaxed')}
           />
         </div>
       </div>
       <div className='mt-3.5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end'>
         <button
           onClick={onCancel}
-          style={{
-            padding: '7px 14px',
-            borderRadius: '7px',
-            border: '1px solid rgba(148,163,184,0.12)',
-            background: 'transparent',
-            color: '#64748b',
-            fontSize: '12px',
-            cursor: 'pointer',
-            fontFamily: "'DM Sans',sans-serif",
-          }}
+          className='px-[14px] py-[7px] rounded-[7px] border border-slate-400/[0.12] bg-transparent text-slate-500 text-xs cursor-pointer'
         >
           Cancelar
         </button>
         <button
           onClick={handleSave}
           disabled={loading}
-          style={{
-            padding: '7px 16px',
-            borderRadius: '7px',
-            border: 'none',
-            background: loading
-              ? 'rgba(245,158,11,0.3)'
-              : 'linear-gradient(135deg,rgba(245,158,11,0.9),rgba(217,119,6,0.9))',
-            color: '#0f172a',
-            fontSize: '12px',
-            fontWeight: '700',
-            cursor: loading ? 'not-allowed' : 'pointer',
-            fontFamily: "'DM Sans',sans-serif",
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-          }}
+          className={`flex items-center gap-1.5 px-4 py-[7px] rounded-[7px] border-none text-slate-900 text-xs font-bold ${loading ? 'bg-emerald-600/30 cursor-not-allowed' : 'bg-gradient-to-br from-emerald-600/80 to-emerald-700/80 hover:from-emerald-600 hover:to-emerald-700 cursor-pointer'}`}
         >
           {loading && (
             <svg
               width='11'
               height='11'
               viewBox='0 0 11 11'
-              style={{ animation: 'spin 0.8s linear infinite' }}
+              className='animate-spin'
             >
               <circle
                 cx='5.5'
@@ -697,7 +508,6 @@ function DireccionForm({
                 stroke='#0f172a'
                 strokeWidth='1.5'
                 strokeLinecap='round'
-                fill='none'
               />
             </svg>
           )}
@@ -713,7 +523,7 @@ function DireccionForm({
 function TabGeneral({ cliente }: { cliente: ClienteConDirecciones }) {
   return (
     <div className='flex flex-col gap-3'>
-      <div className='p-3 sm:p-3.5' style={{ ...card }}>
+      <div className={cn(cardClass, 'p-3 sm:p-3.5')}>
         <SectionTitle icon='🏛' title='Datos Fiscales' />
         <div className='mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 sm:gap-2.5'>
           <InfoPar label='Razón Social' value={cliente.razon_social} />
@@ -725,17 +535,7 @@ function TabGeneral({ cliente }: { cliente: ClienteConDirecciones }) {
           <InfoPar label='Nº Documento' value={cliente.numero_documento} mono />
           <InfoPar label='Condición IVA'>
             <span
-              style={{
-                fontSize: '11px',
-                fontWeight: '600',
-                color: IVA_COLOR[cliente.condicion_iva],
-                background: `${IVA_COLOR[cliente.condicion_iva]}14`,
-                border: `1px solid ${IVA_COLOR[cliente.condicion_iva]}30`,
-                padding: '1px 7px',
-                borderRadius: '5px',
-                display: 'inline-block',
-                marginTop: '1px',
-              }}
+              className={`inline-block mt-px px-[7px] py-px rounded-[5px] text-xs font-semibold border ${IVA_BADGE_CLS[cliente.condicion_iva]}`}
             >
               {IVA_LABEL[cliente.condicion_iva]}
             </span>
@@ -745,17 +545,17 @@ function TabGeneral({ cliente }: { cliente: ClienteConDirecciones }) {
           )}
         </div>
       </div>
-      <div className='p-3.5 sm:p-4' style={{ ...card }}>
-        <SectionTitle icon='📋' title='Datos Comerciales' />
+      <div className={cn(cardClass, 'p-3.5 sm:p-4')}>
+        <SectionTitle icon={<ClipboardList className='w-3.5 h-3.5' />} title='Datos Comerciales' />
         <div className='mt-2.5 grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-3 sm:gap-3'>
           {cliente.contacto_nombre && (
             <InfoPar label='Contacto'>
               <div>
-                <div style={{ fontSize: '13px', color: '#94a3b8' }}>
+                <div className='text-[13px] text-slate-400'>
                   {cliente.contacto_nombre}
                 </div>
                 {cliente.contacto_cargo && (
-                  <div style={{ fontSize: '11px', color: '#475569' }}>
+                  <div className='text-xs text-slate-600'>
                     {cliente.contacto_cargo}
                   </div>
                 )}
@@ -766,12 +566,7 @@ function TabGeneral({ cliente }: { cliente: ClienteConDirecciones }) {
             <InfoPar label='Teléfono'>
               <a
                 href={`tel:${cliente.telefono}`}
-                style={{
-                  fontSize: '13px',
-                  color: '#60a5fa',
-                  fontFamily: "'DM Mono',monospace",
-                  textDecoration: 'none',
-                }}
+                className='text-[13px] text-blue-400 font-mono no-underline'
               >
                 {cliente.telefono}
               </a>
@@ -781,12 +576,7 @@ function TabGeneral({ cliente }: { cliente: ClienteConDirecciones }) {
             <InfoPar label='Tel. Alt.'>
               <a
                 href={`tel:${cliente.telefono_alt}`}
-                style={{
-                  fontSize: '13px',
-                  color: '#60a5fa',
-                  fontFamily: "'DM Mono',monospace",
-                  textDecoration: 'none',
-                }}
+                className='text-[13px] text-blue-400 font-mono no-underline'
               >
                 {cliente.telefono_alt}
               </a>
@@ -827,22 +617,12 @@ function TabGeneral({ cliente }: { cliente: ClienteConDirecciones }) {
         </div>
       </div>
       {(cliente.segmento || cliente.origen || cliente.notas) && (
-        <div className='p-3.5 sm:p-4' style={{ ...card }}>
+        <div className={cn(cardClass, 'p-3.5 sm:p-4')}>
           <SectionTitle icon='🏷' title='Clasificación' />
           <div className='mt-2.5 grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-3 sm:gap-3'>
             {cliente.segmento && (
               <InfoPar label='Segmento'>
-                <span
-                  style={{
-                    fontSize: '12px',
-                    color: '#94a3b8',
-                    background: 'rgba(148,163,184,0.08)',
-                    border: '1px solid rgba(148,163,184,0.12)',
-                    borderRadius: '5px',
-                    padding: '3px 8px',
-                    display: 'inline-block',
-                  }}
-                >
+                <span className='inline-block text-xs text-slate-400 bg-slate-400/[0.08] border border-slate-400/[0.12] rounded-[5px] px-2 py-[3px]'>
                   {cliente.segmento}
                 </span>
               </InfoPar>
@@ -852,23 +632,9 @@ function TabGeneral({ cliente }: { cliente: ClienteConDirecciones }) {
             )}
           </div>
           {cliente.notas && (
-            <div
-              style={{
-                marginTop: '10px',
-                paddingTop: '10px',
-                borderTop: '1px solid rgba(148,163,184,0.06)',
-              }}
-            >
-              <label style={labelSt}>Notas internas</label>
-              <p
-                style={{
-                  margin: 0,
-                  fontSize: '12px',
-                  color: '#64748b',
-                  lineHeight: '1.55',
-                  whiteSpace: 'pre-wrap',
-                }}
-              >
+            <div className='mt-[10px] pt-[10px] border-t border-slate-400/[0.06]'>
+              <label className={labelClass}>Notas internas</label>
+              <p className='m-0 text-xs text-slate-500 leading-[1.55] whitespace-pre-wrap'>
                 {cliente.notas}
               </p>
             </div>
@@ -876,49 +642,19 @@ function TabGeneral({ cliente }: { cliente: ClienteConDirecciones }) {
         </div>
       )}
       <div className='grid grid-cols-1 gap-2 sm:grid-cols-2'>
-        <div className='px-3.5 py-3' style={{ ...card }}>
-          <div
-            style={{
-              fontSize: '10px',
-              color: '#334155',
-              fontWeight: '600',
-              letterSpacing: '0.08em',
-              textTransform: 'uppercase',
-              marginBottom: '6px',
-            }}
-          >
+        <div className={cn(cardClass, 'px-3.5 py-3')}>
+          <div className='text-xs font-semibold tracking-widest uppercase text-[#334155] mb-[6px]'>
             Creado
           </div>
-          <div
-            style={{
-              fontSize: '12px',
-              color: '#475569',
-              fontFamily: "'DM Mono',monospace",
-            }}
-          >
+          <div className='text-xs text-slate-600 font-mono'>
             {fmtFecha(cliente.creado_en)}
           </div>
         </div>
-        <div className='px-3.5 py-3' style={{ ...card }}>
-          <div
-            style={{
-              fontSize: '10px',
-              color: '#334155',
-              fontWeight: '600',
-              letterSpacing: '0.08em',
-              textTransform: 'uppercase',
-              marginBottom: '6px',
-            }}
-          >
+        <div className={cn(cardClass, 'px-3.5 py-3')}>
+          <div className='text-xs font-semibold tracking-widest uppercase text-[#334155] mb-[6px]'>
             Última actualización
           </div>
-          <div
-            style={{
-              fontSize: '12px',
-              color: '#475569',
-              fontFamily: "'DM Mono',monospace",
-            }}
-          >
+          <div className='text-xs text-slate-600 font-mono'>
             {fmtFecha(cliente.actualizado_en)}
           </div>
         </div>
@@ -1025,35 +761,16 @@ function TabDirecciones({
   );
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-        }}
-      >
-        <span style={{ fontSize: '13px', color: '#64748b' }}>
+    <div className='flex flex-col gap-2.5'>
+      <div className='flex items-center justify-between'>
+        <span className='text-[13px] text-slate-500'>
           {cliente.direcciones.length} dirección
           {cliente.direcciones.length !== 1 ? 'es' : ''}
         </span>
         {!agregando && (
           <button
             onClick={() => setAgregando(true)}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '5px',
-              padding: '6px 12px',
-              borderRadius: '7px',
-              border: '1px solid rgba(245,158,11,0.25)',
-              background: 'rgba(245,158,11,0.06)',
-              color: '#f59e0b',
-              fontSize: '12px',
-              fontWeight: '600',
-              cursor: 'pointer',
-              fontFamily: "'DM Sans',sans-serif",
-            }}
+            className='flex items-center gap-[5px] px-3 py-1.5 rounded-[7px] border border-amber-500/25 bg-amber-500/[0.06] text-amber-500 text-xs font-semibold cursor-pointer'
           >
             <svg width='11' height='11' viewBox='0 0 11 11'>
               <path
@@ -1075,15 +792,8 @@ function TabDirecciones({
         />
       )}
       {cliente.direcciones.length === 0 && !agregando && (
-        <div
-          style={{
-            padding: '24px',
-            textAlign: 'center',
-            border: '1px dashed rgba(148,163,184,0.1)',
-            borderRadius: '10px',
-          }}
-        >
-          <p style={{ margin: 0, fontSize: '13px', color: '#334155' }}>
+        <div className='p-6 text-center border border-dashed border-slate-400/10 rounded-[10px]'>
+          <p className='m-0 text-[13px] text-[#334155]'>
             Sin direcciones registradas
           </p>
         </div>
@@ -1099,74 +809,31 @@ function TabDirecciones({
             />
           ) : (
             <div
-              style={{
-                ...card,
-                border: dir.es_principal
-                  ? '1px solid rgba(245,158,11,0.2)'
-                  : '1px solid rgba(148,163,184,0.08)',
-                padding: '14px',
-              }}
+              className={cn(
+                'bg-slate-900/70 rounded-xl backdrop-blur-sm p-[14px]',
+                dir.es_principal
+                  ? 'border border-amber-500/20'
+                  : 'border border-slate-400/[0.08]',
+              )}
             >
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'flex-start',
-                  justifyContent: 'space-between',
-                  marginBottom: '8px',
-                }}
-              >
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    flexWrap: 'wrap',
-                  }}
-                >
-                  <span style={{ fontSize: '13px' }}>📍</span>
-                  <span
-                    style={{
-                      fontSize: '13px',
-                      fontWeight: '700',
-                      color: '#94a3b8',
-                    }}
-                  >
+              <div className='flex items-start justify-between mb-2'>
+                <div className='flex items-center gap-2 flex-wrap'>
+                  <span className='text-[13px]'>📍</span>
+                  <span className='text-[13px] font-bold text-slate-400'>
                     {dir.etiqueta}
                   </span>
                   {dir.es_principal && (
-                    <span
-                      style={{
-                        fontSize: '9px',
-                        fontWeight: '700',
-                        letterSpacing: '0.08em',
-                        textTransform: 'uppercase',
-                        color: '#f59e0b',
-                        background: 'rgba(245,158,11,0.1)',
-                        border: '1px solid rgba(245,158,11,0.25)',
-                        borderRadius: '4px',
-                        padding: '1px 6px',
-                      }}
-                    >
+                    <span className='text-[9px] font-bold tracking-widest uppercase text-amber-500 bg-amber-500/10 border border-amber-500/25 rounded px-[6px] py-px'>
                       Principal
                     </span>
                   )}
                   {dir.distancia_km != null && (
-                    <span
-                      style={{
-                        fontSize: '10px',
-                        color: '#475569',
-                        fontFamily: "'DM Mono',monospace",
-                        background: 'rgba(148,163,184,0.06)',
-                        border: '1px solid rgba(148,163,184,0.1)',
-                        borderRadius: '4px',
-                        padding: '1px 6px',
-                      }}
-                    >
+                    <span className='text-xs text-slate-600 font-mono bg-slate-400/[0.06] border border-slate-400/10 rounded px-[6px] py-px'>
                       {dir.distancia_km} km
                     </span>
                   )}
                 </div>
-                <div style={{ display: 'flex', gap: '4px' }}>
+                <div className='flex gap-1'>
                   {!dir.es_principal && (
                     <BtnIcono
                       onClick={() => handleSetPrincipal(dir.id)}
@@ -1216,42 +883,23 @@ function TabDirecciones({
                   )}
                 </div>
               </div>
-              <div
-                style={{
-                  fontSize: '12px',
-                  color: '#64748b',
-                  lineHeight: '1.8',
-                }}
-              >
+              <div className='text-xs text-slate-500 leading-[1.8]'>
                 <div>
                   {[dir.calle, dir.numero, dir.piso_dpto]
                     .filter(Boolean)
                     .join(' ')}
                 </div>
                 {dir.barrio && (
-                  <div style={{ color: '#475569' }}>{dir.barrio}</div>
+                  <div className='text-slate-600'>{dir.barrio}</div>
                 )}
-                <div
-                  style={{
-                    fontFamily: "'DM Mono',monospace",
-                    fontSize: '11px',
-                    color: '#475569',
-                  }}
-                >
+                <div className='font-mono text-xs text-slate-600'>
                   {[dir.ciudad, dir.provincia, dir.codigo_postal]
                     .filter(Boolean)
                     .join(' · ')}
                 </div>
               </div>
               {dir.notas && (
-                <div
-                  style={{
-                    marginTop: '8px',
-                    fontSize: '11px',
-                    color: '#334155',
-                    fontStyle: 'italic',
-                  }}
-                >
+                <div className='mt-2 text-xs text-[#334155] italic'>
                   {dir.notas}
                 </div>
               )}
@@ -1267,24 +915,11 @@ function TabDirecciones({
 
 function TabActividad({ clienteId }: { clienteId: string }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+    <div className='flex flex-col gap-2.5 items-start'>
       <div>
         <a
           href={`/presupuestos/nuevo?cliente=${clienteId}`}
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '6px',
-            padding: '7px 14px',
-            borderRadius: '8px',
-            border: '1px solid rgba(245,158,11,0.25)',
-            background: 'rgba(245,158,11,0.06)',
-            color: '#f59e0b',
-            fontSize: '12px',
-            fontWeight: '600',
-            textDecoration: 'none',
-            fontFamily: "'DM Sans',sans-serif",
-          }}
+          className='inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg border border-amber-500/25 bg-amber-500/[0.06] text-amber-500 text-xs font-semibold no-underline transition-colors hover:bg-amber-500/10'
         >
           <svg width='11' height='11' viewBox='0 0 11 11'>
             <path
@@ -1299,38 +934,17 @@ function TabActividad({ clienteId }: { clienteId: string }) {
       </div>
       {(['Presupuestos', 'Órdenes de Servicio', 'Facturas'] as const).map(
         (s) => (
-          <div key={s} style={{ ...card, overflow: 'hidden' }}>
-            <div
-              style={{
-                padding: '12px 16px',
-                borderBottom: '1px solid rgba(148,163,184,0.06)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-              }}
-            >
-              <span
-                style={{
-                  fontSize: '12px',
-                  fontWeight: '700',
-                  color: '#64748b',
-                  letterSpacing: '0.04em',
-                }}
-              >
+          <div key={s} className={cn(cardClass, 'overflow-hidden w-full')}>
+            <div className='px-4 py-3 border-b border-slate-400/[0.06] flex items-center justify-between'>
+              <span className='text-xs font-bold text-slate-500 tracking-[0.04em]'>
                 {s}
               </span>
-              <span
-                style={{
-                  fontSize: '10px',
-                  color: '#1e293b',
-                  fontFamily: "'DM Mono',monospace",
-                }}
-              >
+              <span className='text-xs text-[#1e293b] font-mono'>
                 Próximamente
               </span>
             </div>
-            <div style={{ padding: '18px', textAlign: 'center' }}>
-              <p style={{ margin: 0, fontSize: '12px', color: '#1e293b' }}>
+            <div className='p-[18px] text-center'>
+              <p className='m-0 text-xs text-[#1e293b]'>
                 Se cargará cuando el módulo esté disponible
               </p>
             </div>
@@ -1411,69 +1025,39 @@ export default function ClienteFicha({ clienteId }: Props) {
     cargarCliente();
   };
 
-  const TABS: { id: Tab; label: string; icon: string }[] = [
-    { id: 'general', label: 'General', icon: '📋' },
+  const TABS: { id: Tab; label: string; icon: ReactNode }[] = [
+    { id: 'general', label: 'General', icon: <ClipboardList className='w-3.5 h-3.5' /> },
     { id: 'direcciones', label: 'Direcciones', icon: '📍' },
-    { id: 'actividad', label: 'Actividad', icon: '📊' },
+    { id: 'actividad', label: 'Actividad', icon: <BarChart3 className='w-3.5 h-3.5' /> },
   ];
 
   return (
     <>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@300;400;500&display=swap');
-        *{box-sizing:border-box}body{margin:0;background:#060d1a;font-family:'DM Sans',sans-serif;-webkit-font-smoothing:antialiased}
-        option{background:#0f172a;color:#e2e8f0}input:focus,select:focus,textarea:focus{outline:none!important}
-        ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:rgba(148,163,184,0.15);border-radius:2px}
-        @keyframes shimmer{0%,100%{opacity:.4}50%{opacity:.8}}@keyframes slideUp{from{transform:translateY(8px);opacity:0}to{transform:translateY(0);opacity:1}}
-        @keyframes fadeIn{from{opacity:0}to{opacity:1}}@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
-        @keyframes scaleIn{from{transform:scale(0.96);opacity:0}to{transform:scale(1);opacity:1}}
-      `}</style>
-
       <div className='px-3 py-2.5 pb-6 sm:px-5 sm:py-3 sm:pb-7 lg:px-5 lg:py-2 lg:pb-3'>
-        <div style={{ width: '100%', margin: '0 auto' }}>
+        <div className='w-full mx-auto'>
           {/* Breadcrumb */}
           <div className='mb-3 flex items-center gap-2 lg:mb-2.5'>
             <a
               href='/clientes'
-              style={{
-                fontSize: '11px',
-                color: '#334155',
-                textDecoration: 'none',
-                letterSpacing: '0.08em',
-                textTransform: 'uppercase',
-              }}
+              className='flex items-center gap-1 text-xs text-[#334155] no-underline tracking-widest uppercase hover:text-slate-400 transition-colors'
             >
+              <ArrowLeft className='w-3 h-3' />
               Clientes
             </a>
-            <span style={{ color: '#1e293b' }}>›</span>
-            <span
-              style={{
-                fontSize: '11px',
-                color: '#475569',
-                letterSpacing: '0.08em',
-                textTransform: 'uppercase',
-              }}
-            >
+            <span className='text-[#1e293b]'>›</span>
+            <span className='text-xs text-slate-600 tracking-widest uppercase'>
               {loadingDatos ? '...' : (cliente?.razon_social ?? 'Ficha')}
             </span>
           </div>
 
           {/* Header */}
           <div
-            className='mb-3 p-3.5 sm:p-4 lg:mb-2.5 lg:p-3.5'
-            style={{ ...card }}
+            className={cn(cardClass, 'mb-3 p-3.5 sm:p-4 lg:mb-2.5 lg:p-3.5')}
           >
             {loadingDatos ? (
               <div className='flex flex-col items-start gap-3 sm:flex-row sm:items-center'>
                 <Skeleton w='60px' h='60px' r='14px' />
-                <div
-                  style={{
-                    flex: 1,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '8px',
-                  }}
-                >
+                <div className='flex-1 flex flex-col gap-2'>
                   <Skeleton w='200px' h='20px' />
                   <Skeleton w='130px' h='14px' />
                 </div>
@@ -1482,45 +1066,20 @@ export default function ClienteFicha({ clienteId }: Props) {
               <div className='flex flex-col gap-2.5 lg:flex-row lg:items-start lg:justify-between'>
                 <div className='flex min-w-0 flex-col gap-2.5 sm:flex-row sm:items-center'>
                   <div
-                    style={{
-                      width: '56px',
-                      height: '56px',
-                      borderRadius: '12px',
-                      flexShrink: 0,
-                      background: avatarColor(cliente.razon_social),
-                      border: '2px solid rgba(245,158,11,0.2)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: '20px',
-                      fontWeight: '700',
-                      color: '#f59e0b',
-                      fontFamily: "'DM Sans',sans-serif",
-                    }}
+                    className={`shrink-0 w-14 h-14 rounded-xl flex items-center justify-center text-[20px] font-bold text-amber-500 border-2 border-amber-500/20 bg-[${avatarColor(cliente.razon_social)}]`}
                   >
                     {avatarLetra(cliente.razon_social)}
                   </div>
                   <div className='min-w-0'>
-                    <div
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '10px',
-                        marginBottom: '4px',
-                        flexWrap: 'wrap',
-                      }}
-                    >
-                      <h1
-                        className='min-w-0 break-words text-[17px] font-bold tracking-[-0.02em] text-slate-200 sm:text-[18px]'
-                        style={{ margin: 0 }}
-                      >
+                    <div className='flex items-center gap-2.5 mb-1 flex-wrap'>
+                      <h1 className='m-0 min-w-0 break-words text-[17px] font-bold tracking-[-0.02em] text-slate-200 sm:text-[18px]'>
                         {cliente.razon_social}
                       </h1>
                       <BadgeEstado activo={cliente.activo} />
                     </div>
                     <div className='flex flex-wrap items-center gap-1.5 sm:gap-2'>
                       {cliente.nombre_fantasia && (
-                        <span style={{ fontSize: '13px', color: '#475569' }}>
+                        <span className='text-[13px] text-slate-600'>
                           {cliente.nombre_fantasia}
                         </span>
                       )}
@@ -1530,19 +1089,19 @@ export default function ClienteFicha({ clienteId }: Props) {
                         </span>
                       )}
                       {cliente.segmento && (
-                        <span style={{ fontSize: '11px', color: '#64748b' }}>
+                        <span className='text-xs text-slate-500'>
                           {cliente.segmento}
                         </span>
                       )}
                     </div>
                   </div>
                 </div>
-                <div className='flex w-full flex-wrap items-center gap-1.5 lg:w-auto lg:flex-nowrap'>
+                <div className='flex items-center gap-1.5'>
                   <a
                     href={`/clientes/${cliente.id}/editar`}
-                    className='inline-flex basis-[calc(50%-4px)] items-center justify-center gap-1.5 rounded-lg border border-slate-400/15 bg-slate-900/60 px-3.5 py-1.75 text-[12px] font-semibold text-slate-500 no-underline sm:basis-auto'
+                    className='inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-400/15 bg-slate-900/60 px-3.5 py-2 text-[12px] font-semibold text-slate-500 no-underline'
                   >
-                    <svg width='12' height='12' viewBox='0 0 12 12'>
+                    <svg width='12' height='25' viewBox='0 0 12 12'>
                       <path
                         d='M2 10L3.5 6.5L8.5 1.5C9 1 10 1 10.5 1.5C11 2 11 3 10.5 3.5L5.5 8.5L2 10Z'
                         stroke='currentColor'
@@ -1555,9 +1114,9 @@ export default function ClienteFicha({ clienteId }: Props) {
                   </a>
                   <a
                     href={`/presupuestos/nuevo?cliente=${cliente.id}`}
-                    className='inline-flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-lg bg-gradient-to-br from-amber-500/90 to-amber-600/90 px-3.5 py-1.75 text-[12px] font-bold text-slate-900 no-underline shadow-[0_4px_12px_rgba(245,158,11,0.15)] sm:flex-none'
+                    className='inline-flex items-center justify-center gap-1.5 rounded-lg bg-gradient-to-br from-emerald-600/80 to-emerald-700/80 hover:from-emerald-600 hover:to-emerald-700 px-3.5 py-2 text-[12px] font-bold text-slate-900 no-underline shadow-sm shadow-emerald-600/15'
                   >
-                    <svg width='11' height='11' viewBox='0 0 11 11'>
+                    <svg width='11' height='25' viewBox='0 0 11 11'>
                       <path
                         d='M5.5 1V10M1 5.5H10'
                         stroke='currentColor'
@@ -1572,20 +1131,7 @@ export default function ClienteFicha({ clienteId }: Props) {
                       setConfirmar(cliente.activo ? 'desactivar' : 'reactivar')
                     }
                     title={cliente.activo ? 'Desactivar' : 'Reactivar'}
-                    style={{
-                      width: '32px',
-                      height: '32px',
-                      borderRadius: '8px',
-                      border: cliente.activo
-                        ? '1px solid rgba(248,113,113,0.2)'
-                        : '1px solid rgba(74,222,128,0.2)',
-                      background: 'transparent',
-                      color: cliente.activo ? '#f87171' : '#4ade80',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
+                    className={`w-10 h-10 rounded-lg bg-transparent flex items-center justify-center cursor-pointer border ${cliente.activo ? 'border-red-400/20 text-red-400' : 'border-green-400/20 text-green-400'}`}
                   >
                     {cliente.activo ? (
                       <svg width='14' height='14' viewBox='0 0 14 14'>
@@ -1628,38 +1174,36 @@ export default function ClienteFicha({ clienteId }: Props) {
                 </div>
               </div>
             ) : (
-              <div
-                style={{
-                  textAlign: 'center',
-                  padding: '20px',
-                  color: '#475569',
-                }}
-              >
+              <div className='text-center p-5 text-slate-600'>
                 Cliente no encontrado
               </div>
             )}
           </div>
 
           {/* KPIs */}
-          <div className='mb-3 grid grid-cols-1 gap-2 min-[420px]:grid-cols-2 xl:grid-cols-4 lg:mb-2.5'>
+          <div className='mb-3 grid grid-cols-1 gap-2 min-[420px]:grid-cols-2 lg:grid-cols-4 lg:mb-2.5'>
             <KPICard
               label='Total Facturado'
               value={kpis ? formatearMonto(kpis.monto_total_facturado) : '—'}
               sub={kpis ? `${kpis.facturas_emitidas} facturas` : undefined}
-              color='#4ade80'
+              colorCls='text-emerald-400'
               loading={loadingKpis}
             />
             <KPICard
               label='Saldo Pendiente'
               value={kpis ? formatearMonto(kpis.saldo_pendiente) : '—'}
-              color={kpis && kpis.saldo_pendiente > 0 ? '#f87171' : '#4ade80'}
+              colorCls={
+                kpis && kpis.saldo_pendiente > 0
+                  ? 'text-red-400'
+                  : 'text-emerald-400'
+              }
               loading={loadingKpis}
             />
             <KPICard
               label='Presupuestos'
               value={kpis ? String(kpis.presupuestos_emitidos) : '—'}
               sub={kpis ? `${kpis.tasa_conversion}% conversión` : undefined}
-              color='#60a5fa'
+              colorCls='text-blue-400'
               loading={loadingKpis}
             />
             <KPICard
@@ -1670,45 +1214,28 @@ export default function ClienteFicha({ clienteId }: Props) {
                   ? `desde ${fmtFechaCorta(kpis.primera_operacion)}`
                   : undefined
               }
-              color='#a78bfa'
+              colorCls='text-violet-400'
               loading={loadingKpis}
             />
           </div>
 
           {/* Tabs */}
           {cliente && (
-            <div className='overflow-hidden' style={{ ...card }}>
+            <div className={cn(cardClass, 'overflow-hidden')}>
               <div className='overflow-x-auto border-b border-slate-400/10 bg-slate-950/30'>
                 <div className='flex min-w-max'>
                   {TABS.map((tab) => (
                     <button
                       key={tab.id}
                       onClick={() => setTabActiva(tab.id)}
-                      className='flex items-center gap-1.5 whitespace-nowrap border-b-2 border-transparent bg-transparent px-3.5 py-2 text-[12px] font-semibold transition-all sm:px-4'
-                      style={{
-                        color: tabActiva === tab.id ? '#e2e8f0' : '#334155',
-                        borderBottomColor:
-                          tabActiva === tab.id ? '#f59e0b' : 'transparent',
-                      }}
+                      className={`flex items-center gap-1.5 whitespace-nowrap border-b-2 bg-transparent px-3.5 py-2 text-[12px] font-semibold transition-all sm:px-4 ${tabActiva === tab.id ? 'text-slate-200 border-amber-500' : 'text-slate-700 border-transparent'}`}
                     >
-                      <span style={{ fontSize: '13px' }}>{tab.icon}</span>
+                      <span className='flex items-center text-[13px]'>{tab.icon}</span>
                       {tab.label}
                       {tab.id === 'direcciones' &&
                         cliente.direcciones.length > 0 && (
                           <span
-                            style={{
-                              fontSize: '9px',
-                              fontWeight: '700',
-                              padding: '1px 5px',
-                              borderRadius: '10px',
-                              background:
-                                tabActiva === tab.id
-                                  ? 'rgba(245,158,11,0.15)'
-                                  : 'rgba(148,163,184,0.08)',
-                              color:
-                                tabActiva === tab.id ? '#f59e0b' : '#475569',
-                              fontFamily: "'DM Mono',monospace",
-                            }}
+                            className={`text-[9px] font-bold px-[5px] py-px rounded-[10px] font-mono ${tabActiva === tab.id ? 'bg-amber-500/[0.15] text-amber-500' : 'bg-slate-400/[0.08] text-slate-600'}`}
                           >
                             {cliente.direcciones.length}
                           </span>
@@ -1718,8 +1245,7 @@ export default function ClienteFicha({ clienteId }: Props) {
                 </div>
               </div>
               <div
-                className='p-3.5 sm:p-4 lg:p-3.5'
-                style={{ animation: 'fadeIn 0.15s ease' }}
+                className='p-3.5 sm:p-4 lg:p-3.5 animate-fade-in'
                 key={tabActiva}
               >
                 {tabActiva === 'general' && <TabGeneral cliente={cliente} />}
@@ -1741,108 +1267,41 @@ export default function ClienteFicha({ clienteId }: Props) {
 
       {/* Modal confirmar */}
       {confirmar && cliente && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0,0,0,0.7)',
-            backdropFilter: 'blur(4px)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 100,
-            animation: 'fadeIn 0.15s ease',
-          }}
-        >
-          <div
-            style={{
-              background: '#0f172a',
-              border: '1px solid rgba(148,163,184,0.12)',
-              borderRadius: '16px',
-              padding: '28px',
-              maxWidth: '360px',
-              width: '90%',
-              animation: 'scaleIn 0.2s cubic-bezier(0.34,1.56,0.64,1)',
-            }}
-          >
-            <div style={{ fontSize: '32px', marginBottom: '12px' }}>
-              {confirmar === 'desactivar' ? '⚠️' : '✅'}
+        <div className='fixed inset-0 flex items-center justify-center z-[100] bg-black/70 backdrop-blur-sm animate-fade-in'>
+          <div className='bg-slate-950 border border-slate-400/[0.12] rounded-2xl p-7 w-[90%] max-w-[360px] animate-modal-in'>
+            <div className='mb-3 flex items-center'>
+              {confirmar === 'desactivar'
+                ? <AlertTriangle className='w-8 h-8 text-amber-400' />
+                : <CheckCircle2 className='w-8 h-8 text-emerald-400' />}
             </div>
-            <h3
-              style={{
-                margin: '0 0 8px',
-                fontSize: '15px',
-                fontWeight: '700',
-                color: '#e2e8f0',
-                fontFamily: "'DM Sans',sans-serif",
-              }}
-            >
+            <h3 className='mt-0 mx-0 mb-2 text-[15px] font-bold text-slate-200'>
               {confirmar === 'desactivar'
                 ? 'Desactivar cliente'
                 : 'Reactivar cliente'}
             </h3>
-            <p
-              style={{
-                margin: '0 0 20px',
-                fontSize: '13px',
-                color: '#64748b',
-                lineHeight: '1.6',
-              }}
-            >
+            <p className='mt-0 mx-0 mb-5 text-[13px] text-slate-500 leading-[1.6]'>
               {confirmar === 'desactivar'
                 ? `¿Desactivar a ${cliente.razon_social}? No aparecerá en nuevos documentos.`
                 : `¿Reactivar a ${cliente.razon_social}? Volverá a estar disponible en el sistema.`}
             </p>
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'flex-end',
-                gap: '10px',
-              }}
-            >
+            <div className='flex justify-end gap-2.5'>
               <button
                 onClick={() => setConfirmar(null)}
-                style={{
-                  padding: '8px 16px',
-                  borderRadius: '8px',
-                  border: '1px solid rgba(148,163,184,0.12)',
-                  background: 'transparent',
-                  color: '#64748b',
-                  fontSize: '13px',
-                  cursor: 'pointer',
-                  fontFamily: "'DM Sans',sans-serif",
-                }}
+                className='px-4 py-2 rounded-lg border border-slate-400/[0.12] bg-transparent text-slate-500 text-[13px] cursor-pointer'
               >
                 Cancelar
               </button>
               <button
                 onClick={handleToggleEstado}
                 disabled={accionLoading}
-                style={{
-                  padding: '8px 18px',
-                  borderRadius: '8px',
-                  border: 'none',
-                  background:
-                    confirmar === 'desactivar'
-                      ? 'rgba(248,113,113,0.15)'
-                      : 'linear-gradient(135deg,rgba(74,222,128,0.8),rgba(34,197,94,0.8))',
-                  color: confirmar === 'desactivar' ? '#f87171' : '#0f172a',
-                  fontSize: '13px',
-                  fontWeight: '700',
-                  cursor: accionLoading ? 'not-allowed' : 'pointer',
-                  fontFamily: "'DM Sans',sans-serif",
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  opacity: accionLoading ? 0.6 : 1,
-                }}
+                className={`flex items-center gap-1.5 px-[18px] py-2 rounded-lg border-none text-[13px] font-bold ${confirmar === 'desactivar' ? 'bg-red-400/[0.15] text-red-400' : 'bg-gradient-to-br from-green-400/80 to-green-500/80 text-slate-900'} ${accionLoading ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
               >
                 {accionLoading && (
                   <svg
                     width='12'
                     height='12'
                     viewBox='0 0 12 12'
-                    style={{ animation: 'spin 0.8s linear infinite' }}
+                    className='animate-spin'
                   >
                     <circle
                       cx='6'

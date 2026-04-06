@@ -83,8 +83,8 @@ function BarraProgreso({
     <div className='flex items-center gap-2 w-full'>
       <div className='flex-1 h-2 bg-slate-100 rounded-full overflow-hidden'>
         <div
-          className={`h-full rounded-full transition-all duration-500 ${pct === 100 ? 'bg-emerald-500' : pct > 0 ? 'bg-blue-500' : 'bg-slate-200'}`}
-          style={{ width: `${pct}%` }}
+          className={`h-full rounded-full transition-all duration-500 w-[var(--bar-w)] ${pct === 100 ? 'bg-emerald-500' : pct > 0 ? 'bg-blue-500' : 'bg-slate-200'}`}
+          style={{ '--bar-w': `${pct}%` } as React.CSSProperties}
         />
       </div>
       <span className='text-xs text-slate-500 tabular-nums w-12 text-right'>
@@ -207,14 +207,8 @@ export default function NotaPedidoDetalle({ id }: { id: string }) {
 
   return (
     <>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@300;400;500&display=swap');
-        .nota-detalle{font-family:'DM Sans',sans-serif}
-        ::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:rgba(148,163,184,0.15);border-radius:2px}
-        option{background:#0f172a;color:#e2e8f0}input:focus,select:focus,textarea:focus{outline:none!important}
-      `}</style>
       <div className='nota-detalle px-3 py-3 pb-10 sm:px-5 sm:py-4 sm:pb-12 lg:px-5 lg:py-2 lg:pb-3 bg-slate-900'>
-        <div style={{ width: '100%', margin: '0 auto', minWidth: 0 }}>
+        <div className='w-full mx-auto min-w-0'>
           {/* Toast */}
           {toast && (
             <div

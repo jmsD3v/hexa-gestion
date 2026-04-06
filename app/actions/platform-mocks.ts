@@ -40,7 +40,7 @@ import type {
   TipoPago,
   TipoRecibo,
   TipoRemito,
-} from '@/types/database';
+} from '@/types';
 import type { PuntoSerie, RankingItem, ResumenPeriodo } from './reportes';
 
 type ClienteMock = ClienteListaItem;
@@ -76,7 +76,6 @@ type RemitoDetalleMock = RemitoCompleto & {
 };
 
 export const shouldUsePlatformMocks =
-  process.env.NODE_ENV === 'development' ||
   process.env.NEXT_PUBLIC_USE_MOCKS === 'true';
 
 const now = new Date();
@@ -1962,11 +1961,11 @@ export function getMockClientes(filtros: FiltrosCliente = {}) {
     const aValue =
       orden_por === 'ultima_actividad'
         ? (a.ultima_actividad ?? '')
-        : String((a as Record<string, unknown>)[orden_por] ?? '');
+        : String((a as unknown as Record<string, unknown>)[orden_por] ?? '');
     const bValue =
       orden_por === 'ultima_actividad'
         ? (b.ultima_actividad ?? '')
-        : String((b as Record<string, unknown>)[orden_por] ?? '');
+        : String((b as unknown as Record<string, unknown>)[orden_por] ?? '');
     return orden_dir === 'asc'
       ? String(aValue).localeCompare(String(bValue))
       : String(bValue).localeCompare(String(aValue));

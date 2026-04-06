@@ -27,10 +27,14 @@ export async function obtenerFacturas(
   const {
     busqueda, cliente_id, estado, tipo_comprobante,
     fecha_desde, fecha_hasta, pagina = 1, por_pagina = 20,
+    orden_por = 'fecha_emision', orden_dir = 'desc',
   } = filtros
 
   const desde = (pagina - 1) * por_pagina
   const hasta  = desde + por_pagina - 1
+
+  const COLS_PERMITIDAS = ['numero', 'fecha_emision', 'total', 'fecha_vencimiento'] as const
+  const col = COLS_PERMITIDAS.includes(orden_por as any) ? orden_por : 'fecha_emision'
 
   let query = supabase
     .from('facturas')
@@ -48,7 +52,7 @@ export async function obtenerFacturas(
   if (fecha_hasta)      query = query.lte('fecha_emision', fecha_hasta)
 
   const { data, error, count } = await query
-    .order('fecha_emision', { ascending: false })
+    .order(col, { ascending: orden_dir === 'asc' })
     .range(desde, hasta)
 
   if (error) return { data: null, error: error.message }
@@ -119,6 +123,26 @@ export async function crearFactura(
   if (!dto.cliente_id)              return { data: null, error: 'El cliente es requerido' }
   if (!dto.tipo_comprobante)        return { data: null, error: 'El tipo de comprobante es requerido' }
   if (!dto.items || dto.items.length === 0) return { data: null, error: 'Debe incluir al menos un ítem' }
+
+  // Guard: si se vincula a un remito, debe estar emitido o entregado
+  if (dto.remito_id) {
+    const { data: remito } = await supabase
+      .from('remitos').select('estado, factura_id').eq('id', dto.remito_id).single()
+    if (!remito) return { data: null, error: 'Remito vinculado no encontrado' }
+    if (!['EMITIDO', 'ENTREGADO'].includes(remito.estado))
+      return { data: null, error: 'El remito debe estar emitido o entregado para facturar' }
+    if (remito.factura_id)
+      return { data: null, error: 'Este remito ya tiene una factura asociada' }
+  }
+
+  // Guard: si se vincula a una orden, debe estar completada
+  if (dto.orden_id) {
+    const { data: orden } = await supabase
+      .from('ordenes_servicio').select('estado').eq('id', dto.orden_id).single()
+    if (!orden) return { data: null, error: 'Orden vinculada no encontrada' }
+    if (orden.estado !== 'COMPLETADA')
+      return { data: null, error: 'La orden debe estar completada para facturar' }
+  }
 
   // Calcular totales
   const { items, ...facturaData } = dto
@@ -388,6 +412,98 @@ export async function eliminarRecibo(
 
   revalidatePath('/facturas')
   return { data: null, error: null, mensaje: 'Recibo eliminado y saldo revertido' }
+}
+
+// ─── Generar factura desde remito emitido ─────────────────────────────────────
+
+export async function generarFacturaDesdeRemito(
+  remitoId: string,
+): Promise<ApiResponse<Factura>> {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { data: null, error: 'No autenticado' }
+
+  const { data: remito } = await supabase
+    .from('remitos')
+    .select('id, estado, cliente_id, orden_id, factura_id, items:remitos_items(*)')
+    .eq('id', remitoId)
+    .single()
+
+  if (!remito) return { data: null, error: 'Remito no encontrado' }
+  if (!['EMITIDO', 'ENTREGADO'].includes(remito.estado))
+    return { data: null, error: 'El remito debe estar emitido o entregado para generar una factura' }
+  if (remito.factura_id)
+    return { data: null, error: 'Este remito ya tiene una factura asociada' }
+
+  const items = (remito.items ?? []) as Array<{
+    descripcion: string; cantidad: number; precio_unitario: number | null; unidad_medida: string | null
+  }>
+
+  if (!items.length) return { data: null, error: 'El remito no tiene ítems para facturar' }
+
+  // Determinar tipo_comprobante según condición IVA del cliente
+  let tipoComprobante = 'FACTURA_B'
+  const { data: cliente } = await supabase
+    .from('clientes')
+    .select('condicion_iva')
+    .eq('id', remito.cliente_id)
+    .single()
+
+  if (cliente?.condicion_iva === 'RESPONSABLE_INSCRIPTO') tipoComprobante = 'FACTURA_A'
+  else if (cliente?.condicion_iva === 'MONOTRIBUTISTA')    tipoComprobante = 'FACTURA_C'
+
+  // Obtener presupuesto_id desde la orden vinculada
+  let presupuesto_id: string | null = null
+  if (remito.orden_id) {
+    const { data: orden } = await supabase
+      .from('ordenes_servicio')
+      .select('presupuesto_id')
+      .eq('id', remito.orden_id)
+      .single()
+    presupuesto_id = orden?.presupuesto_id ?? null
+  }
+
+  const result = await crearFactura({
+    cliente_id: remito.cliente_id,
+    tipo_comprobante: tipoComprobante as any,
+    remito_id: remitoId,
+    orden_id: remito.orden_id ?? undefined,
+    presupuesto_id: presupuesto_id ?? undefined,
+    items: items.map((it) => ({
+      descripcion: it.descripcion,
+      cantidad: it.cantidad,
+      precio_unitario: it.precio_unitario ?? 0,
+      unidad_medida: it.unidad_medida ?? 'un',
+    })),
+  })
+
+  // Vincular el remito a la factura recién creada + evento calendario
+  if (result.data) {
+    await supabase
+      .from('remitos')
+      .update({ factura_id: result.data.id })
+      .eq('id', remitoId)
+
+    // Evento de vencimiento de factura en calendario
+    const fechaVenc = (result.data as any).fecha_vencimiento
+    await supabase.from('eventos_calendario').insert({
+      tipo: 'VENCIMIENTO_FACTURA',
+      titulo: `Vence factura ${result.data.numero}`,
+      descripcion: `Factura ${result.data.numero} generada desde remito`,
+      fecha_inicio: fechaVenc
+        ? new Date(fechaVenc).toISOString()
+        : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+      entidad_tipo: 'factura',
+      entidad_id: result.data.id,
+      cliente_id: remito.cliente_id,
+      color: '#f59e0b',
+      creado_por: user.id,
+    })
+
+    revalidatePath(`/logistica/remitos/${remitoId}`)
+  }
+
+  return result
 }
 
 // ─── KPIs facturación ─────────────────────────────────────────────────────────

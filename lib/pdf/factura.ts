@@ -46,7 +46,7 @@ export async function generarPDFFactura(
     .from('facturas')
     .select(`
       *,
-      cliente:clientes(razon_social, cuit, condicion_iva, domicilio, localidad, provincia, email, telefono),
+      cliente:clientes(razon_social, cuit, condicion_iva, email, telefono),
       items:facturas_items(*),
       recibos(*)
     `)
@@ -155,7 +155,7 @@ export async function generarPDFFactura(
     doc.fontSize(8).font('Helvetica').fillColor(GRIS)
        .text(`CUIT: ${cli?.cuit ?? '—'}`, M + 8, y + 29)
        .text(`Condición IVA: ${cli?.condicion_iva ?? '—'}`, M + 8, y + 40)
-       .text(`Domicilio: ${[cli?.domicilio, cli?.localidad, cli?.provincia].filter(Boolean).join(', ') || '—'}`, M + 160, y + 29)
+       .text(`Domicilio: —`, M + 160, y + 29)
     if (factura.condicion_venta)
        doc.text(`Cond. venta: ${factura.condicion_venta}`, M + 160, y + 40)
 

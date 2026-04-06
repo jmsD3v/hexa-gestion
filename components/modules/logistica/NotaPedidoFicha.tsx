@@ -11,8 +11,8 @@ import {
   useEffect,
   useCallback,
   useRef,
-  type CSSProperties,
 } from 'react';
+import { CheckCircle2, Settings } from 'lucide-react';
 import type { NotaPedidoCompleta, NotaPedidoItem } from '@/types';
 import {
   obtenerNotaPedido,
@@ -27,7 +27,7 @@ import {
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
 type EstadoNP = 'PENDIENTE' | 'PARCIAL' | 'RECIBIDO' | 'ANULADO';
-type FullNP = NotaPedidoCompleta & { numero_orden: string | null };
+type FullNP = NotaPedidoCompleta & { nombre_orden: string | null };
 
 interface Props {
   notaId: string;
@@ -35,34 +35,11 @@ interface Props {
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
 
-const ESTADO_CFG: Record<
-  EstadoNP,
-  { label: string; color: string; bg: string; border: string }
-> = {
-  PENDIENTE: {
-    label: 'Pendiente',
-    color: '#f59e0b',
-    bg: 'rgba(245,158,11,0.08)',
-    border: 'rgba(245,158,11,0.2)',
-  },
-  PARCIAL: {
-    label: 'Parcial',
-    color: '#a78bfa',
-    bg: 'rgba(167,139,250,0.08)',
-    border: 'rgba(167,139,250,0.2)',
-  },
-  RECIBIDO: {
-    label: 'Recibido',
-    color: '#4ade80',
-    bg: 'rgba(74,222,128,0.08)',
-    border: 'rgba(74,222,128,0.2)',
-  },
-  ANULADO: {
-    label: 'Anulado',
-    color: '#f87171',
-    bg: 'rgba(248,113,113,0.08)',
-    border: 'rgba(248,113,113,0.2)',
-  },
+const ESTADO_CFG: Record<EstadoNP, { label: string; badge: string; text: string; dot: string }> = {
+  PENDIENTE: { label: 'Pendiente', badge: 'text-amber-500 bg-amber-500/[0.08] border-amber-500/20',   text: 'text-amber-500',   dot: 'bg-amber-500'   },
+  PARCIAL:   { label: 'Parcial',   badge: 'text-violet-400 bg-violet-400/[0.08] border-violet-400/20', text: 'text-violet-400',  dot: 'bg-violet-400'  },
+  RECIBIDO:  { label: 'Recibido',  badge: 'text-green-400 bg-green-400/[0.08] border-green-400/20',   text: 'text-green-400',   dot: 'bg-green-400'   },
+  ANULADO:   { label: 'Anulado',   badge: 'text-red-400 bg-red-400/[0.08] border-red-400/20',         text: 'text-red-400',     dot: 'bg-red-400'     },
 };
 
 const TRANSICIONES: Record<EstadoNP, EstadoNP[]> = {
@@ -74,19 +51,8 @@ const TRANSICIONES: Record<EstadoNP, EstadoNP[]> = {
 
 // ─── Estilos ──────────────────────────────────────────────────────────────────
 
-const card: CSSProperties = {
-  background: 'rgba(15,23,42,0.7)',
-  border: '1px solid rgba(148,163,184,0.08)',
-  borderRadius: '12px',
-  backdropFilter: 'blur(12px)',
-};
-const labelSt: CSSProperties = {
-  fontSize: '10px',
-  fontWeight: '600',
-  letterSpacing: '0.08em',
-  textTransform: 'uppercase',
-  color: '#475569',
-};
+const cardClass = 'bg-slate-900/70 border border-slate-400/10 rounded-xl backdrop-blur-sm';
+const labelClass = 'text-xs font-semibold tracking-widest uppercase text-slate-600';
 
 const fmtFecha = (iso: string | null) =>
   iso
@@ -114,7 +80,7 @@ function ItemRecepcion({
 }) {
   const [cantidad, setCantidad] = useState(String(item.cantidad_recibida));
   const [saving, setSaving] = useState(false);
-  const debounce = useRef<ReturnType<typeof setTimeout>>();
+  const debounce = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   useEffect(() => {
     setCantidad(String(item.cantidad_recibida));
@@ -142,49 +108,33 @@ function ItemRecepcion({
   const completo = item.cantidad_recibida >= item.cantidad_pedida;
 
   return (
-    <div
-      style={{
-        display: 'grid',
-        gridTemplateColumns: '1fr 100px 100px 140px 32px',
-        gap: '12px',
-        padding: '12px 16px',
-        alignItems: 'center',
-        borderBottom: '1px solid rgba(148,163,184,0.05)',
-      }}
-    >
+    <div className='grid grid-cols-[1fr_100px_100px_140px_32px] gap-3 px-4 py-3 items-center border-b border-slate-400/[0.05]'>
       {/* Descripción */}
       <div>
-        <div style={{ fontSize: '13px', color: '#94a3b8' }}>
+        <div className='text-[13px] text-slate-400'>
           {item.descripcion}
         </div>
         {item.notas && (
-          <div style={{ fontSize: '11px', color: '#475569', marginTop: '2px' }}>
+          <div className='text-xs text-slate-600 mt-0.5'>
             {item.notas}
           </div>
         )}
       </div>
 
       {/* Pedido */}
-      <div style={{ textAlign: 'center' }}>
-        <div
-          style={{
-            fontSize: '13px',
-            fontWeight: '600',
-            color: '#64748b',
-            fontFamily: "'DM Mono',monospace",
-          }}
-        >
+      <div className='text-center'>
+        <div className='text-[13px] font-semibold text-slate-500'>
           {item.cantidad_pedida}
         </div>
-        <div style={{ fontSize: '9px', color: '#334155', marginTop: '1px' }}>
+        <div className='text-[9px] text-slate-700 mt-px'>
           {item.unidad_medida}
         </div>
       </div>
 
       {/* Recibido — editable */}
-      <div style={{ textAlign: 'center' }}>
+      <div className='text-center'>
         {canEdit ? (
-          <div style={{ position: 'relative' }}>
+          <div className='relative'>
             <input
               type='number'
               value={cantidad}
@@ -192,44 +142,15 @@ function ItemRecepcion({
               min={0}
               max={item.cantidad_pedida}
               step='0.01'
-              style={{
-                width: '80px',
-                padding: '5px 8px',
-                background: 'rgba(8,16,35,0.6)',
-                border: `1px solid ${completo ? 'rgba(74,222,128,0.3)' : 'rgba(148,163,184,0.1)'}`,
-                borderRadius: '6px',
-                color: '#e2e8f0',
-                fontSize: '12px',
-                fontFamily: "'DM Mono',monospace",
-                outline: 'none',
-                textAlign: 'center',
-              }}
-              onFocus={(e) =>
-                (e.currentTarget.style.borderColor = 'rgba(96,165,250,0.35)')
-              }
-              onBlur={(e) =>
-                (e.currentTarget.style.borderColor = completo
-                  ? 'rgba(74,222,128,0.3)'
-                  : 'rgba(148,163,184,0.1)')
-              }
+              className={`w-20 px-2 py-1 bg-slate-950/60 rounded-md text-slate-200 text-xs outline-none text-center border focus:border-blue-400/[0.35] ${completo ? 'border-emerald-400/30' : 'border-slate-400/10'}`}
             />
             {saving && (
-              <div
-                style={{
-                  position: 'absolute',
-                  right: '-16px',
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                }}
-              >
+              <div className='absolute right-[-16px] top-1/2 -translate-y-1/2'>
                 <svg
                   width='10'
                   height='10'
                   viewBox='0 0 10 10'
-                  style={{
-                    animation: 'spin 0.8s linear infinite',
-                    color: '#60a5fa',
-                  }}
+                  className='animate-spin text-blue-400'
                 >
                   <circle
                     cx='5'
@@ -246,76 +167,40 @@ function ItemRecepcion({
             )}
           </div>
         ) : (
-          <span
-            style={{
-              fontSize: '13px',
-              fontWeight: '600',
-              color: completo ? '#4ade80' : '#64748b',
-              fontFamily: "'DM Mono',monospace",
-            }}
-          >
+          <span className={`text-[13px] font-semibold ${completo ? 'text-emerald-400' : 'text-slate-500'}`}>
             {item.cantidad_recibida}
           </span>
         )}
-        <div style={{ fontSize: '9px', color: '#334155', marginTop: '1px' }}>
+        <div className='text-[9px] text-slate-700 mt-px'>
           {item.unidad_medida}
         </div>
       </div>
 
       {/* Barra de progreso */}
       <div>
-        <div
-          style={{
-            height: '6px',
-            background: 'rgba(148,163,184,0.08)',
-            borderRadius: '3px',
-            overflow: 'hidden',
-            marginBottom: '3px',
-          }}
-        >
+        <div className='h-1.5 bg-slate-400/[0.08] rounded overflow-hidden mb-1'>
           <div
-            style={{
-              height: '100%',
-              width: `${pct}%`,
-              background: completo
-                ? '#4ade80'
-                : pct > 0
-                  ? '#a78bfa'
-                  : 'transparent',
-              borderRadius: '3px',
-              transition: 'width 0.4s ease',
-            }}
+            className={`h-full rounded-[3px] transition-all duration-300 w-[var(--bar-w)] ${completo ? 'bg-green-400' : pct > 0 ? 'bg-violet-400' : 'bg-transparent'}`}
+            style={{ '--bar-w': `${pct}%` } as React.CSSProperties}
           />
         </div>
         <div
-          style={{
-            fontSize: '9px',
-            color: completo ? '#4ade80' : '#475569',
-            textAlign: 'right',
-          }}
+          className={`text-[9px] text-right ${completo ? 'text-emerald-400' : 'text-slate-600'}`}
         >
           {Math.round(pct)}%
         </div>
       </div>
 
       {/* Estado ítem */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
+      <div className='flex items-center justify-center'>
         {completo ? (
-          <span style={{ fontSize: '14px' }} title='Completo'>
-            ✅
-          </span>
+          <CheckCircle2 className='w-3 h-3 text-green-400' aria-label='Completo' />
         ) : item.cantidad_recibida > 0 ? (
-          <span style={{ fontSize: '14px' }} title='Parcial'>
+          <span className='text-sm' title='Parcial'>
             🔶
           </span>
         ) : (
-          <span style={{ fontSize: '14px' }} title='Pendiente'>
+          <span className='text-sm' title='Pendiente'>
             ⏳
           </span>
         )}
@@ -391,114 +276,38 @@ export default function NotaPedidoFicha({ notaId }: Props) {
 
   return (
     <>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@300;400;500&display=swap');
-        *{box-sizing:border-box}body{margin:0;background:#060d1a;font-family:'DM Sans',sans-serif;-webkit-font-smoothing:antialiased}
-        option{background:#0f172a;color:#e2e8f0}input:focus{outline:none!important}
-        ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:rgba(148,163,184,0.15);border-radius:2px}
-        @keyframes shimmer{0%,100%{opacity:.4}50%{opacity:.8}}@keyframes fadeIn{from{opacity:0}to{opacity:1}}
-        @keyframes scaleIn{from{transform:scale(0.96);opacity:0}to{transform:scale(1);opacity:1}}
-        @keyframes slideUp{from{transform:translateY(8px);opacity:0}to{transform:translateY(0);opacity:1}}
-        @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
-      `}</style>
-
       <div className='px-3 py-3 pb-10 sm:px-5 sm:py-4 sm:pb-12 lg:px-4 lg:py-2 lg:pb-3'>
-        <div style={{ width: '100%', margin: '0 auto', minWidth: 0 }}>
+        <div className='w-full min-w-0'>
           {/* Breadcrumb */}
           <div className='mb-3 flex items-center gap-2 lg:mb-2'>
             <a
               href='/logistica'
-              style={{
-                fontSize: '11px',
-                color: '#334155',
-                textDecoration: 'none',
-                letterSpacing: '0.08em',
-                textTransform: 'uppercase',
-              }}
+              className='text-xs text-slate-700 no-underline tracking-widest uppercase'
             >
               Logística
             </a>
-            <span style={{ color: '#1e293b' }}>›</span>
-            <span
-              style={{
-                fontSize: '11px',
-                color: '#475569',
-                letterSpacing: '0.08em',
-                textTransform: 'uppercase',
-              }}
-            >
+            <span className='text-slate-800'>›</span>
+            <span className='text-xs text-slate-600 tracking-widest uppercase'>
               Notas de pedido
             </span>
-            <span style={{ color: '#1e293b' }}>›</span>
-            <span
-              style={{
-                fontSize: '11px',
-                color: '#64748b',
-                letterSpacing: '0.08em',
-                textTransform: 'uppercase',
-              }}
-            >
+            <span className='text-slate-800'>›</span>
+            <span className='text-xs text-slate-500 tracking-widest uppercase'>
               {loading ? '...' : n?.numero}
             </span>
           </div>
 
           {/* Header */}
-          <div style={{ ...card, padding: '16px', marginBottom: '12px' }}>
+          <div className={`${cardClass} p-4 mb-3`}>
             {loading ? (
-              <div
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '10px',
-                }}
-              >
-                <div
-                  style={{
-                    height: '12px',
-                    borderRadius: '4px',
-                    background: 'rgba(148,163,184,0.07)',
-                    width: '120px',
-                    animation: 'shimmer 1.4s ease infinite',
-                  }}
-                />
-                <div
-                  style={{
-                    height: '22px',
-                    borderRadius: '4px',
-                    background: 'rgba(148,163,184,0.07)',
-                    width: '280px',
-                    animation: 'shimmer 1.4s ease infinite',
-                  }}
-                />
+              <div className='flex flex-col gap-2.5'>
+                <div className='h-3 rounded bg-slate-400/[0.07] w-[120px] animate-pulse' />
+                <div className='h-[22px] rounded bg-slate-400/[0.07] w-[280px] animate-pulse' />
               </div>
             ) : n ? (
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'flex-start',
-                  justifyContent: 'space-between',
-                  gap: '16px',
-                  flexWrap: 'wrap',
-                }}
-              >
+              <div className='flex items-start justify-between gap-4 flex-wrap'>
                 <div>
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '10px',
-                      marginBottom: '8px',
-                      flexWrap: 'wrap',
-                    }}
-                  >
-                    <span
-                      style={{
-                        fontSize: '15px',
-                        fontWeight: '700',
-                        color: '#60a5fa',
-                        fontFamily: "'DM Mono',monospace",
-                      }}
-                    >
+                  <div className='flex items-center gap-2.5 mb-2 flex-wrap'>
+                    <span className='text-[15px] font-bold text-blue-400'>
                       {n.numero}
                     </span>
                     {/* Badge estado */}
@@ -506,124 +315,51 @@ export default function NotaPedidoFicha({ notaId }: Props) {
                       const cfg = ESTADO_CFG[n.estado as EstadoNP];
                       return (
                         <span
-                          style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '5px',
-                            padding: '3px 11px',
-                            borderRadius: '20px',
-                            fontSize: '11px',
-                            fontWeight: '600',
-                            background: cfg.bg,
-                            border: `1px solid ${cfg.border}`,
-                            color: cfg.color,
-                          }}
+                          className={`inline-flex items-center gap-[5px] px-[11px] py-[3px] rounded-full text-[11px] font-semibold border ${cfg.badge}`}
                         >
                           <span
-                            style={{
-                              width: '5px',
-                              height: '5px',
-                              borderRadius: '50%',
-                              background: 'currentColor',
-                              display: 'inline-block',
-                            }}
+                            className='inline-block w-[5px] h-[5px] rounded-full bg-current'
                           />
                           {cfg.label}
                         </span>
                       );
                     })()}
-                    {n.numero_orden && (
+                    {n.nombre_orden && (
                       <a
                         href={`/ordenes/${n.orden_id}`}
-                        style={{
-                          fontSize: '11px',
-                          color: '#60a5fa',
-                          fontFamily: "'DM Mono',monospace",
-                          textDecoration: 'none',
-                          background: 'rgba(96,165,250,0.06)',
-                          border: '1px solid rgba(96,165,250,0.15)',
-                          borderRadius: '4px',
-                          padding: '1px 7px',
-                        }}
+                        className='inline-flex items-center gap-1 text-xs text-blue-400 no-underline bg-blue-400/[0.06] border border-blue-400/[0.15] rounded px-1.5 py-px'
                       >
-                        ⚙️ {n.numero_orden}
+                        <Settings className='w-3 h-3' /> {n.nombre_orden}
                       </a>
                     )}
                   </div>
 
-                  <div
-                    style={{
-                      fontSize: '15px',
-                      fontWeight: '600',
-                      color: '#94a3b8',
-                      marginBottom: '4px',
-                    }}
-                  >
+                  <div className='text-[15px] font-semibold text-slate-400 mb-1'>
                     {n.proveedor ?? 'Sin proveedor asignado'}
                   </div>
 
                   {/* Barra de recepción general */}
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '10px',
-                      marginTop: '10px',
-                    }}
-                  >
-                    <div
-                      style={{
-                        width: '180px',
-                        height: '6px',
-                        background: 'rgba(148,163,184,0.08)',
-                        borderRadius: '3px',
-                        overflow: 'hidden',
-                      }}
-                    >
+                  <div className='flex items-center gap-2.5 mt-2.5'>
+                    <div className='w-[180px] h-1.5 bg-slate-400/[0.08] rounded overflow-hidden'>
                       <div
-                        style={{
-                          height: '100%',
-                          width: `${pctGeneral}%`,
-                          background:
-                            pctGeneral === 100 ? '#4ade80' : '#a78bfa',
-                          borderRadius: '3px',
-                          transition: 'width 0.5s ease',
-                        }}
+                        className={`h-full rounded-[3px] transition-all duration-500 w-[var(--bar-w)] ${pctGeneral === 100 ? 'bg-green-400' : 'bg-violet-400'}`}
+                        style={{ '--bar-w': `${pctGeneral}%` } as React.CSSProperties}
                       />
                     </div>
-                    <span
-                      style={{
-                        fontSize: '12px',
-                        color: '#475569',
-                        fontFamily: "'DM Mono',monospace",
-                      }}
-                    >
+                    <span className='text-xs text-slate-600'>
                       {itemsCompletos}/{totalItems} ítems recibidos
                     </span>
                   </div>
                 </div>
 
                 {/* Acciones */}
-                <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
+                <div className='flex gap-2 shrink-0'>
                   {posibles.length > 0 && (
-                    <div ref={menuRef} style={{ position: 'relative' }}>
+                    <div ref={menuRef} className='relative'>
                       <button
                         onClick={() => setMenuEstado((p) => !p)}
                         disabled={accionLoad}
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '6px',
-                          padding: '8px 16px',
-                          borderRadius: '8px',
-                          border: '1px solid rgba(96,165,250,0.3)',
-                          background: 'rgba(96,165,250,0.06)',
-                          color: '#60a5fa',
-                          fontSize: '12px',
-                          fontWeight: '600',
-                          cursor: 'pointer',
-                          fontFamily: "'DM Sans',sans-serif",
-                        }}
+                        className='inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-blue-400/30 bg-blue-400/[0.06] text-blue-400 text-xs font-semibold cursor-pointer'
                       >
                         Cambiar estado
                         <svg
@@ -631,10 +367,7 @@ export default function NotaPedidoFicha({ notaId }: Props) {
                           height='8'
                           viewBox='0 0 8 8'
                           fill='none'
-                          style={{
-                            transition: 'transform 0.15s',
-                            transform: menuEstado ? 'rotate(180deg)' : 'none',
-                          }}
+                          className={`transition-transform duration-150 ${menuEstado ? 'rotate-180' : ''}`}
                         >
                           <path
                             d='M1 3L4 6L7 3'
@@ -646,62 +379,16 @@ export default function NotaPedidoFicha({ notaId }: Props) {
                         </svg>
                       </button>
                       {menuEstado && (
-                        <div
-                          style={{
-                            position: 'absolute',
-                            right: 0,
-                            top: 'calc(100% + 4px)',
-                            zIndex: 30,
-                            background: '#0f172a',
-                            border: '1px solid rgba(148,163,184,0.12)',
-                            borderRadius: '9px',
-                            padding: '4px',
-                            minWidth: '170px',
-                            boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
-                            animation: 'scaleIn 0.12s ease',
-                          }}
-                        >
+                        <div className='absolute right-0 top-[calc(100%+4px)] z-30 bg-slate-900 border border-slate-400/[0.12] rounded-[9px] p-1 min-w-[170px] shadow-[0_8px_24px_rgba(0,0,0,0.5)] animate-modal-in'>
                           {posibles.map((e) => {
                             const cfg = ESTADO_CFG[e];
                             return (
                               <button
                                 key={e}
                                 onClick={() => handleCambiarEstado(e)}
-                                style={{
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  gap: '8px',
-                                  padding: '8px 11px',
-                                  borderRadius: '6px',
-                                  width: '100%',
-                                  border: 'none',
-                                  background: 'transparent',
-                                  cursor: 'pointer',
-                                  fontSize: '12px',
-                                  color: '#94a3b8',
-                                  fontFamily: "'DM Sans',sans-serif",
-                                  transition: 'background 0.1s',
-                                }}
-                                onMouseEnter={(el) => {
-                                  el.currentTarget.style.background =
-                                    'rgba(148,163,184,0.06)';
-                                  el.currentTarget.style.color = '#e2e8f0';
-                                }}
-                                onMouseLeave={(el) => {
-                                  el.currentTarget.style.background =
-                                    'transparent';
-                                  el.currentTarget.style.color = '#94a3b8';
-                                }}
+                                className='flex items-center gap-2 px-[11px] py-2 rounded-md w-full border-none bg-transparent cursor-pointer text-xs text-slate-400 transition-colors duration-100 hover:bg-slate-400/[0.06] hover:text-slate-200'
                               >
-                                <span
-                                  style={{
-                                    width: '6px',
-                                    height: '6px',
-                                    borderRadius: '50%',
-                                    background: cfg.color,
-                                    flexShrink: 0,
-                                  }}
-                                />
+                                <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${cfg.dot}`} />
                                 {cfg.label}
                               </button>
                             );
@@ -713,42 +400,23 @@ export default function NotaPedidoFicha({ notaId }: Props) {
                 </div>
               </div>
             ) : (
-              <div style={{ color: '#475569' }}>
+              <div className='text-slate-600'>
                 Nota de pedido no encontrada
               </div>
             )}
           </div>
 
           {n && (
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: '1fr 270px',
-                gap: '16px',
-                alignItems: 'start',
-              }}
-            >
+            <div className='grid grid-cols-[1fr_270px] gap-4 items-start'>
               {/* Ítems con recepción */}
-              <div style={{ ...card, overflow: 'hidden' }}>
+              <div className={`${cardClass} overflow-hidden`}>
                 {/* Header tabla */}
-                <div
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: '1fr 100px 100px 140px 32px',
-                    gap: '12px',
-                    padding: '10px 16px',
-                    background: 'rgba(8,16,35,0.4)',
-                    borderBottom: '1px solid rgba(148,163,184,0.07)',
-                  }}
-                >
+                <div className='grid grid-cols-[1fr_100px_100px_140px_32px] gap-3 px-4 py-2.5 bg-slate-950/40 border-b border-slate-400/[0.07]'>
                   {['Descripción', 'Pedido', 'Recibido', 'Avance', ''].map(
                     (h, i) => (
                       <span
                         key={i}
-                        style={{
-                          ...labelSt,
-                          textAlign: i > 0 ? 'center' : 'left',
-                        }}
+                        className={`${labelClass} ${i > 0 ? 'text-center' : 'text-left'}`}
                       >
                         {h}
                       </span>
@@ -756,14 +424,7 @@ export default function NotaPedidoFicha({ notaId }: Props) {
                   )}
                 </div>
                 {n.items.length === 0 ? (
-                  <div
-                    style={{
-                      padding: '32px',
-                      textAlign: 'center',
-                      color: '#334155',
-                      fontSize: '13px',
-                    }}
-                  >
+                  <div className='p-8 text-center text-slate-700 text-[13px]'>
                     Sin ítems
                   </div>
                 ) : (
@@ -781,25 +442,10 @@ export default function NotaPedidoFicha({ notaId }: Props) {
               </div>
 
               {/* Panel lateral */}
-              <div
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '12px',
-                }}
-              >
+              <div className='flex flex-col gap-3'>
                 {/* Datos del documento */}
-                <div style={{ ...card, padding: '18px' }}>
-                  <div
-                    style={{
-                      fontSize: '10px',
-                      fontWeight: '700',
-                      letterSpacing: '0.08em',
-                      textTransform: 'uppercase',
-                      color: '#334155',
-                      marginBottom: '12px',
-                    }}
-                  >
+                <div className={`${cardClass} p-[18px]`}>
+                  <div className='text-xs font-bold tracking-widest uppercase text-slate-700 mb-3'>
                     Datos
                   </div>
                   {[
@@ -824,7 +470,7 @@ export default function NotaPedidoFicha({ notaId }: Props) {
                       ? [
                           {
                             label: 'OS vinculada',
-                            value: n.numero_orden ?? '—',
+                            value: n.nombre_orden ?? '—',
                             mono: true,
                           },
                         ]
@@ -832,31 +478,13 @@ export default function NotaPedidoFicha({ notaId }: Props) {
                   ].map(({ label, value, mono }) => (
                     <div
                       key={label}
-                      style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'flex-start',
-                        gap: '8px',
-                        paddingBottom: '7px',
-                        borderBottom: '1px solid rgba(148,163,184,0.05)',
-                      }}
+                      className='flex justify-between items-start gap-2 pb-[7px] border-b border-slate-400/[0.05]'
                     >
-                      <span
-                        style={{
-                          fontSize: '11px',
-                          color: '#334155',
-                          flexShrink: 0,
-                        }}
-                      >
+                      <span className='text-xs text-slate-700 shrink-0'>
                         {label}
                       </span>
                       <span
-                        style={{
-                          fontSize: '12px',
-                          color: '#64748b',
-                          fontFamily: mono ? "'DM Mono',monospace" : undefined,
-                          textAlign: 'right',
-                        }}
+                        className={`text-xs text-slate-500 text-right${mono ? ' font-mono' : ''}`}
                       >
                         {value || '—'}
                       </span>
@@ -865,61 +493,19 @@ export default function NotaPedidoFicha({ notaId }: Props) {
                 </div>
 
                 {/* Resumen recepción */}
-                <div style={{ ...card, padding: '18px' }}>
-                  <div
-                    style={{
-                      fontSize: '10px',
-                      fontWeight: '700',
-                      letterSpacing: '0.08em',
-                      textTransform: 'uppercase',
-                      color: '#334155',
-                      marginBottom: '12px',
-                    }}
-                  >
+                <div className={`${cardClass} p-[18px]`}>
+                  <div className='text-xs font-bold tracking-widest uppercase text-slate-700 mb-3'>
                     Recepción
                   </div>
-                  <div
-                    style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '8px',
-                    }}
-                  >
+                  <div className='flex flex-col gap-2'>
                     {[
-                      { label: 'Total ítems', value: String(totalItems) },
-                      {
-                        label: 'Recibidos compl.',
-                        value: String(itemsCompletos),
-                        color:
-                          itemsCompletos === totalItems ? '#4ade80' : '#94a3b8',
-                      },
-                      {
-                        label: 'Pendientes',
-                        value: String(totalItems - itemsCompletos),
-                        color:
-                          totalItems - itemsCompletos > 0
-                            ? '#f59e0b'
-                            : '#334155',
-                      },
-                    ].map(({ label, value, color }) => (
-                      <div
-                        key={label}
-                        style={{
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                        }}
-                      >
-                        <span style={{ fontSize: '11px', color: '#475569' }}>
-                          {label}
-                        </span>
-                        <span
-                          style={{
-                            fontSize: '13px',
-                            fontWeight: '700',
-                            color: color ?? '#94a3b8',
-                            fontFamily: "'DM Mono',monospace",
-                          }}
-                        >
+                      { label: 'Total ítems',       value: String(totalItems),                    textCls: 'text-slate-500'  },
+                      { label: 'Recibidos compl.',  value: String(itemsCompletos),                textCls: itemsCompletos === totalItems ? 'text-green-400' : 'text-slate-500' },
+                      { label: 'Pendientes',        value: String(totalItems - itemsCompletos),   textCls: totalItems - itemsCompletos > 0 ? 'text-amber-500' : 'text-slate-800' },
+                    ].map(({ label, value, textCls }) => (
+                      <div key={label} className='flex justify-between'>
+                        <span className='text-xs text-slate-600'>{label}</span>
+                        <span className={`text-[13px] font-bold font-mono ${textCls}`}>
                           {value}
                         </span>
                       </div>
@@ -929,28 +515,11 @@ export default function NotaPedidoFicha({ notaId }: Props) {
 
                 {/* Notas */}
                 {n.notas && (
-                  <div style={{ ...card, padding: '16px' }}>
-                    <div
-                      style={{
-                        fontSize: '10px',
-                        fontWeight: '700',
-                        letterSpacing: '0.08em',
-                        textTransform: 'uppercase',
-                        color: '#334155',
-                        marginBottom: '8px',
-                      }}
-                    >
+                  <div className={`${cardClass} p-4`}>
+                    <div className='text-xs font-bold tracking-widest uppercase text-slate-700 mb-2'>
                       Notas
                     </div>
-                    <p
-                      style={{
-                        margin: 0,
-                        fontSize: '12px',
-                        color: '#64748b',
-                        lineHeight: '1.7',
-                        whiteSpace: 'pre-wrap',
-                      }}
-                    >
+                    <p className='m-0 text-xs text-slate-500 leading-[1.7] whitespace-pre-wrap'>
                       {n.notas}
                     </p>
                   </div>
@@ -958,45 +527,15 @@ export default function NotaPedidoFicha({ notaId }: Props) {
 
                 {/* Accesos rápidos */}
                 {n.orden_id && (
-                  <div style={{ ...card, padding: '14px' }}>
-                    <div
-                      style={{
-                        fontSize: '10px',
-                        fontWeight: '700',
-                        letterSpacing: '0.08em',
-                        textTransform: 'uppercase',
-                        color: '#334155',
-                        marginBottom: '8px',
-                      }}
-                    >
+                  <div className={`${cardClass} p-3.5`}>
+                    <div className='text-xs font-bold tracking-widest uppercase text-slate-700 mb-2'>
                       Accesos
                     </div>
                     <a
                       href={`/ordenes/${n.orden_id}`}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '7px',
-                        padding: '8px 10px',
-                        borderRadius: '7px',
-                        textDecoration: 'none',
-                        fontSize: '12px',
-                        color: '#64748b',
-                        border: '1px solid rgba(148,163,184,0.07)',
-                        background: 'rgba(8,16,35,0.3)',
-                        transition: 'all 0.12s',
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.background =
-                          'rgba(148,163,184,0.05)';
-                        e.currentTarget.style.color = '#94a3b8';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.background = 'rgba(8,16,35,0.3)';
-                        e.currentTarget.style.color = '#64748b';
-                      }}
+                      className='flex items-center gap-[7px] px-2.5 py-2 rounded-[7px] no-underline text-xs text-slate-500 border border-slate-400/[0.07] bg-slate-950/30 transition-all duration-[120ms] hover:bg-slate-400/[0.05] hover:text-slate-400'
                     >
-                      ⚙️ Ver orden de servicio
+                      <Settings className='w-4 h-4' /> Ver orden de servicio
                     </a>
                   </div>
                 )}
@@ -1008,37 +547,15 @@ export default function NotaPedidoFicha({ notaId }: Props) {
 
       {toast && (
         <div
-          style={{
-            position: 'fixed',
-            bottom: '24px',
-            right: '24px',
-            zIndex: 200,
-            display: 'flex',
-            alignItems: 'center',
-            gap: '10px',
-            padding: '12px 18px',
-            borderRadius: '10px',
-            background: 'rgba(15,23,42,0.97)',
-            border: `1px solid ${toast.tipo === 'ok' ? 'rgba(74,222,128,0.3)' : 'rgba(248,113,113,0.3)'}`,
-            backdropFilter: 'blur(12px)',
-            boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
-            animation: 'slideUp 0.25s ease',
-          }}
+          className={`fixed bottom-6 right-6 z-[200] flex items-center gap-2.5 px-[18px] py-3 rounded-[10px] bg-slate-900/[0.97] backdrop-blur-sm shadow-[0_8px_32px_rgba(0,0,0,0.4)] animate-modal-in ${toast.tipo === 'ok' ? 'border border-emerald-400/30' : 'border border-red-400/30'}`}
         >
           <span
-            style={{
-              color: toast.tipo === 'ok' ? '#4ade80' : '#f87171',
-              fontWeight: '600',
-              fontSize: '13px',
-            }}
+            className={`font-semibold text-[13px] ${toast.tipo === 'ok' ? 'text-emerald-400' : 'text-red-400'}`}
           >
             {toast.tipo === 'ok' ? '✓' : '✕'}
           </span>
           <span
-            style={{
-              color: toast.tipo === 'ok' ? '#4ade80' : '#f87171',
-              fontSize: '13px',
-            }}
+            className={`text-[13px] ${toast.tipo === 'ok' ? 'text-emerald-400' : 'text-red-400'}`}
           >
             {toast.msg}
           </span>

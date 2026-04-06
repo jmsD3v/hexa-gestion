@@ -2,13 +2,14 @@
 
 // ============================================================
 // /components/modules/configuracion/Configuracion.tsx
-// Configuración de empresa y perfil de usuario
+// Configuración de empresa, perfil y equipo
 // ============================================================
 
 import { useState, useEffect } from 'react';
 import {
   Building2,
   User,
+  Users,
   Save,
   AlertCircle,
   CheckCircle2,
@@ -21,16 +22,30 @@ import {
   FileText,
   Palette,
   ExternalLink,
+  UserPlus,
+  ShieldCheck,
+  ChevronDown,
+  Loader2,
+  Trash2,
+  UserX,
+  UserCheck,
 } from 'lucide-react';
 import {
   obtenerConfiguracion,
   guardarConfiguracion,
   obtenerPerfil,
   actualizarPerfil,
+  listarUsuarios,
+  invitarUsuario,
+  actualizarRolUsuario,
+  desactivarUsuario,
+  reactivarUsuario,
+  eliminarUsuario,
 } from '@/app/actions/configuracion';
 import type {
   ConfiguracionEmpresa,
   PerfilUsuario,
+  UsuarioEquipo,
 } from '@/app/actions/configuracion';
 
 // ── Field genérico ────────────────────────────────────────────
@@ -56,7 +71,7 @@ function Field({
 }) {
   return (
     <div>
-      <label className='block text-xs font-semibold text-slate-600 mb-1.5'>
+      <label className='block text-xs font-semibold text-slate-400 mb-1.5'>
         {label}
       </label>
       <div className='relative'>
@@ -75,7 +90,7 @@ function Field({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
-          className={`w-full text-sm border border-slate-600 bg-slate-700 text-slate-100 placeholder-slate-400 rounded-xl py-2.5 pr-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow ${
+          className={`w-full text-sm border border-slate-400/10 bg-slate-800/50 text-slate-100 placeholder-slate-400 rounded-xl py-2.5 pr-3 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500/40 transition-shadow ${
             Icon ? 'pl-9' : prefix ? 'pl-8' : 'pl-3'
           }`}
         />
@@ -97,8 +112,8 @@ function Seccion({
   children: React.ReactNode;
 }) {
   return (
-    <div className='bg-slate-800/70 rounded-2xl border border-slate-700/70 overflow-hidden shadow-sm backdrop-blur-sm'>
-      <div className='px-5 py-4 border-b border-slate-700/20 flex items-center gap-2'>
+    <div className='bg-slate-900/70 rounded-lg border border-slate-400/10 overflow-hidden backdrop-blur-sm'>
+      <div className='px-5 py-4 border-b border-slate-400/10 flex items-center gap-2'>
         <Icon className='w-4 h-4 text-slate-400' />
         <h2 className='text-sm font-semibold text-slate-100'>{titulo}</h2>
       </div>
@@ -165,7 +180,7 @@ function TabEmpresa() {
         {[1, 2, 3].map((i) => (
           <div
             key={i}
-            className='h-32 bg-slate-800/70 rounded-2xl animate-pulse'
+            className='h-32 bg-slate-900/70 rounded-lg border border-slate-400/10 animate-pulse'
           />
         ))}
       </div>
@@ -213,13 +228,13 @@ function TabEmpresa() {
               helper='Formato: 30-XXXXXXXX-X'
             />
             <div>
-              <label className='block text-xs font-semibold text-slate-600 mb-1.5'>
+              <label className='block text-xs font-semibold text-slate-400 mb-1.5'>
                 Condición IVA
               </label>
               <select
                 value={config.condicion_iva}
                 onChange={(e) => set('condicion_iva', e.target.value)}
-                className='w-full text-sm px-3 py-2.5 border border-slate-600 bg-slate-700 text-slate-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500'
+                className='w-full text-sm px-3 py-2.5 border border-slate-400/10 bg-slate-800/50 text-slate-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/40'
               >
                 <option value='RESPONSABLE_INSCRIPTO'>
                   Responsable Inscripto
@@ -284,7 +299,7 @@ function TabEmpresa() {
                 helper='Número de punto de venta habilitado en AFIP'
               />
               <div>
-                <label className='block text-xs font-semibold text-slate-600 mb-1.5'>
+                <label className='block text-xs font-semibold text-slate-400 mb-1.5'>
                   <span className='flex items-center gap-1.5'>
                     <Palette className='w-3.5 h-3.5' /> Color primario
                   </span>
@@ -294,7 +309,7 @@ function TabEmpresa() {
                     type='color'
                     value={config.color_primario ?? '#1e3a5f'}
                     onChange={(e) => set('color_primario', e.target.value)}
-                    className='w-12 h-10 rounded-xl border border-slate-600 bg-slate-700 cursor-pointer p-0.5'
+                    className='w-12 h-10 rounded-xl border border-slate-400/10 bg-slate-800/50 cursor-pointer p-0.5'
                   />
                   <div className='min-w-0'>
                     <span className='text-sm text-slate-300 font-mono block'>
@@ -316,7 +331,7 @@ function TabEmpresa() {
                 />
               </div>
               <div className='md:col-span-2'>
-                <label className='text-xs font-semibold text-slate-600 mb-1.5 flex items-center gap-1.5'>
+                <label className='text-xs font-semibold text-slate-400 mb-1.5 flex items-center gap-1.5'>
                   <Globe className='w-3.5 h-3.5' /> URL del logo
                 </label>
                 <div className='flex flex-col gap-2 sm:flex-row'>
@@ -325,20 +340,20 @@ function TabEmpresa() {
                     value={config.logo_url ?? ''}
                     onChange={(e) => set('logo_url', e.target.value)}
                     placeholder='https://…/logo.png'
-                    className='flex-1 text-sm px-3 py-2.5 border border-slate-600 bg-slate-700 text-slate-100 placeholder-slate-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500'
+                    className='flex-1 text-sm px-3 py-2.5 border border-slate-400/10 bg-slate-800/50 text-slate-100 placeholder-slate-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/40'
                   />
                   {config.logo_url && (
                     <a
                       href={config.logo_url}
                       target='_blank'
-                      className='flex items-center justify-center gap-1 px-3 py-2 border border-slate-600 bg-slate-700 rounded-xl text-sm text-slate-200 hover:bg-slate-600'
+                      className='flex items-center justify-center gap-1 px-3 py-2 border border-slate-400/10 bg-slate-800/50 rounded-xl text-sm text-slate-200 hover:bg-slate-400/10'
                     >
                       <ExternalLink className='w-3.5 h-3.5' />
                     </a>
                   )}
                 </div>
                 {config.logo_url && (
-                  <div className='mt-2 p-2 bg-slate-900/70 border border-slate-700/60 rounded-xl inline-block'>
+                  <div className='mt-2 p-2 bg-slate-900/70 border border-slate-400/10 rounded-xl inline-block'>
                     <img
                       src={config.logo_url}
                       alt='Logo'
@@ -362,7 +377,7 @@ function TabEmpresa() {
         <button
           onClick={handleGuardar}
           disabled={guardando || !dirty}
-          className='flex items-center gap-2 px-6 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-xl shadow-sm transition-colors'
+          className='flex items-center gap-2 px-6 py-2.5 bg-gradient-to-br from-emerald-600/80 to-emerald-700/80 hover:from-emerald-600 hover:to-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-slate-950 text-sm font-semibold rounded-xl shadow-sm transition-all'
         >
           <Save className='w-4 h-4' />
           {guardando ? 'Guardando…' : 'Guardar configuración'}
@@ -409,7 +424,7 @@ function TabPerfil() {
   return (
     <div className='space-y-5'>
       {toast && (
-        <div className='fixed bottom-5 right-5 z-50 bg-slate-800 text-white text-sm px-4 py-3 rounded-xl shadow-lg'>
+        <div className='fixed bottom-6 right-6 z-50 bg-emerald-600 text-white text-sm px-4 py-3 rounded-xl shadow-lg'>
           {toast}
         </div>
       )}
@@ -417,7 +432,7 @@ function TabPerfil() {
       <Seccion titulo='Tu perfil' icon={User}>
         <div className='grid grid-cols-1 lg:grid-cols-[88px_minmax(0,1fr)] gap-5 items-start'>
           {/* Avatar generativo */}
-          <div className='w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center flex-shrink-0 shadow-md shadow-blue-950/60'>
+          <div className='w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-700 flex items-center justify-center flex-shrink-0 shadow-md shadow-emerald-950/60'>
             <span className='text-white font-bold text-xl'>{iniciales}</span>
           </div>
           <div className='flex-1 space-y-4'>
@@ -430,28 +445,28 @@ function TabPerfil() {
                 placeholder='Luis Gastón Alarcón'
               />
               <div>
-                <label className='block text-xs font-semibold text-slate-600 mb-1.5'>
+                <label className='block text-xs font-semibold text-slate-400 mb-1.5'>
                   Email
                 </label>
                 <input
                   type='email'
                   value={perfil?.email ?? ''}
                   readOnly
-                  className='w-full text-sm px-3 py-2.5 border border-slate-700/60 rounded-xl bg-slate-800/80 text-slate-400 cursor-not-allowed'
+                  className='w-full text-sm px-3 py-2.5 border border-slate-400/10 rounded-xl bg-slate-800/50 text-slate-400 cursor-not-allowed'
                 />
                 <p className='text-xs text-slate-400 mt-1'>
                   El email no se puede cambiar desde aquí
                 </p>
               </div>
               <div>
-                <label className='block text-xs font-semibold text-slate-600 mb-1.5'>
+                <label className='block text-xs font-semibold text-slate-400 mb-1.5'>
                   Rol en el sistema
                 </label>
                 <input
                   type='text'
                   value={perfil?.rol ?? 'superadmin'}
                   readOnly
-                  className='w-full text-sm px-3 py-2.5 border border-slate-700/60 rounded-xl bg-slate-800/80 text-slate-400 cursor-not-allowed'
+                  className='w-full text-sm px-3 py-2.5 border border-slate-400/10 rounded-xl bg-slate-800/50 text-slate-400 cursor-not-allowed'
                 />
               </div>
             </div>
@@ -463,11 +478,352 @@ function TabPerfil() {
         <button
           onClick={handleGuardar}
           disabled={guardando}
-          className='flex items-center gap-2 px-6 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-semibold rounded-xl shadow-sm transition-colors'
+          className='flex items-center gap-2 px-6 py-2.5 bg-gradient-to-br from-emerald-600/80 to-emerald-700/80 hover:from-emerald-600 hover:to-emerald-700 disabled:opacity-50 text-slate-950 text-sm font-semibold rounded-xl shadow-sm transition-all'
         >
           <Save className='w-4 h-4' />
           {guardando ? 'Guardando…' : 'Guardar perfil'}
         </button>
+      </div>
+    </div>
+  );
+}
+
+// ── Helpers de equipo ─────────────────────────────────────────
+
+const ROL_LABELS: Record<string, string> = {
+  superadmin: 'Super Admin',
+  admin: 'Administrador',
+  supervisor: 'Supervisor',
+  operador: 'Operador',
+  viewer: 'Observador',
+};
+
+const ROL_COLORS: Record<string, string> = {
+  superadmin: 'bg-amber-500/20 text-amber-400 border border-amber-500/30',
+  admin: 'bg-orange-500/20 text-orange-400 border border-orange-500/30',
+  supervisor: 'bg-blue-500/20 text-blue-400 border border-blue-500/30',
+  operador: 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30',
+  viewer: 'bg-slate-500/20 text-slate-300 border border-slate-600/40',
+};
+
+function RolBadge({ rol }: { rol: string }) {
+  return (
+    <span
+      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${ROL_COLORS[rol] ?? ROL_COLORS.viewer}`}
+    >
+      <ShieldCheck className='w-3 h-3' />
+      {ROL_LABELS[rol] ?? rol}
+    </span>
+  );
+}
+
+function AvatarInicial({ nombre, rol }: { nombre: string | null; rol: string }) {
+  const gradients: Record<string, string> = {
+    superadmin: 'from-amber-500 to-orange-600',
+    admin: 'from-orange-500 to-red-600',
+    supervisor: 'from-blue-500 to-blue-700',
+    operador: 'from-emerald-500 to-teal-700',
+    viewer: 'from-slate-500 to-slate-700',
+  };
+  const iniciales = nombre
+    ? nombre.split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2)
+    : '?';
+  return (
+    <div
+      className={`w-8 h-8 rounded-xl bg-gradient-to-br ${gradients[rol] ?? gradients.viewer} flex items-center justify-center flex-shrink-0`}
+    >
+      <span className='text-white font-bold text-xs'>{iniciales}</span>
+    </div>
+  );
+}
+
+function formatFecha(iso: string | null) {
+  if (!iso) return 'Nunca';
+  return new Date(iso).toLocaleDateString('es-AR', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
+}
+
+// ── Tab Equipo ────────────────────────────────────────────────
+
+function TabEquipo({ miId, miRol }: { miId: string; miRol: string }) {
+  const [usuarios, setUsuarios] = useState<UsuarioEquipo[]>([]);
+  const [cargando, setCargando] = useState(true);
+  const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
+  const [mostrarInvitar, setMostrarInvitar] = useState(false);
+  const [emailInvite, setEmailInvite] = useState('');
+  const [rolInvite, setRolInvite] = useState('operador');
+  const [enviando, setEnviando] = useState(false);
+  const [cargandoId, setCargandoId] = useState<string | null>(null);
+
+  const showToast = (msg: string, ok: boolean) => {
+    setToast({ msg, ok });
+    setTimeout(() => setToast(null), 3500);
+  };
+
+  const cargar = async () => {
+    setCargando(true);
+    const r = await listarUsuarios();
+    if (r.data) setUsuarios(r.data);
+    else showToast(r.error ?? 'Error al cargar usuarios', false);
+    setCargando(false);
+  };
+
+  useEffect(() => { cargar(); }, []);
+
+  const handleInvitar = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setEnviando(true);
+    const r = await invitarUsuario({ email: emailInvite, rol: rolInvite });
+    setEnviando(false);
+    if (r.error) {
+      showToast(r.error, false);
+    } else {
+      showToast(r.mensaje ?? 'Invitación enviada', true);
+      setEmailInvite('');
+      setRolInvite('operador');
+      setMostrarInvitar(false);
+      cargar();
+    }
+  };
+
+  const handleCambiarRol = async (usuarioId: string, rol: string) => {
+    setCargandoId(usuarioId);
+    const r = await actualizarRolUsuario({ usuarioId, rol });
+    setCargandoId(null);
+    showToast(r.error ?? r.mensaje ?? 'Actualizado', !r.error);
+    if (!r.error) cargar();
+  };
+
+  const handleToggleActivo = async (u: UsuarioEquipo) => {
+    setCargandoId(u.id);
+    const r = u.activo
+      ? await desactivarUsuario({ usuarioId: u.id })
+      : await reactivarUsuario({ usuarioId: u.id });
+    setCargandoId(null);
+    showToast(r.error ?? r.mensaje ?? 'Actualizado', !r.error);
+    if (!r.error) cargar();
+  };
+
+  const handleEliminar = async (u: UsuarioEquipo) => {
+    if (!confirm(`¿Eliminar permanentemente a ${u.email}? Esta acción no se puede deshacer.`)) return;
+    setCargandoId(u.id);
+    const r = await eliminarUsuario({ usuarioId: u.id });
+    setCargandoId(null);
+    showToast(r.error ?? r.mensaje ?? 'Eliminado', !r.error);
+    if (!r.error) cargar();
+  };
+
+  const rolesAsignables = miRol === 'superadmin'
+    ? ['superadmin', 'admin', 'supervisor', 'operador', 'viewer']
+    : ['admin', 'supervisor', 'operador', 'viewer'];
+
+  return (
+    <div className='space-y-5'>
+      {toast && (
+        <div
+          className={`fixed bottom-5 right-5 z-50 flex items-center gap-2 px-4 py-3 rounded-xl shadow-lg text-sm font-medium ${
+            toast.ok ? 'bg-emerald-700 text-white' : 'bg-red-700 text-white'
+          }`}
+        >
+          {toast.ok ? <CheckCircle2 className='w-4 h-4' /> : <AlertCircle className='w-4 h-4' />}
+          {toast.msg}
+        </div>
+      )}
+
+      {/* Header + botón invitar */}
+      <div className='bg-slate-900/70 rounded-lg border border-slate-400/10 overflow-hidden backdrop-blur-sm'>
+        <div className='px-5 py-4 border-b border-slate-400/10 flex items-center justify-between gap-3'>
+          <div className='flex items-center gap-2'>
+            <Users className='w-4 h-4 text-slate-400' />
+            <h2 className='text-sm font-semibold text-slate-100'>
+              Miembros del equipo
+            </h2>
+            {!cargando && (
+              <span className='text-xs text-slate-500 bg-slate-400/10 px-2 py-0.5 rounded-full'>
+                {usuarios.length}
+              </span>
+            )}
+          </div>
+          <button
+            onClick={() => setMostrarInvitar((v) => !v)}
+            className='flex items-center gap-2 px-3 py-2 bg-gradient-to-br from-emerald-600/80 to-emerald-700/80 hover:from-emerald-600 hover:to-emerald-700 text-slate-950 text-xs font-semibold rounded-xl transition-all'
+          >
+            <UserPlus className='w-3.5 h-3.5' />
+            Invitar usuario
+            <ChevronDown
+              className={`w-3.5 h-3.5 transition-transform ${mostrarInvitar ? 'rotate-180' : ''}`}
+            />
+          </button>
+        </div>
+
+        {/* Formulario de invitación */}
+        {mostrarInvitar && (
+          <form
+            onSubmit={handleInvitar}
+            className='px-5 py-4 border-b border-slate-400/10 bg-slate-950/40'
+          >
+            <p className='text-xs text-slate-400 mb-3'>
+              El usuario recibirá un email con un link para activar su cuenta.
+            </p>
+            <div className='flex flex-col sm:flex-row gap-3'>
+              <input
+                type='email'
+                required
+                value={emailInvite}
+                onChange={(e) => setEmailInvite(e.target.value)}
+                placeholder='correo@empresa.com'
+                className='flex-1 text-sm px-3 py-2 border border-slate-400/10 bg-slate-800/50 text-slate-100 placeholder-slate-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/40'
+              />
+              <select
+                value={rolInvite}
+                onChange={(e) => setRolInvite(e.target.value)}
+                className='text-sm px-3 py-2 border border-slate-400/10 bg-slate-800/50 text-slate-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/40'
+              >
+                {rolesAsignables.map((r) => (
+                  <option key={r} value={r}>
+                    {ROL_LABELS[r]}
+                  </option>
+                ))}
+              </select>
+              <button
+                type='submit'
+                disabled={enviando}
+                className='flex items-center gap-2 px-4 py-2 bg-gradient-to-br from-emerald-600/80 to-emerald-700/80 hover:from-emerald-600 hover:to-emerald-700 disabled:opacity-50 text-slate-950 text-sm font-semibold rounded-xl transition-all'
+              >
+                {enviando ? (
+                  <Loader2 className='w-4 h-4 animate-spin' />
+                ) : (
+                  <UserPlus className='w-4 h-4' />
+                )}
+                {enviando ? 'Enviando…' : 'Enviar invitación'}
+              </button>
+            </div>
+          </form>
+        )}
+
+        {/* Tabla de usuarios */}
+        <div className='px-5 py-3'>
+          {cargando ? (
+            <div className='space-y-3 py-2'>
+              {[1, 2, 3].map((i) => (
+                <div key={i} className='h-12 bg-slate-400/10 rounded-xl animate-pulse' />
+              ))}
+            </div>
+          ) : usuarios.length === 0 ? (
+            <p className='text-sm text-slate-500 py-6 text-center'>
+              No hay usuarios registrados.
+            </p>
+          ) : (
+            <div className='divide-y divide-slate-400/10'>
+              {usuarios.map((u) => {
+                const esMismo = u.id === miId;
+                const esSuperadmin = u.rol === 'superadmin';
+                const puedeEditar = !esMismo && (miRol === 'superadmin' || !esSuperadmin);
+                const puedeEliminar = miRol === 'superadmin' && !esMismo;
+                const cargandoEste = cargandoId === u.id;
+
+                return (
+                  <div
+                    key={u.id}
+                    className={`py-3.5 flex flex-col sm:flex-row sm:items-center gap-3 ${
+                      !u.activo ? 'opacity-60' : ''
+                    }`}
+                  >
+                    {/* Avatar + info */}
+                    <div className='flex items-center gap-3 flex-1 min-w-0'>
+                      <AvatarInicial nombre={u.nombre_completo} rol={u.rol} />
+                      <div className='min-w-0'>
+                        <div className='flex items-center gap-2 flex-wrap'>
+                          <span className='text-sm font-medium text-slate-100 truncate'>
+                            {u.nombre_completo ?? 'Sin nombre'}
+                          </span>
+                          {esMismo && (
+                            <span className='text-xs text-slate-500'>(vos)</span>
+                          )}
+                        </div>
+                        <span className='text-xs text-slate-400 truncate block'>
+                          {u.email}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Rol + estado + último acceso */}
+                    <div className='flex items-center gap-2 flex-wrap sm:flex-nowrap'>
+                      <span className='text-xs text-slate-500 hidden lg:inline whitespace-nowrap'>
+                        Último: {formatFecha(u.ultimo_acceso)}
+                      </span>
+
+                      {/* Estado */}
+                      <span
+                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${
+                          u.activo
+                            ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+                            : 'bg-red-500/20 text-red-400 border-red-500/30'
+                        }`}
+                      >
+                        {u.activo ? 'Activo' : 'Inactivo'}
+                      </span>
+
+                      {/* Rol — select si puede editar */}
+                      {puedeEditar ? (
+                        <div className='relative'>
+                          <select
+                            value={u.rol}
+                            disabled={cargandoEste}
+                            onChange={(e) => handleCambiarRol(u.id, e.target.value)}
+                            className='text-xs px-2 py-1 border border-slate-400/10 bg-slate-800/50 text-slate-100 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-500/40 cursor-pointer disabled:opacity-50'
+                          >
+                            {rolesAsignables.map((r) => (
+                              <option key={r} value={r}>
+                                {ROL_LABELS[r]}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      ) : (
+                        <RolBadge rol={u.rol} />
+                      )}
+                    </div>
+
+                    {/* Acciones */}
+                    <div className='flex items-center gap-1.5 flex-shrink-0'>
+                      {cargandoEste && (
+                        <Loader2 className='w-4 h-4 text-slate-400 animate-spin' />
+                      )}
+                      {puedeEditar && (
+                        <button
+                          onClick={() => handleToggleActivo(u)}
+                          disabled={cargandoEste}
+                          title={u.activo ? 'Desactivar usuario' : 'Reactivar usuario'}
+                          className='p-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-400/10 disabled:opacity-40 transition-colors'
+                        >
+                          {u.activo ? (
+                            <UserX className='w-4 h-4' />
+                          ) : (
+                            <UserCheck className='w-4 h-4' />
+                          )}
+                        </button>
+                      )}
+                      {puedeEliminar && (
+                        <button
+                          onClick={() => handleEliminar(u)}
+                          disabled={cargandoEste}
+                          title='Eliminar usuario permanentemente'
+                          className='p-1.5 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10 disabled:opacity-40 transition-colors'
+                        >
+                          <Trash2 className='w-4 h-4' />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -478,54 +834,73 @@ function TabPerfil() {
 // ════════════════════════════════════════════════════════════
 
 export default function Configuracion() {
-  const [tab, setTab] = useState<'empresa' | 'perfil'>('empresa');
+  const [tab, setTab] = useState<'empresa' | 'perfil' | 'equipo'>('empresa');
+  const [miId, setMiId] = useState('');
+  const [miRol, setMiRol] = useState('');
+
+  useEffect(() => {
+    obtenerPerfil().then((r) => {
+      if (r.data) {
+        setMiId(r.data.id);
+        setMiRol(r.data.rol ?? '');
+      }
+    });
+  }, []);
+
+  const esAdmin = ['superadmin', 'admin'].includes(miRol);
 
   return (
     <>
-      <style>{`
-        ::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:rgba(148,163,184,0.15);border-radius:2px}
-      `}</style>
       <div
-        className='min-h-screen bg-slate-900 px-3 py-5 pb-20 sm:px-5 sm:py-8 lg:px-6'
-        style={{
-          background:
-            'radial-gradient(ellipse 90% 45% at 8% 0%, rgba(59,130,246,0.06), transparent 55%), #060d1a',
-        }}
+        className='min-h-screen bg-slate-950 bg-gradient-to-b from-blue-950/5 to-slate-950 px-3 py-5 pb-20 sm:px-5 sm:py-8 lg:px-6'
       >
         {/* Header */}
-        <div className='bg-slate-800/70 backdrop-blur-sm border border-slate-700/60 rounded-2xl px-4 sm:px-6 py-5'>
+        <div className='mb-6'>
           <div className='max-w-5xl mx-auto min-w-0'>
-            <h1 className='text-xl font-bold text-slate-100'>Configuración</h1>
-            <p className='text-sm text-slate-400 mt-0.5'>
+            <nav className='flex items-center gap-1.5 mb-3'>
+              <span className='text-[11px] text-slate-500 tracking-widest uppercase'>Hexa Gestión</span>
+              <span className='text-slate-500'>›</span>
+              <span className='text-[11px] text-slate-600 tracking-widest uppercase'>Configuración</span>
+            </nav>
+            <h1 className='text-[32px] leading-none font-bold tracking-tight text-slate-100'>
+              Configuración
+            </h1>
+            <p className='text-sm text-slate-400 mt-1.5'>
               Datos de empresa, facturación y perfil de usuario
             </p>
           </div>
         </div>
 
-        <div className='max-w-5xl mx-auto min-w-0 pt-5'>
+        <div className='max-w-5xl mx-auto min-w-0'>
           {/* Tabs */}
-          <div className='flex border-b border-slate-700/20 mb-6'>
+          <div className='flex border-b border-slate-400/10 mb-6'>
             {[
-              { key: 'empresa', label: 'Empresa', icon: Building2 },
-              { key: 'perfil', label: 'Mi perfil', icon: User },
-            ].map((t) => (
-              <button
-                key={t.key}
-                onClick={() => setTab(t.key as any)}
-                className={`flex items-center gap-2 px-5 py-3 text-sm font-medium border-b-2 transition-colors ${
-                  tab === t.key
-                    ? 'border-blue-500 text-slate-100'
-                    : 'border-transparent text-slate-400 hover:text-slate-200 hover:border-slate-600'
-                }`}
-              >
-                <t.icon className='w-4 h-4' />
-                {t.label}
-              </button>
-            ))}
+              { key: 'empresa', label: 'Empresa', icon: Building2, visible: true },
+              { key: 'perfil', label: 'Mi perfil', icon: User, visible: true },
+              { key: 'equipo', label: 'Equipo', icon: Users, visible: esAdmin },
+            ]
+              .filter((t) => t.visible)
+              .map((t) => (
+                <button
+                  key={t.key}
+                  onClick={() => setTab(t.key as 'empresa' | 'perfil' | 'equipo')}
+                  className={`flex items-center gap-2 px-5 py-3 text-sm font-medium border-b-2 transition-colors ${
+                    tab === t.key
+                      ? 'border-emerald-500 text-slate-100'
+                      : 'border-transparent text-slate-400 hover:text-slate-200 hover:border-slate-400/20'
+                  }`}
+                >
+                  <t.icon className='w-4 h-4' />
+                  {t.label}
+                </button>
+              ))}
           </div>
 
           {tab === 'empresa' && <TabEmpresa />}
           {tab === 'perfil' && <TabPerfil />}
+          {tab === 'equipo' && esAdmin && (
+            <TabEquipo miId={miId} miRol={miRol} />
+          )}
         </div>
       </div>
     </>

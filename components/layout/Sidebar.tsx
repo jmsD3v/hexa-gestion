@@ -21,6 +21,7 @@ import {
   ChevronRight,
   X,
   ChevronLeft,
+  HardHat,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useSidebar } from '@/lib/sidebar-context';
@@ -55,7 +56,8 @@ const navGroups: NavGroup[] = [
   {
     label: 'Logística',
     items: [
-      { label: 'Notas de Pedido y Remitos', href: '/logistica', icon: Package },
+      { label: 'Notas y Remitos', href: '/logistica', icon: Package },
+      { label: 'Técnicos', href: '/tecnicos', icon: HardHat },
     ],
   },
   {
@@ -100,15 +102,15 @@ export default function Sidebar() {
         )}
       >
         {/* Logo */}
-        <div className='relative h-14 border-b border-slate-800 flex items-center px-4 transition-all duration-300'>
+        <div className='h-14 border-b border-slate-800 flex items-center px-2 gap-1 transition-all duration-300'>
           <Link
             href='/'
             className={cn(
-              'group flex min-w-0 items-center gap-3 transition-all duration-300',
-              isCollapsed ? 'md:w-full md:justify-center' : 'flex-1 pr-10',
+              'group flex min-w-0 items-center gap-3 px-1 flex-1 transition-all duration-300',
+              isCollapsed ? 'md:justify-center' : '',
             )}
           >
-            <div className='w-8 h-8 rounded-lg flex items-center justify-center overflow-hidden shadow-md shadow-blue-900/30 transition-shadow group-hover:shadow-blue-700/40 flex-shrink-0 bg-grey-100'>
+            <div className='w-8 h-8 rounded-lg flex items-center justify-center overflow-hidden shadow-md shadow-emerald-900/40 transition-shadow group-hover:shadow-emerald-800/60 flex-shrink-0 bg-slate-800'>
               <Image
                 src='/HEXA-logo-white.webp'
                 alt='HEXA'
@@ -122,24 +124,25 @@ export default function Sidebar() {
               <p className='font-bold text-sm tracking-wide leading-tight text-white'>
                 HEXA
               </p>
-              <p className='text-slate-500 text-[10px] leading-tight'>
+              <p className='text-slate-500 text-xs leading-tight'>
                 Servicios Integrales
               </p>
             </div>
           </Link>
-          {/* Close button for mobile */}
+          {/* Close button — mobile only */}
           <button
             onClick={close}
-            className='absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-slate-800 rounded-lg transition-colors flex-shrink-0 md:hidden'
-            title='Cerrar menú'
+            className='p-1.5 hover:bg-slate-800 rounded-lg transition-colors flex-shrink-0 md:hidden'
+            aria-label='Cerrar menú lateral'
           >
-            <X className='w-4 h-4 text-slate-400' />
+            <X className='w-4 h-4 text-slate-400' aria-hidden='true' />
           </button>
-          {/* Collapse button for desktop */}
+          {/* Collapse button — desktop only */}
           <button
             onClick={toggleCollapsed}
-            className='absolute right-3 top-1/2 hidden -translate-y-1/2 p-1 hover:bg-slate-800 rounded-lg transition-colors flex-shrink-0 md:flex'
-            title={isCollapsed ? 'Expandir menú' : 'Colapsar menú'}
+            className='p-1.5 hover:bg-slate-800 rounded-lg transition-colors flex-shrink-0 hidden md:flex'
+            aria-label={isCollapsed ? 'Expandir menú lateral' : 'Colapsar menú lateral'}
+            aria-expanded={!isCollapsed}
           >
             {isCollapsed ? (
               <ChevronRight className='w-4 h-4 text-slate-400' />
@@ -150,27 +153,12 @@ export default function Sidebar() {
         </div>
 
         {/* Nav */}
-        <nav className='flex-1 px-3 py-3 overflow-y-auto space-y-4'>
-          <style>{`
-          nav::-webkit-scrollbar {
-            width: 6px;
-          }
-          nav::-webkit-scrollbar-track {
-            background: transparent;
-          }
-          nav::-webkit-scrollbar-thumb {
-            background: #475569;
-            border-radius: 3px;
-          }
-          nav::-webkit-scrollbar-thumb:hover {
-            background: #64748b;
-          }
-        `}</style>
+        <nav className='flex-1 px-3 py-3 overflow-y-auto space-y-4' aria-label='Navegación principal'>
           {navGroups.map((group, gi) => (
             <div key={gi}>
               {group.label && (
                 <p
-                  className={`px-3 mb-1 text-[10px] font-semibold uppercase tracking-widest text-slate-600 select-none ${isCollapsed ? 'md:hidden' : ''}`}
+                  className={`px-3 mb-1 text-[11px] font-semibold uppercase tracking-widest text-slate-600 select-none ${isCollapsed ? 'md:hidden' : ''}`}
                 >
                   {group.label}
                 </p>
@@ -184,40 +172,34 @@ export default function Sidebar() {
                       <Link
                         href={item.href}
                         onClick={close}
+                        aria-current={active ? 'page' : undefined}
                         className={cn(
                           'group flex items-center gap-3 rounded-lg text-sm transition-all duration-150',
-                          isCollapsed
-                            ? 'md:px-2 md:py-2 md:justify-center'
-                            : 'px-3 py-2',
+                          'px-3 py-2',
+                          isCollapsed && 'md:px-2 md:py-2 md:justify-center',
                           active
-                            ? 'bg-blue-600 text-white shadow-sm shadow-blue-900/30'
-                            : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200',
+                            ? 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/20'
+                            : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200 border border-transparent',
                         )}
                       >
                         <Icon
                           className={cn(
                             'w-4 h-4 shrink-0 transition-colors',
                             active
-                              ? 'text-white'
+                              ? 'text-emerald-400'
                               : 'text-slate-500 group-hover:text-slate-300',
                           )}
+                          aria-hidden='true'
                         />
                         <span
-                          className={`flex-1 leading-none ${isCollapsed ? 'md:hidden' : ''}`}
+                          className={`flex-1 leading-none truncate ${isCollapsed ? 'md:hidden' : ''}`}
                         >
                           {item.label}
                         </span>
-                        {!isCollapsed ? (
-                          <>
-                            {item.badge && (
-                              <span className='px-1.5 py-0.5 rounded-full bg-red-500 text-white text-[10px] font-bold leading-none'>
-                                {item.badge}
-                              </span>
-                            )}
-                            {active && (
-                              <ChevronRight className='w-3 h-3 text-blue-300 shrink-0' />
-                            )}
-                          </>
+                        {!isCollapsed && item.badge ? (
+                          <span className='px-1.5 py-0.5 rounded-full bg-red-500 text-white text-xs font-bold leading-none shrink-0'>
+                            {item.badge}
+                          </span>
                         ) : null}
                       </Link>
                     </li>
@@ -235,14 +217,15 @@ export default function Sidebar() {
             onClick={close}
             className={cn(
               'flex items-center gap-3 rounded-lg text-sm transition-all duration-150',
-              isCollapsed ? 'md:px-2 md:py-2 md:justify-center' : 'px-3 py-2',
+              'px-3 py-2',
+              isCollapsed && 'md:px-2 md:py-2 md:justify-center',
               pathname.startsWith('/configuracion')
-                ? 'bg-blue-600 text-white'
-                : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200',
+                ? 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/20'
+                : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200 border border-transparent',
             )}
           >
-            <Settings className='w-4 h-4 shrink-0 text-slate-500' />
-            <span className={isCollapsed ? 'md:hidden' : ''}>
+            <Settings className={cn('w-4 h-4 shrink-0 transition-colors', pathname.startsWith('/configuracion') ? 'text-emerald-400' : 'text-slate-500')} />
+            <span className={`truncate ${isCollapsed ? 'md:hidden' : ''}`}>
               Configuración
             </span>
           </Link>

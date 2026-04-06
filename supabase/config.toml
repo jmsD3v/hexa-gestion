@@ -1,0 +1,53 @@
+# ============================================================
+# supabase/config.toml
+# Configuración local del proyecto Supabase
+# Docs: https://supabase.com/docs/guides/cli/config
+# ============================================================
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 15
+
+[studio]
+enabled = true
+port = 54323
+
+[inbucket]
+enabled = true
+port = 54324
+
+[storage]
+enabled = true
+
+[auth]
+enabled = true
+site_url = "http://localhost:3000"
+additional_redirect_urls = ["http://localhost:3000"]
+jwt_expiry = 3600
+enable_refresh_token_rotation = true
+refresh_token_reuse_interval = 10
+
+[auth.email]
+enable_signup = false
+double_confirm_changes = true
+enable_confirmations = true
+
+# ── Edge Functions ────────────────────────────────────────────
+
+# Resumen diario de alertas — todos los días a las 08:00 UTC (05:00 ART)
+[functions.send-alertas]
+verify_jwt = false
+
+[[cron_jobs]]
+name       = "alertas-diarias"
+schedule   = "0 8 * * *"
+http_url   = "http://kong:8000/functions/v1/send-alertas"
+http_method = "POST"

@@ -260,10 +260,14 @@ export async function obtenerPresupuestos(
   const {
     busqueda, cliente_id, estado, fecha_desde, fecha_hasta,
     tipo_operacion, pagina = 1, por_pagina = 20,
+    orden_por = 'creado_en', orden_dir = 'desc',
   } = filtros
 
   const desde = (pagina - 1) * por_pagina
   const hasta  = desde + por_pagina - 1
+
+  const COLS_PERMITIDAS = ['numero', 'creado_en', 'total', 'fecha_validez'] as const
+  const col = COLS_PERMITIDAS.includes(orden_por as any) ? orden_por : 'creado_en'
 
   let query = supabase
     .from('presupuestos')
@@ -284,7 +288,7 @@ export async function obtenerPresupuestos(
   if (fecha_hasta)    query = query.lte('fecha_emision', fecha_hasta)
 
   const { data, error, count } = await query
-    .order('creado_en', { ascending: false })
+    .order(col, { ascending: orden_dir === 'asc' })
     .range(desde, hasta)
 
   if (error) return { data: null, error: error.message }
@@ -308,6 +312,14 @@ export async function obtenerPresupuestos(
 
 // ── Cambiar estado ────────────────────────────────────────────
 
+const TRANSICIONES_PRESUPUESTO: Record<EstadoPresupuesto, EstadoPresupuesto[]> = {
+  BORRADOR:  ['ENVIADO', 'RECHAZADO'],
+  ENVIADO:   ['RECHAZADO'],   // APROBADO solo via aprobarPresupuesto()
+  APROBADO:  [],              // estado final — no se cambia por esta función
+  RECHAZADO: ['BORRADOR'],    // permite reabrir para editar
+  VENCIDO:   ['BORRADOR'],    // permite reactivar
+}
+
 export async function cambiarEstadoPresupuesto(
   id: string,
   estado: EstadoPresupuesto
@@ -316,6 +328,15 @@ export async function cambiarEstadoPresupuesto(
 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { data: null, error: 'No autenticado' }
+
+  const { data: actual } = await supabase
+    .from('presupuestos').select('estado').eq('id', id).single()
+  if (!actual) return { data: null, error: 'Presupuesto no encontrado' }
+
+  const transicionesValidas = TRANSICIONES_PRESUPUESTO[actual.estado as EstadoPresupuesto] ?? []
+  if (!transicionesValidas.includes(estado)) {
+    return { data: null, error: `No se puede cambiar un presupuesto "${actual.estado}" a "${estado}"` }
+  }
 
   const { error } = await supabase
     .from('presupuestos')

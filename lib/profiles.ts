@@ -1,4 +1,5 @@
 import { createAdminClient } from '@/lib/supabase/server';
+import type { Profile } from '@/types/database';
 
 type AuthUserLike = {
   id: string;
@@ -39,7 +40,7 @@ function deriveNames(user: AuthUserLike) {
 
 export async function ensureProfileForUser(
   user: AuthUserLike,
-): Promise<ProfileRow | null> {
+): Promise<Profile | null> {
   const supabase = createAdminClient();
 
   const { data: existingProfile } = await supabase
@@ -105,7 +106,7 @@ export async function ensureProfileForUser(
       .select('id, nombre, apellido, email, rol, avatar_url, activo')
       .single();
 
-    return inserted ?? null;
+    return (inserted as Profile) ?? null;
   }
 
   const needsNameFix = !existingProfile.nombre || !existingProfile.apellido;
@@ -126,8 +127,8 @@ export async function ensureProfileForUser(
       .select('id, nombre, apellido, email, rol, avatar_url, activo')
       .single();
 
-    return updated ?? existingProfile;
+    return (updated as Profile) ?? (existingProfile as Profile);
   }
 
-  return existingProfile;
+  return existingProfile as Profile;
 }

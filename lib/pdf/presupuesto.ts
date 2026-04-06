@@ -140,7 +140,7 @@ export async function generarPDFPresupuesto(
       .fillColor('#111')
       .fontSize(10)
       .font('Helvetica-Bold')
-      .text(presupuesto.titulo, MARGEN, y)
+      .text(presupuesto.titulo ?? '', MARGEN, y)
 
     if (presupuesto.objetivo_servicio) {
       y += 14
@@ -244,27 +244,24 @@ export async function generarPDFPresupuesto(
 
     // ── Condiciones ──────────────────────────────────────────
     if (presupuesto.condiciones_pago || presupuesto.tiempo_ejecucion || presupuesto.garantia) {
+      if (y + 80 > doc.page.height - 80) { doc.addPage(); y = MARGEN }
       y += 20
       doc.fillColor(AZUL).fontSize(10).font('Helvetica-Bold').text('CONDICIONES', MARGEN, y)
       doc.moveTo(MARGEN, y + 14).lineTo(MARGEN + ANCHO, y + 14).strokeColor(LINEA).stroke()
       y += 22
 
-      if (presupuesto.condiciones_pago) {
-        doc.fontSize(9).font('Helvetica-Bold').fillColor('#111').text('Condiciones de pago: ', MARGEN, y, { continued: true })
-        doc.font('Helvetica').text(presupuesto.condiciones_pago)
-        y += 14
+      const condRow = (label: string, valor: string) => {
+        if (y + 24 > doc.page.height - 80) { doc.addPage(); y = MARGEN }
+        const texto = `${label}${valor}`
+        doc.fontSize(9).fillColor('#111')
+        doc.font('Helvetica-Bold').text(label, MARGEN, y, { continued: true, lineBreak: false })
+        doc.font('Helvetica').text(valor)
+        y += doc.heightOfString(texto, { width: ANCHO }) + 4
       }
 
-      if (presupuesto.tiempo_ejecucion) {
-        doc.fontSize(9).font('Helvetica-Bold').fillColor('#111').text('Tiempo de ejecución: ', MARGEN, y, { continued: true })
-        doc.font('Helvetica').text(presupuesto.tiempo_ejecucion)
-        y += 14
-      }
-
-      if (presupuesto.garantia) {
-        doc.fontSize(9).font('Helvetica-Bold').fillColor('#111').text('Garantía: ', MARGEN, y, { continued: true })
-        doc.font('Helvetica').text(presupuesto.garantia)
-      }
+      if (presupuesto.condiciones_pago) condRow('Condiciones de pago: ', presupuesto.condiciones_pago)
+      if (presupuesto.tiempo_ejecucion) condRow('Tiempo de ejecución: ', presupuesto.tiempo_ejecucion)
+      if (presupuesto.garantia)         condRow('Garantía: ', presupuesto.garantia)
     }
 
     // ── Notas para el cliente ────────────────────────────────
@@ -281,7 +278,7 @@ export async function generarPDFPresupuesto(
       .fontSize(7)
       .fillColor(GRIS)
       .text(
-        empresa?.pie_pagina_pdf ?? `${empresa?.razon_social} — ${empresa?.email ?? ''} — ${empresa?.telefono ?? ''}`,
+        empresa?.pie_pagina_pdf ?? `${empresa?.razon_social ?? ''} — ${empresa?.email ?? ''} — ${empresa?.telefono ?? ''}`,
         MARGEN,
         pieY,
         { align: 'center', width: ANCHO }

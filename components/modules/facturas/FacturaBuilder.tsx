@@ -7,13 +7,19 @@
 // IVA, ítems con cálculo en tiempo real, panel de totales.
 // ============================================================
 
-import {
+import React, {
   useState,
   useEffect,
   useCallback,
   useRef,
-  type CSSProperties,
+  type ReactNode,
 } from 'react';
+import {
+  User,
+  Calendar,
+  ClipboardList,
+  PenLine,
+} from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import type { TipoComprobanteAFIP, CondicionIVA } from '@/types';
 import { crearFactura } from '@/app/actions/facturas';
@@ -39,7 +45,7 @@ interface ItemForm {
 interface ClienteOpcion {
   id: string;
   razon_social: string;
-  cuit: string;
+  cuit: string | null;
   condicion_iva: CondicionIVA;
 }
 
@@ -169,40 +175,10 @@ function calcularTotales(items: ItemForm[]): Totales {
 
 // ─── Estilos ──────────────────────────────────────────────────────────────────
 
-const card: CSSProperties = {
-  background: 'rgba(15,23,42,0.7)',
-  border: '1px solid rgba(148,163,184,0.08)',
-  borderRadius: '12px',
-  backdropFilter: 'blur(12px)',
-};
-const inputSt: CSSProperties = {
-  width: '100%',
-  padding: '8px 11px',
-  background: 'rgba(8,16,35,0.6)',
-  border: '1px solid rgba(148,163,184,0.1)',
-  borderRadius: '7px',
-  color: '#e2e8f0',
-  fontSize: '12px',
-  fontFamily: "'DM Sans',sans-serif",
-  outline: 'none',
-  boxSizing: 'border-box',
-  transition: 'border-color 0.15s',
-};
-const labelSt: CSSProperties = {
-  fontSize: '10px',
-  fontWeight: '600',
-  letterSpacing: '0.08em',
-  textTransform: 'uppercase',
-  color: '#475569',
-  display: 'block',
-  marginBottom: '4px',
-};
-const errSt: CSSProperties = {
-  fontSize: '10px',
-  color: '#f59e0b',
-  display: 'block',
-  marginTop: '3px',
-};
+const cardClass = 'bg-slate-900/70 border border-slate-400/10 rounded-xl backdrop-blur-sm';
+const inputClass = 'w-full px-[11px] py-2 bg-slate-950/60 border border-slate-400/10 rounded-[7px] text-slate-200 text-xs outline-none transition-colors duration-150';
+const labelClass = 'text-[10px] font-semibold tracking-widest uppercase text-slate-600 block mb-1';
+const errClass = 'text-[10px] text-amber-500 block mt-[3px]';
 
 // ─── Subcomponentes ───────────────────────────────────────────────────────────
 
@@ -211,30 +187,15 @@ function SectionCard({
   title,
   children,
 }: {
-  icon: string;
+  icon: ReactNode;
   title: string;
   children: React.ReactNode;
 }) {
   return (
-    <div style={{ ...card, padding: '20px' }}>
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-          marginBottom: '18px',
-        }}
-      >
-        <span style={{ fontSize: '14px' }}>{icon}</span>
-        <span
-          style={{
-            fontSize: '11px',
-            fontWeight: '700',
-            letterSpacing: '0.08em',
-            textTransform: 'uppercase',
-            color: '#475569',
-          }}
-        >
+    <div className={`${cardClass} p-5`}>
+      <div className='flex items-center gap-2 mb-[18px]'>
+        <span className='flex items-center text-slate-500'>{icon}</span>
+        <span className='text-[11px] font-bold tracking-widest uppercase text-slate-600'>
           {title}
         </span>
       </div>
@@ -254,11 +215,11 @@ function Field({
 }) {
   return (
     <div>
-      <label style={{ ...labelSt, color: error ? '#f59e0b' : '#475569' }}>
+      <label className={`text-[10px] font-semibold tracking-widest uppercase block mb-1 ${error ? 'text-amber-500' : 'text-slate-600'}`}>
         {label}
       </label>
       {children}
-      {error && <span style={errSt}>{error}</span>}
+      {error && <span className={errClass}>{error}</span>}
     </div>
   );
 }
@@ -282,19 +243,8 @@ function InputText({
       value={value}
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
-      style={{
-        ...inputSt,
-        borderColor: error ? 'rgba(245,158,11,0.4)' : 'rgba(148,163,184,0.1)',
-        colorScheme: type === 'date' ? 'dark' : (undefined as any),
-      }}
-      onFocus={(e) =>
-        (e.currentTarget.style.borderColor = 'rgba(74,222,128,0.35)')
-      }
-      onBlur={(e) =>
-        (e.currentTarget.style.borderColor = error
-          ? 'rgba(245,158,11,0.4)'
-          : 'rgba(148,163,184,0.1)')
-      }
+      className={`w-full px-[11px] py-2 bg-slate-950/60 rounded-[7px] text-slate-200 text-xs outline-none transition-colors duration-150 border focus:border-emerald-400/35 ${error ? 'border-amber-500/40' : 'border-slate-400/10'}`}
+      {...(type === 'date' ? { style: { colorScheme: 'dark' } as React.CSSProperties } : {})}
     />
   );
 }
@@ -311,16 +261,11 @@ function Select({
   placeholder?: string;
 }) {
   return (
-    <div style={{ position: 'relative' }}>
+    <div className='relative'>
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        style={{
-          ...inputSt,
-          appearance: 'none',
-          paddingRight: '26px',
-          cursor: 'pointer',
-        }}
+        className={`${inputClass} appearance-none pr-[26px] cursor-pointer`}
       >
         {placeholder && <option value=''>{placeholder}</option>}
         {options.map((o) => (
@@ -334,14 +279,7 @@ function Select({
         height='9'
         viewBox='0 0 9 9'
         fill='none'
-        style={{
-          position: 'absolute',
-          right: '9px',
-          top: '50%',
-          transform: 'translateY(-50%)',
-          pointerEvents: 'none',
-          color: '#475569',
-        }}
+        className='absolute right-[9px] top-1/2 -translate-y-1/2 pointer-events-none text-slate-600'
       >
         <path
           d='M1 3L4.5 6.5L8 3'
@@ -368,7 +306,7 @@ function BuscadorCliente({
   const [opciones, setOpciones] = useState<ClienteOpcion[]>([]);
   const [loading, setLoading] = useState(false);
   const [abierto, setAbierto] = useState(false);
-  const timerRef = useRef<ReturnType<typeof setTimeout>>();
+  const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -416,20 +354,14 @@ function BuscadorCliente({
   };
 
   return (
-    <div ref={ref} style={{ position: 'relative' }}>
-      <div style={{ position: 'relative' }}>
+    <div ref={ref} className='relative'>
+      <div className='relative'>
         <svg
           width='13'
           height='13'
           viewBox='0 0 13 13'
           fill='none'
-          style={{
-            position: 'absolute',
-            left: '10px',
-            top: '50%',
-            transform: 'translateY(-50%)',
-            color: '#334155',
-          }}
+          className='absolute left-[10px] top-1/2 -translate-y-1/2 text-slate-700'
         >
           <circle
             cx='5.5'
@@ -452,27 +384,14 @@ function BuscadorCliente({
             if (query && !value) setAbierto(true);
           }}
           placeholder='Buscar por razón social o CUIT...'
-          style={{
-            ...inputSt,
-            paddingLeft: '30px',
-            borderColor: value
-              ? 'rgba(74,222,128,0.3)'
-              : 'rgba(148,163,184,0.1)',
-          }}
+          className={`w-full pl-[30px] pr-[11px] py-2 bg-slate-950/60 rounded-[7px] text-slate-200 text-xs outline-none transition-colors duration-150 border ${value ? 'border-emerald-400/30' : 'border-slate-400/10'} focus:border-emerald-400/35`}
         />
         {loading && (
           <svg
             width='12'
             height='12'
             viewBox='0 0 12 12'
-            style={{
-              position: 'absolute',
-              right: '10px',
-              top: '50%',
-              transform: 'translateY(-50%)',
-              animation: 'spin 0.8s linear infinite',
-              color: '#475569',
-            }}
+            className='absolute right-[10px] top-1/2 -translate-y-1/2 text-slate-600 animate-spin'
           >
             <circle
               cx='6'
@@ -491,44 +410,15 @@ function BuscadorCliente({
       {/* Seleccionado */}
       {value && (
         <div
-          style={{
-            marginTop: '8px',
-            padding: '10px 12px',
-            background: 'rgba(74,222,128,0.06)',
-            border: '1px solid rgba(74,222,128,0.2)',
-            borderRadius: '8px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            animation: 'fadeIn 0.15s ease',
-          }}
+          className='mt-2 px-3 py-[10px] rounded-lg flex items-center justify-between bg-emerald-400/[0.06] border border-emerald-400/20 animate-fade-in'
         >
           <div>
-            <div
-              style={{ fontSize: '13px', fontWeight: '600', color: '#94a3b8' }}
-            >
+            <div className='text-[13px] font-semibold text-slate-400'>
               {value.razon_social}
             </div>
-            <div
-              style={{
-                fontSize: '11px',
-                color: '#475569',
-                marginTop: '2px',
-                display: 'flex',
-                gap: '10px',
-              }}
-            >
-              <span style={{ fontFamily: "'DM Mono',monospace" }}>
-                {value.cuit}
-              </span>
-              <span
-                style={{
-                  background: 'rgba(148,163,184,0.08)',
-                  border: '1px solid rgba(148,163,184,0.1)',
-                  borderRadius: '4px',
-                  padding: '0 5px',
-                }}
-              >
+            <div className='text-[11px] text-slate-600 mt-[2px] flex gap-2.5'>
+              <span>{value.cuit}</span>
+              <span className='rounded px-[5px] bg-slate-400/[0.08] border border-slate-400/10'>
                 {CONDICION_IVA_LABEL[value.condicion_iva]}
               </span>
             </div>
@@ -538,17 +428,7 @@ function BuscadorCliente({
               onChange(null);
               setQuery('');
             }}
-            style={{
-              background: 'transparent',
-              border: 'none',
-              color: '#334155',
-              cursor: 'pointer',
-              padding: '3px',
-              display: 'flex',
-              alignItems: 'center',
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.color = '#f87171')}
-            onMouseLeave={(e) => (e.currentTarget.style.color = '#334155')}
+            className='flex items-center bg-transparent border-0 cursor-pointer p-[3px] text-slate-700 hover:text-red-400 transition-colors duration-[120ms]'
           >
             <svg width='12' height='12' viewBox='0 0 12 12'>
               <path
@@ -565,65 +445,20 @@ function BuscadorCliente({
       {/* Dropdown */}
       {abierto && opciones.length > 0 && !value && (
         <div
-          style={{
-            position: 'absolute',
-            top: 'calc(100% + 4px)',
-            left: 0,
-            right: 0,
-            zIndex: 40,
-            background: '#0f172a',
-            border: '1px solid rgba(148,163,184,0.12)',
-            borderRadius: '9px',
-            padding: '4px',
-            boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
-            animation: 'scaleIn 0.12s ease',
-          }}
+          className='absolute top-[calc(100%+4px)] left-0 right-0 z-40 rounded-[9px] p-1 bg-slate-950 border border-slate-400/[0.12] shadow-[0_8px_24px_rgba(0,0,0,0.5)] animate-modal-in'
         >
           {opciones.map((c) => (
             <button
               key={c.id}
               onClick={() => seleccionar(c)}
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '2px',
-                width: '100%',
-                padding: '9px 11px',
-                borderRadius: '6px',
-                border: 'none',
-                background: 'transparent',
-                cursor: 'pointer',
-                textAlign: 'left',
-                fontFamily: "'DM Sans',sans-serif",
-                transition: 'background 0.1s',
-              }}
-              onMouseEnter={(e) =>
-                (e.currentTarget.style.background = 'rgba(148,163,184,0.06)')
-              }
-              onMouseLeave={(e) =>
-                (e.currentTarget.style.background = 'transparent')
-              }
+              className='flex flex-col gap-[2px] w-full px-[11px] py-[9px] rounded-md border-0 bg-transparent cursor-pointer text-left transition-colors duration-100 hover:bg-slate-400/[0.06]'
             >
-              <span
-                style={{
-                  fontSize: '13px',
-                  fontWeight: '600',
-                  color: '#94a3b8',
-                }}
-              >
+              <span className='text-[13px] font-semibold text-slate-400'>
                 {c.razon_social}
               </span>
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <span
-                  style={{
-                    fontSize: '11px',
-                    color: '#475569',
-                    fontFamily: "'DM Mono',monospace",
-                  }}
-                >
-                  {c.cuit}
-                </span>
-                <span style={{ fontSize: '10px', color: '#334155' }}>
+              <div className='flex gap-2'>
+                <span className='text-[11px] text-slate-600'>{c.cuit}</span>
+                <span className='text-[10px] text-slate-700'>
                   {CONDICION_IVA_LABEL[c.condicion_iva]}
                 </span>
               </div>
@@ -633,21 +468,9 @@ function BuscadorCliente({
       )}
       {abierto && query.length >= 2 && opciones.length === 0 && !loading && (
         <div
-          style={{
-            position: 'absolute',
-            top: 'calc(100% + 4px)',
-            left: 0,
-            right: 0,
-            zIndex: 40,
-            background: '#0f172a',
-            border: '1px solid rgba(148,163,184,0.12)',
-            borderRadius: '9px',
-            padding: '16px',
-            boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
-            textAlign: 'center',
-          }}
+          className='absolute top-[calc(100%+4px)] left-0 right-0 z-40 rounded-[9px] p-4 text-center bg-slate-950 border border-slate-400/[0.12] shadow-[0_8px_24px_rgba(0,0,0,0.5)]'
         >
-          <span style={{ fontSize: '12px', color: '#334155' }}>
+          <span className='text-xs text-slate-700'>
             Sin resultados para "{query}"
           </span>
         </div>
@@ -691,61 +514,20 @@ function FilaItem({
       value={item[field] as string}
       onChange={(e) => onChange(item.id, field, e.target.value)}
       placeholder={placeholder}
-      style={{
-        ...inputSt,
-        fontSize: small ? '11px' : '12px',
-        colorScheme: type === 'date' ? 'dark' : (undefined as any),
-        borderColor: errors[`${item.id}.${field}`]
-          ? 'rgba(245,158,11,0.4)'
-          : 'rgba(148,163,184,0.1)',
-      }}
-      onFocus={(e) =>
-        (e.currentTarget.style.borderColor = 'rgba(74,222,128,0.35)')
-      }
-      onBlur={(e) =>
-        (e.currentTarget.style.borderColor = errors[`${item.id}.${field}`]
-          ? 'rgba(245,158,11,0.4)'
-          : 'rgba(148,163,184,0.1)')
-      }
+      className={`w-full px-[11px] py-2 bg-slate-950/60 rounded-[7px] text-slate-200 outline-none transition-colors duration-150 border focus:border-emerald-400/35 ${small ? 'text-[11px]' : 'text-xs'} ${errors[`${item.id}.${field}`] ? 'border-amber-500/40' : 'border-slate-400/10'}`}
+      {...(type === 'date' ? { style: { colorScheme: 'dark' } as React.CSSProperties } : {})}
     />
   );
 
   return (
-    <div
-      style={{
-        border: '1px solid rgba(148,163,184,0.08)',
-        borderRadius: '10px',
-        overflow: 'hidden',
-        marginBottom: '10px',
-      }}
-    >
+    <div className='rounded-[10px] overflow-hidden mb-2.5 border border-slate-400/[0.08]'>
       {/* Fila principal */}
       <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: '24px 1fr 70px 90px 90px 70px 80px 90px 32px',
-          gap: '8px',
-          padding: '11px 12px',
-          alignItems: 'center',
-          background: 'rgba(8,16,35,0.3)',
-        }}
+        className='grid grid-cols-[24px_1fr_70px_90px_90px_70px_80px_90px_32px] gap-2 px-3 py-[11px] items-center bg-slate-950/30'
       >
         {/* Número */}
         <div
-          style={{
-            width: '20px',
-            height: '20px',
-            borderRadius: '4px',
-            background: 'rgba(74,222,128,0.07)',
-            border: '1px solid rgba(74,222,128,0.12)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: '9px',
-            fontWeight: '800',
-            color: '#4ade80',
-            fontFamily: "'DM Mono',monospace",
-          }}
+          className='flex items-center justify-center text-[9px] font-extrabold text-emerald-400 w-5 h-5 rounded-[4px] bg-emerald-400/[0.07] border border-emerald-400/[0.12]'
         >
           {idx + 1}
         </div>
@@ -754,7 +536,7 @@ function FilaItem({
         <div>
           {inp('descripcion', 'text', 'Descripción del servicio / producto')}
           {errors[`${item.id}.descripcion`] && (
-            <span style={errSt}>{errors[`${item.id}.descripcion`]}</span>
+            <span className={errClass}>{errors[`${item.id}.descripcion`]}</span>
           )}
         </div>
 
@@ -762,17 +544,11 @@ function FilaItem({
         {inp('cantidad', 'number', '1', true)}
 
         {/* Unidad */}
-        <div style={{ position: 'relative' }}>
+        <div className='relative'>
           <select
             value={item.unidad_medida}
             onChange={(e) => onChange(item.id, 'unidad_medida', e.target.value)}
-            style={{
-              ...inputSt,
-              fontSize: '11px',
-              appearance: 'none',
-              paddingRight: '22px',
-              cursor: 'pointer',
-            }}
+            className={`${inputClass} text-[11px] appearance-none pr-[22px] cursor-pointer`}
           >
             {UNIDADES.map((u) => (
               <option key={u} value={u}>
@@ -785,14 +561,7 @@ function FilaItem({
             height='8'
             viewBox='0 0 8 8'
             fill='none'
-            style={{
-              position: 'absolute',
-              right: '7px',
-              top: '50%',
-              transform: 'translateY(-50%)',
-              pointerEvents: 'none',
-              color: '#475569',
-            }}
+            className='absolute right-[7px] top-1/2 -translate-y-1/2 pointer-events-none text-slate-600'
           >
             <path
               d='M1 3L4 6L7 3'
@@ -808,40 +577,24 @@ function FilaItem({
         <div>
           {inp('precio_unitario', 'number', '0.00', true)}
           {errors[`${item.id}.precio_unitario`] && (
-            <span style={errSt}>{errors[`${item.id}.precio_unitario`]}</span>
+            <span className={errClass}>{errors[`${item.id}.precio_unitario`]}</span>
           )}
         </div>
 
         {/* Descuento */}
-        <div style={{ position: 'relative' }}>
+        <div className='relative'>
           {inp('descuento_pct', 'number', '0', true)}
-          <span
-            style={{
-              position: 'absolute',
-              right: '9px',
-              top: '50%',
-              transform: 'translateY(-50%)',
-              fontSize: '10px',
-              color: '#334155',
-              pointerEvents: 'none',
-            }}
-          >
+          <span className='absolute right-[9px] top-1/2 -translate-y-1/2 text-[10px] text-slate-700 pointer-events-none'>
             %
           </span>
         </div>
 
         {/* IVA */}
-        <div style={{ position: 'relative' }}>
+        <div className='relative'>
           <select
             value={item.iva_pct}
             onChange={(e) => onChange(item.id, 'iva_pct', e.target.value)}
-            style={{
-              ...inputSt,
-              fontSize: '11px',
-              appearance: 'none',
-              paddingRight: '22px',
-              cursor: 'pointer',
-            }}
+            className={`${inputClass} text-[11px] appearance-none pr-[22px] cursor-pointer`}
           >
             {IVA_OPCIONES.map((o) => (
               <option key={o.value} value={o.value}>
@@ -854,14 +607,7 @@ function FilaItem({
             height='8'
             viewBox='0 0 8 8'
             fill='none'
-            style={{
-              position: 'absolute',
-              right: '7px',
-              top: '50%',
-              transform: 'translateY(-50%)',
-              pointerEvents: 'none',
-              color: '#475569',
-            }}
+            className='absolute right-[7px] top-1/2 -translate-y-1/2 pointer-events-none text-slate-600'
           >
             <path
               d='M1 3L4 6L7 3'
@@ -874,57 +620,30 @@ function FilaItem({
         </div>
 
         {/* Subtotal */}
-        <div style={{ textAlign: 'right' }}>
-          <div
-            style={{
-              fontSize: '12px',
-              fontWeight: '700',
-              color: '#94a3b8',
-              fontFamily: "'DM Mono',monospace",
-              whiteSpace: 'nowrap',
-            }}
-          >
+        <div className='text-right'>
+          <div className='text-xs font-bold text-slate-400 whitespace-nowrap'>
             {formatearMonto(total)}
           </div>
           {parseFloat(item.iva_pct) > 0 && (
-            <div
-              style={{ fontSize: '9px', color: '#334155', marginTop: '1px' }}
-            >
+            <div className='text-[9px] text-slate-700 mt-[1px]'>
               IVA {formatearMonto(ivaItem)}
             </div>
           )}
         </div>
 
         {/* Botones */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+        <div className='flex flex-col gap-[3px]'>
           <button
             onClick={() => onChange(item.id, '_expandido', !item._expandido)}
             title='Detalle técnico'
-            style={{
-              width: '24px',
-              height: '24px',
-              borderRadius: '5px',
-              border: '1px solid rgba(148,163,184,0.08)',
-              background: item._expandido
-                ? 'rgba(74,222,128,0.07)'
-                : 'transparent',
-              color: item._expandido ? '#4ade80' : '#334155',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              transition: 'all 0.12s',
-            }}
+            className={`flex items-center justify-center cursor-pointer transition-all duration-[120ms] w-6 h-6 rounded-[5px] border border-slate-400/[0.08] ${item._expandido ? 'bg-emerald-400/[0.07] text-green-400' : 'bg-transparent text-slate-800'}`}
           >
             <svg
               width='10'
               height='10'
               viewBox='0 0 10 10'
               fill='none'
-              style={{
-                transition: 'transform 0.15s',
-                transform: item._expandido ? 'rotate(180deg)' : 'none',
-              }}
+              className={`transition-transform duration-150 ${item._expandido ? 'rotate-180' : ''}`}
             >
               <path
                 d='M2 4L5 7L8 4'
@@ -938,27 +657,7 @@ function FilaItem({
           {canRemove && (
             <button
               onClick={() => onRemove(item.id)}
-              style={{
-                width: '24px',
-                height: '24px',
-                borderRadius: '5px',
-                border: '1px solid rgba(148,163,184,0.08)',
-                background: 'transparent',
-                color: '#334155',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                transition: 'all 0.12s',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.color = '#f87171';
-                e.currentTarget.style.borderColor = 'rgba(248,113,113,0.2)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.color = '#334155';
-                e.currentTarget.style.borderColor = 'rgba(148,163,184,0.08)';
-              }}
+              className='flex items-center justify-center cursor-pointer bg-transparent transition-all duration-[120ms] w-6 h-6 rounded-[5px] border border-slate-400/[0.08] text-slate-700 hover:text-red-400 hover:border-red-400/20'
             >
               <svg width='10' height='10' viewBox='0 0 10 10'>
                 <path
@@ -976,14 +675,9 @@ function FilaItem({
       {/* Detalle expandido */}
       {item._expandido && (
         <div
-          style={{
-            padding: '10px 12px 12px',
-            background: 'rgba(74,222,128,0.02)',
-            borderTop: '1px solid rgba(148,163,184,0.06)',
-            animation: 'fadeIn 0.15s ease',
-          }}
+          className='px-3 pt-[10px] pb-3 bg-emerald-400/[0.02] border-t border-slate-400/[0.06] animate-fade-in'
         >
-          <label style={{ ...labelSt, color: '#334155' }}>
+          <label className='text-[10px] font-semibold tracking-widest uppercase text-slate-800 block mb-1'>
             Detalle técnico / descripción adicional
           </label>
           <textarea
@@ -991,18 +685,7 @@ function FilaItem({
             onChange={(e) => onChange(item.id, 'detalle', e.target.value)}
             placeholder='Descripción técnica que aparecerá en la factura...'
             rows={2}
-            style={{
-              ...inputSt,
-              resize: 'vertical',
-              lineHeight: '1.6',
-              fontSize: '12px',
-            }}
-            onFocus={(e) =>
-              (e.currentTarget.style.borderColor = 'rgba(74,222,128,0.35)')
-            }
-            onBlur={(e) =>
-              (e.currentTarget.style.borderColor = 'rgba(148,163,184,0.1)')
-            }
+            className={`${inputClass} resize-y leading-[1.6] text-xs focus:border-emerald-400/35`}
           />
         </div>
       )}
@@ -1026,136 +709,41 @@ function PanelTotales({
     tipoComp === 'NOTA_DEBITO_A' ||
     tipoComp === 'NOTA_CREDITO_A';
   return (
-    <div style={{ ...card, padding: '20px', position: 'sticky', top: '20px' }}>
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-          marginBottom: '16px',
-        }}
-      >
-        <span style={{ fontSize: '13px' }}>🧮</span>
-        <span
-          style={{
-            fontSize: '11px',
-            fontWeight: '700',
-            letterSpacing: '0.08em',
-            textTransform: 'uppercase',
-            color: '#475569',
-          }}
-        >
+    <div className={`${cardClass} p-5 sticky top-5`}>
+      <div className='flex items-center gap-2 mb-4'>
+        <span className='text-[13px]'>🧮</span>
+        <span className='text-[11px] font-bold tracking-widest uppercase text-slate-600'>
           Totales
         </span>
       </div>
 
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '2px',
-          marginBottom: '14px',
-        }}
-      >
+      <div className='flex flex-col gap-[2px] mb-[14px]'>
         {[
-          {
-            label: 'Subtotal bruto',
-            value: totales.subtotal,
-            color: '#475569',
-          },
-          ...(totales.descuento > 0
-            ? [
-                {
-                  label: 'Descuentos',
-                  value: -totales.descuento,
-                  color: '#f59e0b',
-                },
-              ]
-            : []),
-          {
-            label: 'Subtotal s/IVA',
-            value: totales.base_iva,
-            color: '#64748b',
-          },
-          ...(esA
-            ? [
-                {
-                  label: `IVA (promedio)`,
-                  value: totales.iva_monto,
-                  color: '#475569',
-                },
-              ]
-            : []),
-        ].map(({ label, value, color }) => (
-          <div
-            key={label}
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              padding: '5px 0',
-            }}
-          >
-            <span style={{ fontSize: '11px', color: '#475569' }}>{label}</span>
-            <span
-              style={{
-                fontSize: '12px',
-                fontWeight: '500',
-                color,
-                fontFamily: "'DM Mono',monospace",
-                whiteSpace: 'nowrap',
-              }}
-            >
-              {value < 0
-                ? `−${formatearMonto(Math.abs(value))}`
-                : formatearMonto(value)}
+          { label: 'Subtotal bruto', value: totales.subtotal,   textCls: 'text-slate-600' },
+          ...(totales.descuento > 0 ? [{ label: 'Descuentos', value: -totales.descuento, textCls: 'text-amber-500' }] : []),
+          { label: 'Subtotal s/IVA', value: totales.base_iva,   textCls: 'text-slate-500' },
+          ...(esA ? [{ label: 'IVA (promedio)', value: totales.iva_monto, textCls: 'text-slate-600' }] : []),
+        ].map(({ label, value, textCls }) => (
+          <div key={label} className='flex justify-between items-center py-[5px]'>
+            <span className='text-[11px] text-slate-600'>{label}</span>
+            <span className={`text-xs font-medium whitespace-nowrap ${textCls}`}>
+              {value < 0 ? `−${formatearMonto(Math.abs(value))}` : formatearMonto(value)}
             </span>
           </div>
         ))}
       </div>
 
-      <div
-        style={{
-          height: '1px',
-          background:
-            'linear-gradient(to right,transparent,rgba(74,222,128,0.2),transparent)',
-          marginBottom: '12px',
-        }}
-      />
+      <div className='h-px mb-3 bg-gradient-to-r from-transparent via-emerald-400/20 to-transparent' />
 
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: '4px',
-        }}
-      >
-        <span style={{ fontSize: '13px', fontWeight: '700', color: '#94a3b8' }}>
-          TOTAL
-        </span>
-        <span
-          style={{
-            fontSize: '24px',
-            fontWeight: '800',
-            color: '#4ade80',
-            fontFamily: "'DM Mono',monospace",
-            letterSpacing: '-0.02em',
-          }}
-        >
+      <div className='flex justify-between items-center mb-1'>
+        <span className='text-[13px] font-bold text-slate-400'>TOTAL</span>
+        <span className='text-2xl font-extrabold text-emerald-400 tracking-[-0.02em]'>
           {formatearMonto(totales.total)}
         </span>
       </div>
 
       {!esA && totales.iva_monto > 0 && (
-        <div
-          style={{
-            fontSize: '10px',
-            color: '#334155',
-            textAlign: 'right',
-            marginBottom: '2px',
-          }}
-        >
+        <div className='text-[10px] text-slate-700 text-right mb-[2px]'>
           incl. IVA {formatearMonto(totales.iva_monto)}
         </div>
       )}
@@ -1163,33 +751,12 @@ function PanelTotales({
       {/* IVA desglosado por alícuota */}
       {totales.iva_monto > 0 && (
         <div
-          style={{
-            marginTop: '12px',
-            padding: '10px',
-            background: 'rgba(8,16,35,0.4)',
-            borderRadius: '7px',
-            border: '1px solid rgba(148,163,184,0.07)',
-          }}
+          className='mt-3 p-2.5 rounded-[7px] bg-slate-950/40 border border-slate-400/[0.07]'
         >
-          <div
-            style={{
-              fontSize: '9px',
-              fontWeight: '700',
-              letterSpacing: '0.08em',
-              textTransform: 'uppercase',
-              color: '#334155',
-              marginBottom: '6px',
-            }}
-          >
+          <div className='text-[9px] font-bold tracking-widest uppercase text-slate-700 mb-1.5'>
             {esA ? 'IVA discriminado' : 'IVA incluido'}
           </div>
-          <div
-            style={{
-              fontSize: '11px',
-              color: '#475569',
-              fontFamily: "'DM Mono',monospace",
-            }}
-          >
+          <div className='text-[11px] text-slate-600'>
             {formatearMonto(totales.iva_monto)}
           </div>
         </div>
@@ -1366,138 +933,56 @@ export default function FacturaBuilder() {
 
   return (
     <>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@300;400;500&display=swap');
-        *{box-sizing:border-box}body{margin:0;background:#060d1a;font-family:'DM Sans',sans-serif;-webkit-font-smoothing:antialiased}
-        option{background:#0f172a;color:#e2e8f0}input:focus,select:focus,textarea:focus{outline:none!important}
-        ::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:rgba(148,163,184,0.15);border-radius:2px}
-        @keyframes shimmer{0%,100%{opacity:.4}50%{opacity:.8}}@keyframes fadeIn{from{opacity:0}to{opacity:1}}
-        @keyframes scaleIn{from{transform:scale(0.96);opacity:0}to{transform:scale(1);opacity:1}}
-        @keyframes slideUp{from{transform:translateY(8px);opacity:0}to{transform:translateY(0);opacity:1}}
-        @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
-        ::placeholder{color:#1e293b!important}
-      `}</style>
-
       <div
-        style={{
-          minHeight: '100vh',
-          background:
-            'radial-gradient(ellipse 100% 60% at 5% 0%,rgba(74,222,128,0.03),transparent 55%),#060d1a',
-          padding: '36px 24px 80px',
-        }}
+        className='min-h-screen pb-20 px-3 pt-6 sm:px-5 sm:pt-8 lg:px-6 bg-slate-950 bg-gradient-to-b from-emerald-950/5 to-slate-950'
       >
-        <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+        <div className='max-w-[1200px] mx-auto'>
           {/* Header */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              marginBottom: '24px',
-              gap: '16px',
-              flexWrap: 'wrap',
-            }}
-          >
+          <div className='flex items-center justify-between mb-6 gap-4 flex-wrap'>
             <div>
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  marginBottom: '4px',
-                }}
-              >
+              <div className='flex items-center gap-2 mb-1'>
                 <a
                   href='/facturas'
-                  style={{
-                    fontSize: '11px',
-                    color: '#334155',
-                    textDecoration: 'none',
-                    letterSpacing: '0.08em',
-                    textTransform: 'uppercase',
-                  }}
+                  className='text-[11px] text-slate-700 no-underline tracking-widest uppercase'
                 >
                   Facturas
                 </a>
-                <span style={{ color: '#1e293b' }}>›</span>
-                <span
-                  style={{
-                    fontSize: '11px',
-                    color: '#475569',
-                    letterSpacing: '0.08em',
-                    textTransform: 'uppercase',
-                  }}
-                >
+                <span className='text-[#1e293b]'>›</span>
+                <span className='text-[11px] text-slate-600 tracking-widest uppercase'>
                   Nueva factura
                 </span>
               </div>
-              <h1
-                style={{
-                  margin: 0,
-                  fontSize: '22px',
-                  fontWeight: '700',
-                  color: '#e2e8f0',
-                  letterSpacing: '-0.02em',
-                }}
-              >
+              <h1 className='m-0 text-[22px] font-bold text-slate-200 tracking-[-0.02em]'>
                 Nueva factura
               </h1>
             </div>
           </div>
 
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: '1fr 280px',
-              gap: '16px',
-              alignItems: 'start',
-            }}
-          >
+          <div className='grid grid-cols-[1fr_280px] gap-4 items-start'>
             {/* Columna principal */}
             <div
               suppressHydrationWarning
-              style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}
+              className='flex flex-col gap-4'
             >
               {/* ── Cliente y tipo de comprobante ── */}
-              <SectionCard icon='👤' title='Cliente y comprobante'>
-                <div
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '14px',
-                  }}
-                >
+              <SectionCard icon={<User className="w-3.5 h-3.5" />} title='Cliente y comprobante'>
+                <div className='flex flex-col gap-[14px]'>
                   <Field label='Cliente *' error={errors.cliente}>
                     <BuscadorCliente value={cliente} onChange={setCliente} />
                   </Field>
 
-                  <div
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns: '1fr 1fr',
-                      gap: '12px',
-                    }}
-                  >
+                  <div className='grid grid-cols-2 gap-3'>
                     <Field
                       label='Tipo de comprobante *'
                       error={errors.tipoComp}
                     >
-                      <div style={{ position: 'relative' }}>
+                      <div className='relative'>
                         <select
                           value={tipoComp}
                           onChange={(e) =>
                             setTipoComp(e.target.value as TipoComprobanteAFIP)
                           }
-                          style={{
-                            ...inputSt,
-                            appearance: 'none',
-                            paddingRight: '26px',
-                            cursor: 'pointer',
-                            borderColor:
-                              sugerencia && tipoComp === sugerencia
-                                ? 'rgba(74,222,128,0.3)'
-                                : 'rgba(148,163,184,0.1)',
-                          }}
+                          className={`${inputClass} appearance-none pr-[26px] cursor-pointer ${sugerencia && tipoComp === sugerencia ? 'border-emerald-400/30' : ''}`}
                         >
                           {COMPROBANTES.map((c) => (
                             <option key={c.value} value={c.value}>
@@ -1510,14 +995,7 @@ export default function FacturaBuilder() {
                           height='9'
                           viewBox='0 0 9 9'
                           fill='none'
-                          style={{
-                            position: 'absolute',
-                            right: '9px',
-                            top: '50%',
-                            transform: 'translateY(-50%)',
-                            pointerEvents: 'none',
-                            color: '#475569',
-                          }}
+                          className='absolute right-[9px] top-1/2 -translate-y-1/2 pointer-events-none text-slate-600'
                         >
                           <path
                             d='M1 3L4.5 6.5L8 3'
@@ -1529,16 +1007,7 @@ export default function FacturaBuilder() {
                         </svg>
                       </div>
                       {sugerencia && (
-                        <div
-                          style={{
-                            fontSize: '10px',
-                            color: '#4ade80',
-                            marginTop: '4px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '4px',
-                          }}
-                        >
+                        <div className='text-[10px] text-emerald-400 mt-1 flex items-center gap-1'>
                           <svg width='9' height='9' viewBox='0 0 9 9'>
                             <path
                               d='M1 4.5L3.5 7L8 2'
@@ -1557,16 +1026,11 @@ export default function FacturaBuilder() {
                     </Field>
 
                     <Field label='Condición de venta'>
-                      <div style={{ position: 'relative' }}>
+                      <div className='relative'>
                         <select
                           value={condicion}
                           onChange={(e) => setCondicion(e.target.value)}
-                          style={{
-                            ...inputSt,
-                            appearance: 'none',
-                            paddingRight: '26px',
-                            cursor: 'pointer',
-                          }}
+                          className={`${inputClass} appearance-none pr-[26px] cursor-pointer`}
                         >
                           {CONDICIONES_PAGO.map((c) => (
                             <option key={c} value={c}>
@@ -1579,14 +1043,7 @@ export default function FacturaBuilder() {
                           height='9'
                           viewBox='0 0 9 9'
                           fill='none'
-                          style={{
-                            position: 'absolute',
-                            right: '9px',
-                            top: '50%',
-                            transform: 'translateY(-50%)',
-                            pointerEvents: 'none',
-                            color: '#475569',
-                          }}
+                          className='absolute right-[9px] top-1/2 -translate-y-1/2 pointer-events-none text-slate-600'
                         >
                           <path
                             d='M1 3L4.5 6.5L8 3'
@@ -1603,14 +1060,8 @@ export default function FacturaBuilder() {
               </SectionCard>
 
               {/* ── Fechas ── */}
-              <SectionCard icon='📅' title='Fechas'>
-                <div
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: '1fr 1fr',
-                    gap: '12px',
-                  }}
-                >
+              <SectionCard icon={<Calendar className="w-3.5 h-3.5" />} title='Fechas'>
+                <div className='grid grid-cols-2 gap-3'>
                   <Field label='Fecha de emisión *' error={errors.fechaEmision}>
                     <InputText
                       value={fechaEmision}
@@ -1645,13 +1096,7 @@ export default function FacturaBuilder() {
 
               {/* ── Vínculos opcionales ── */}
               <SectionCard icon='🔗' title='Vincular documentos (opcional)'>
-                <div
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: '1fr 1fr',
-                    gap: '12px',
-                  }}
-                >
+                <div className='grid grid-cols-2 gap-3'>
                   <Field label='Número de presupuesto'>
                     <InputText
                       value={presupuestoId}
@@ -1667,68 +1112,26 @@ export default function FacturaBuilder() {
                     />
                   </Field>
                 </div>
-                <p
-                  style={{
-                    margin: '10px 0 0',
-                    fontSize: '11px',
-                    color: '#334155',
-                    lineHeight: '1.6',
-                  }}
-                >
+                <p className='mt-2.5 mb-0 text-[11px] text-slate-700 leading-[1.6]'>
                   Si creás la factura desde la ficha de un presupuesto u OS, los
                   campos se completan automáticamente.
                 </p>
               </SectionCard>
 
               {/* ── Ítems ── */}
-              <div style={{ ...card, padding: '20px' }}>
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    marginBottom: '6px',
-                  }}
-                >
-                  <span style={{ fontSize: '13px' }}>📋</span>
-                  <span
-                    style={{
-                      fontSize: '11px',
-                      fontWeight: '700',
-                      letterSpacing: '0.08em',
-                      textTransform: 'uppercase',
-                      color: '#475569',
-                    }}
-                  >
+              <div className={`${cardClass} p-5`}>
+                <div className='flex items-center gap-2 mb-1.5'>
+                  <ClipboardList className="w-3.5 h-3.5 text-slate-500" />
+                  <span className='text-[11px] font-bold tracking-widest uppercase text-slate-600'>
                     Ítems
                   </span>
-                  <span
-                    style={{
-                      fontSize: '9px',
-                      fontWeight: '700',
-                      color: '#4ade80',
-                      background: 'rgba(74,222,128,0.08)',
-                      border: '1px solid rgba(74,222,128,0.12)',
-                      borderRadius: '10px',
-                      padding: '1px 6px',
-                      fontFamily: "'DM Mono',monospace",
-                    }}
-                  >
+                  <span className='text-[9px] font-bold text-emerald-400 rounded-[10px] px-1.5 py-[1px] bg-emerald-400/[0.08] border border-emerald-400/[0.12]'>
                     {items.length}
                   </span>
                 </div>
 
                 {/* Encabezado columnas */}
-                <div
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns:
-                      '24px 1fr 70px 90px 90px 70px 80px 90px 32px',
-                    gap: '8px',
-                    padding: '6px 12px 10px',
-                    marginBottom: '4px',
-                  }}
-                >
+                <div className='grid grid-cols-[24px_1fr_70px_90px_90px_70px_80px_90px_32px] gap-2 px-3 pb-[10px] pt-1.5 mb-1'>
                   {[
                     '',
                     'Descripción',
@@ -1742,14 +1145,7 @@ export default function FacturaBuilder() {
                   ].map((h, i) => (
                     <span
                       key={i}
-                      style={{
-                        fontSize: '9px',
-                        fontWeight: '700',
-                        letterSpacing: '0.07em',
-                        textTransform: 'uppercase',
-                        color: '#334155',
-                        textAlign: i >= 7 ? 'right' : 'left',
-                      }}
+                      className={`text-[9px] font-bold tracking-[0.07em] uppercase text-slate-700 ${i >= 7 ? 'text-right' : 'text-left'}`}
                     >
                       {h}
                     </span>
@@ -1770,30 +1166,7 @@ export default function FacturaBuilder() {
 
                 <button
                   onClick={agregarItem}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '7px',
-                    padding: '8px 14px',
-                    borderRadius: '8px',
-                    border: '1px dashed rgba(74,222,128,0.2)',
-                    background: 'rgba(74,222,128,0.04)',
-                    color: '#4ade80',
-                    fontSize: '12px',
-                    fontWeight: '600',
-                    cursor: 'pointer',
-                    fontFamily: "'DM Sans',sans-serif",
-                    transition: 'all 0.12s',
-                    marginTop: '6px',
-                    width: '100%',
-                    justifyContent: 'center',
-                  }}
-                  onMouseEnter={(e) =>
-                    (e.currentTarget.style.background = 'rgba(74,222,128,0.07)')
-                  }
-                  onMouseLeave={(e) =>
-                    (e.currentTarget.style.background = 'rgba(74,222,128,0.04)')
-                  }
+                  className='flex items-center gap-[7px] px-[14px] py-2 rounded-lg text-emerald-400 text-xs font-semibold cursor-pointer transition-colors duration-[120ms] mt-1.5 w-full justify-center border border-dashed border-emerald-400/20 bg-emerald-400/[0.04] hover:bg-emerald-400/[0.07]'
                 >
                   <svg width='10' height='10' viewBox='0 0 10 10'>
                     <path
@@ -1808,90 +1181,35 @@ export default function FacturaBuilder() {
               </div>
 
               {/* ── Notas ── */}
-              <SectionCard icon='📝' title='Notas internas'>
+              <SectionCard icon={<PenLine className="w-3.5 h-3.5" />} title='Notas internas'>
                 <textarea
                   value={notas}
                   onChange={(e) => setNotas(e.target.value)}
                   placeholder='Observaciones, aclaraciones, notas que no aparecen en el PDF...'
                   rows={3}
-                  style={{ ...inputSt, resize: 'vertical', lineHeight: '1.7' }}
-                  onFocus={(e) =>
-                    (e.currentTarget.style.borderColor =
-                      'rgba(74,222,128,0.35)')
-                  }
-                  onBlur={(e) =>
-                    (e.currentTarget.style.borderColor =
-                      'rgba(148,163,184,0.1)')
-                  }
+                  className={`${inputClass} resize-y leading-[1.7] focus:border-emerald-400/35`}
                 />
               </SectionCard>
 
               {/* ── Acciones ── */}
-              <div
-                style={{
-                  display: 'flex',
-                  gap: '10px',
-                  justifyContent: 'flex-end',
-                  flexWrap: 'wrap',
-                }}
-              >
+              <div className='flex gap-2.5 justify-end flex-wrap'>
                 <a
                   href='/facturas'
-                  style={{
-                    padding: '10px 18px',
-                    borderRadius: '9px',
-                    border: '1px solid rgba(148,163,184,0.12)',
-                    background: 'transparent',
-                    color: '#64748b',
-                    fontSize: '13px',
-                    fontWeight: '600',
-                    cursor: 'pointer',
-                    fontFamily: "'DM Sans',sans-serif",
-                    textDecoration: 'none',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                  }}
+                  className='inline-flex items-center px-[18px] py-[10px] rounded-[9px] text-[13px] font-semibold text-slate-500 no-underline bg-transparent border border-slate-400/[0.12]'
                 >
                   Cancelar
                 </a>
                 <button
                   onClick={() => handleGuardar(false)}
                   disabled={loading}
-                  style={{
-                    padding: '10px 22px',
-                    borderRadius: '9px',
-                    border: '1px solid rgba(148,163,184,0.15)',
-                    background: 'rgba(15,23,42,0.8)',
-                    color: '#94a3b8',
-                    fontSize: '13px',
-                    fontWeight: '600',
-                    cursor: loading ? 'not-allowed' : 'pointer',
-                    fontFamily: "'DM Sans',sans-serif",
-                    opacity: loading ? 0.6 : 1,
-                  }}
+                  className={`px-[22px] py-[10px] rounded-[9px] text-slate-400 text-[13px] font-semibold border border-slate-400/[0.15] bg-slate-950/80 ${loading ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
                 >
                   Guardar borrador
                 </button>
                 <button
                   onClick={() => handleGuardar(true)}
                   disabled={loading}
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '7px',
-                    padding: '10px 24px',
-                    borderRadius: '9px',
-                    border: 'none',
-                    background:
-                      'linear-gradient(135deg,rgba(74,222,128,0.85),rgba(34,197,94,0.85))',
-                    color: '#0f172a',
-                    fontSize: '13px',
-                    fontWeight: '700',
-                    cursor: loading ? 'not-allowed' : 'pointer',
-                    fontFamily: "'DM Sans',sans-serif",
-                    opacity: loading ? 0.6 : 1,
-                    boxShadow: '0 4px 14px rgba(74,222,128,0.2)',
-                  }}
+                  className={`inline-flex items-center gap-[7px] px-6 py-[10px] rounded-[9px] border-0 text-slate-900 text-[13px] font-bold bg-gradient-to-br from-green-400/85 to-green-500/85 shadow-[0_4px_14px_rgba(74,222,128,0.2)] ${loading ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
                 >
                   {loading ? (
                     <>
@@ -1899,7 +1217,7 @@ export default function FacturaBuilder() {
                         width='13'
                         height='13'
                         viewBox='0 0 13 13'
-                        style={{ animation: 'spin 0.8s linear infinite' }}
+                        className='animate-spin'
                       >
                         <circle
                           cx='6.5'
@@ -1934,38 +1252,15 @@ export default function FacturaBuilder() {
       {/* Toast */}
       {toast && (
         <div
-          style={{
-            position: 'fixed',
-            bottom: '24px',
-            right: '24px',
-            zIndex: 200,
-            display: 'flex',
-            alignItems: 'center',
-            gap: '10px',
-            padding: '12px 18px',
-            borderRadius: '10px',
-            background: 'rgba(15,23,42,0.97)',
-            border: `1px solid ${toast.tipo === 'ok' ? 'rgba(74,222,128,0.3)' : 'rgba(248,113,113,0.3)'}`,
-            backdropFilter: 'blur(12px)',
-            boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
-            animation: 'slideUp 0.25s cubic-bezier(0.34,1.56,0.64,1)',
-          }}
+          className={`fixed bottom-6 right-6 z-[200] flex items-center gap-2.5 px-[18px] py-3 rounded-[10px] backdrop-blur-sm bg-slate-950/[0.97] shadow-[0_8px_32px_rgba(0,0,0,0.4)] animate-modal-in ${toast.tipo === 'ok' ? 'border border-emerald-400/30' : 'border border-red-400/30'}`}
         >
           <span
-            style={{
-              fontSize: '13px',
-              color: toast.tipo === 'ok' ? '#4ade80' : '#f87171',
-              fontWeight: '600',
-            }}
+            className={`text-[13px] font-semibold ${toast.tipo === 'ok' ? 'text-emerald-400' : 'text-red-400'}`}
           >
             {toast.tipo === 'ok' ? '✓' : '✕'}
           </span>
           <span
-            style={{
-              fontSize: '13px',
-              color: toast.tipo === 'ok' ? '#4ade80' : '#f87171',
-              fontFamily: "'DM Sans',sans-serif",
-            }}
+            className={`text-[13px] ${toast.tipo === 'ok' ? 'text-emerald-400' : 'text-red-400'}`}
           >
             {toast.msg}
           </span>

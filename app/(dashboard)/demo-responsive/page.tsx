@@ -112,13 +112,11 @@ export default function ResponsivePreviewPage() {
             className={`${isSmall ? 'overflow-x-auto overscroll-x-contain' : 'overflow-hidden'} bg-slate-850`}
           >
             <div
+              className={`bg-slate-900 w-[var(--preview-w)] origin-top-left ${isSmall ? 'ml-0 scale-[var(--preview-zoom)]' : 'mx-auto scale-100'}`}
               style={{
-                width: `${selectedBreakpoint}px`,
-                margin: isSmall ? '0' : '0 auto',
-                transform: isSmall ? `scale(${zoom / 100})` : 'none',
-                transformOrigin: 'top left',
-              }}
-              className='bg-slate-900'
+                '--preview-w': `${selectedBreakpoint}px`,
+                '--preview-zoom': zoom / 100,
+              } as React.CSSProperties}
             >
               <div className='overflow-hidden'>
                 <Dashboard

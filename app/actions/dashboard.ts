@@ -283,10 +283,23 @@ export async function obtenerAlertas(): Promise<
   const hoy = new Date().toISOString().split('T')[0];
   const en7d = new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0];
 
+  // Órdenes completadas: obtener las que ya tienen remito para excluirlas
+  const { data: remitoOrdenIds } = await supabase
+    .from('remitos')
+    .select('orden_id')
+    .not('orden_id', 'is', null);
+
+  const idsConRemito = [...new Set(
+    (remitoOrdenIds ?? []).map((r: { orden_id: string }) => r.orden_id).filter(Boolean)
+  )];
+
   const [
     { data: presVencidos },
+    { data: presProxVencer },
     { data: factsVencidas },
     { data: ordenesAtrasadas },
+    { data: ordenesCompletadasSinRemito },
+    { data: remitosSinFactura },
     { data: notasParciales },
   ] = await Promise.all([
     // Presupuestos enviados con vencimiento pasado
@@ -295,6 +308,13 @@ export async function obtenerAlertas(): Promise<
       .select('id')
       .eq('estado', 'ENVIADO')
       .lt('fecha_validez', hoy),
+    // Presupuestos enviados que vencen en los próximos 7 días
+    supabase
+      .from('presupuestos')
+      .select('id')
+      .eq('estado', 'ENVIADO')
+      .gte('fecha_validez', hoy)
+      .lte('fecha_validez', en7d),
     // Facturas vencidas sin cobrar
     supabase
       .from('facturas')
@@ -307,6 +327,23 @@ export async function obtenerAlertas(): Promise<
       .select('id')
       .eq('estado', 'EN_PROGRESO')
       .lt('fecha_fin_estimada', hoy),
+    // Órdenes completadas sin remito generado
+    idsConRemito.length > 0
+      ? supabase
+          .from('ordenes_servicio')
+          .select('id')
+          .eq('estado', 'COMPLETADA')
+          .not('id', 'in', `(${idsConRemito.join(',')})`)
+      : supabase
+          .from('ordenes_servicio')
+          .select('id')
+          .eq('estado', 'COMPLETADA'),
+    // Remitos emitidos/entregados sin factura
+    supabase
+      .from('remitos')
+      .select('id')
+      .in('estado', ['EMITIDO', 'ENTREGADO'])
+      .is('factura_id', null),
     // Notas de pedido con recepción parcial vencidas
     supabase
       .from('notas_pedido')
@@ -317,22 +354,43 @@ export async function obtenerAlertas(): Promise<
 
   const alertas: AlertaDashboard[] = [];
 
+  const p = (n: number, singular: string, plural?: string) =>
+    `${n} ${n === 1 ? singular : (plural ?? singular + 's')}`;
+
   if ((factsVencidas?.length ?? 0) > 0)
     alertas.push({
       tipo: 'error',
       modulo: 'Facturación',
       cantidad: factsVencidas!.length,
       href: '/facturas',
-      mensaje: `${factsVencidas!.length} factura${factsVencidas!.length > 1 ? 's' : ''} vencida${factsVencidas!.length > 1 ? 's' : ''} sin cobrar`,
+      mensaje: `${p(factsVencidas!.length, 'factura vencida', 'facturas vencidas')} sin cobrar`,
     });
 
   if ((ordenesAtrasadas?.length ?? 0) > 0)
     alertas.push({
-      tipo: 'warning',
+      tipo: 'error',
       modulo: 'Órdenes',
       cantidad: ordenesAtrasadas!.length,
       href: '/ordenes',
-      mensaje: `${ordenesAtrasadas!.length} orden${ordenesAtrasadas!.length > 1 ? 'es' : ''} fuera de plazo`,
+      mensaje: `${p(ordenesAtrasadas!.length, 'orden fuera de plazo', 'órdenes fuera de plazo')}`,
+    });
+
+  if ((remitosSinFactura?.length ?? 0) > 0)
+    alertas.push({
+      tipo: 'warning',
+      modulo: 'Facturación',
+      cantidad: remitosSinFactura!.length,
+      href: '/logistica',
+      mensaje: `${p(remitosSinFactura!.length, 'remito entregado sin facturar', 'remitos entregados sin facturar')}`,
+    });
+
+  if ((ordenesCompletadasSinRemito?.length ?? 0) > 0)
+    alertas.push({
+      tipo: 'warning',
+      modulo: 'Logística',
+      cantidad: ordenesCompletadasSinRemito!.length,
+      href: '/ordenes',
+      mensaje: `${p(ordenesCompletadasSinRemito!.length, 'orden completada sin remito', 'órdenes completadas sin remito')}`,
     });
 
   if ((presVencidos?.length ?? 0) > 0)
@@ -341,7 +399,16 @@ export async function obtenerAlertas(): Promise<
       modulo: 'Presupuestos',
       cantidad: presVencidos!.length,
       href: '/presupuestos',
-      mensaje: `${presVencidos!.length} presupuesto${presVencidos!.length > 1 ? 's' : ''} enviado${presVencidos!.length > 1 ? 's' : ''} vencido${presVencidos!.length > 1 ? 's' : ''}`,
+      mensaje: `${p(presVencidos!.length, 'presupuesto enviado vencido', 'presupuestos enviados vencidos')}`,
+    });
+
+  if ((presProxVencer?.length ?? 0) > 0)
+    alertas.push({
+      tipo: 'info',
+      modulo: 'Presupuestos',
+      cantidad: presProxVencer!.length,
+      href: '/presupuestos',
+      mensaje: `${p(presProxVencer!.length, 'presupuesto vence en 7 días', 'presupuestos vencen en 7 días')}`,
     });
 
   if ((notasParciales?.length ?? 0) > 0)
@@ -350,7 +417,7 @@ export async function obtenerAlertas(): Promise<
       modulo: 'Logística',
       cantidad: notasParciales!.length,
       href: '/logistica',
-      mensaje: `${notasParciales!.length} nota${notasParciales!.length > 1 ? 's' : ''} de pedido con recepción incompleta`,
+      mensaje: `${p(notasParciales!.length, 'nota de pedido con recepción incompleta', 'notas de pedido con recepción incompleta')}`,
     });
 
   return { data: alertas, error: null };

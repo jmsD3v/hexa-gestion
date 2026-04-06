@@ -14,6 +14,8 @@ import {
   useRef,
   type ReactNode,
 } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Eye, Pencil, FileText, ClipboardList, AlertTriangle, ArrowUpDown, ArrowUp, ArrowDown, Plus } from 'lucide-react';
 import type { EstadoPresupuesto, TipoOperacion } from '@/types';
 import type { Presupuesto } from '@/types';
 import {
@@ -36,37 +38,37 @@ type PresupuestoRow = Presupuesto & { razon_social: string };
 
 const ESTADO_CFG: Record<
   EstadoPresupuesto,
-  { label: string; color: string; bg: string; border: string }
+  { label: string; badge: string; text: string; dot: string }
 > = {
   BORRADOR: {
     label: 'Borrador',
-    color: '#94a3b8',
-    bg: 'rgba(148,163,184,0.08)',
-    border: 'rgba(148,163,184,0.15)',
+    badge: 'text-slate-400 bg-slate-400/[0.08] border-slate-400/15',
+    text: 'text-slate-400',
+    dot: 'bg-slate-400',
   },
   ENVIADO: {
     label: 'Enviado',
-    color: '#60a5fa',
-    bg: 'rgba(96,165,250,0.08)',
-    border: 'rgba(96,165,250,0.2)',
+    badge: 'text-blue-400 bg-blue-400/[0.08] border-blue-400/20',
+    text: 'text-blue-400',
+    dot: 'bg-blue-400',
   },
   APROBADO: {
     label: 'Aprobado',
-    color: '#4ade80',
-    bg: 'rgba(74,222,128,0.08)',
-    border: 'rgba(74,222,128,0.2)',
+    badge: 'text-green-400 bg-green-400/[0.08] border-green-400/20',
+    text: 'text-green-400',
+    dot: 'bg-green-400',
   },
   RECHAZADO: {
     label: 'Rechazado',
-    color: '#f87171',
-    bg: 'rgba(248,113,113,0.08)',
-    border: 'rgba(248,113,113,0.2)',
+    badge: 'text-red-400 bg-red-400/[0.08] border-red-400/20',
+    text: 'text-red-400',
+    dot: 'bg-red-400',
   },
   VENCIDO: {
     label: 'Vencido',
-    color: '#f59e0b',
-    bg: 'rgba(245,158,11,0.08)',
-    border: 'rgba(245,158,11,0.2)',
+    badge: 'text-amber-500 bg-amber-500/[0.08] border-amber-500/20',
+    text: 'text-amber-500',
+    dot: 'bg-amber-500',
   },
 };
 
@@ -119,9 +121,9 @@ const inputClass =
 // --- Subcomponentes -----------------------------------------------------------
 
 function Skeleton({
-  w = '100%',
-  h = '13px',
-  r = '4px',
+  w = 'w-full',
+  h = 'h-[13px]',
+  r = 'rounded',
 }: {
   w?: string;
   h?: string;
@@ -129,8 +131,7 @@ function Skeleton({
 }) {
   return (
     <div
-      className='bg-slate-400/10 animate-pulse'
-      style={{ width: w, height: h, borderRadius: r }}
+      className={`bg-slate-400/10 animate-pulse ${w} ${h} ${r}`}
     />
   );
 }
@@ -139,13 +140,9 @@ function BadgeEstado({ estado }: { estado: EstadoPresupuesto }) {
   const cfg = ESTADO_CFG[estado];
   return (
     <span
-      className='inline-flex items-center gap-1 px-2 py-0.5 rounded-xl text-[10px] font-bold tracking-wide whitespace-nowrap border'
-      style={{ color: cfg.color, background: cfg.bg, borderColor: cfg.border }}
+      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-xl text-[10px] font-bold tracking-wide whitespace-nowrap border ${cfg.badge}`}
     >
-      <span
-        className='w-1 h-1 rounded-full inline-block'
-        style={{ background: cfg.color }}
-      />
+      <span className={`w-1 h-1 rounded-full inline-block ${cfg.dot}`} />
       {cfg.label}
     </span>
   );
@@ -237,12 +234,10 @@ function MenuEstado({
                     ? onAprobar(presupuesto.id)
                     : onCambio(presupuesto.id, est);
                 }}
-                className='flex items-center gap-2 w-full px-2.5 py-1.75 rounded-md border-none bg-transparent cursor-pointer font-sans text-xs text-left transition-colors hover:bg-slate-400/5'
-                style={{ color: cfg.color }}
+                className={`flex items-center gap-2 w-full px-2.5 py-1.75 rounded-md border-none bg-transparent cursor-pointer font-sans text-xs text-left transition-colors hover:bg-slate-400/5 ${cfg.text}`}
               >
                 <span
-                  className='w-1.5 h-1.5 rounded-full shrink-0'
-                  style={{ background: cfg.color }}
+                  className={`w-1.5 h-1.5 rounded-full shrink-0 ${cfg.dot}`}
                 />
                 {esAprobar ? `Aprobar${' -> OS'}` : `Marcar ${cfg.label}`}
               </button>
@@ -292,17 +287,17 @@ function MenuAcciones({
           {[
             {
               href: `/presupuestos/${presupuesto.id}`,
-              icon: '👁',
+              icon: <Eye className='w-3.5 h-3.5' />,
               label: 'Ver detalle',
             },
             {
               href: `/presupuestos/${presupuesto.id}/editar`,
-              icon: '✏️',
+              icon: <Pencil className='w-3.5 h-3.5' />,
               label: 'Editar',
             },
             {
               href: `/presupuestos/${presupuesto.id}/pdf`,
-              icon: '📄',
+              icon: <FileText className='w-3.5 h-3.5' />,
               label: 'Ver PDF',
             },
           ].map(({ href, icon, label }) => (
@@ -310,9 +305,9 @@ function MenuAcciones({
               key={href}
               href={href}
               onClick={() => setAbierto(false)}
-              className='flex items-center gap-2 px-2.5 py-1.75 rounded-md no-underline text-xs text-slate-400 font-sans transition-colors hover:bg-slate-400/5 hover:text-slate-100'
+              className='flex items-center gap-2 px-2.5 py-1.75 rounded-md no-underline text-xs text-slate-400 font-sans transition-colors hover:bg-slate-400/5 hover:text-slate-100 cursor-pointer'
             >
-              <span className='text-[11px]'>{icon}</span>
+              {icon}
               {label}
             </a>
           ))}
@@ -325,7 +320,7 @@ function MenuAcciones({
             disabled={loading}
             className={`flex items-center gap-2 w-full px-2.5 py-1.75 rounded-md border-none bg-transparent text-xs text-left font-sans transition-colors ${loading ? 'cursor-not-allowed text-slate-500' : 'cursor-pointer text-slate-400 hover:bg-slate-400/5 hover:text-slate-100'}`}
           >
-            <span className='text-[11px]'>📋</span>
+            <ClipboardList className='w-3.5 h-3.5' />
             {loading ? 'Duplicando...' : 'Duplicar presupuesto'}
           </button>
         </div>
@@ -347,21 +342,19 @@ function Toast({
     const t = setTimeout(onClose, 3500);
     return () => clearTimeout(t);
   }, [onClose]);
-  const borderColor =
-    tipo === 'ok' ? 'rgba(74,222,128,0.3)' : 'rgba(248,113,113,0.3)';
-  const textColor = tipo === 'ok' ? '#4ade80' : '#f87171';
+
+  const colorClass = tipo === 'ok' ? 'text-emerald-400' : 'text-red-400';
+  const borderClass =
+    tipo === 'ok' ? 'border-emerald-400/30' : 'border-red-400/30';
 
   return (
     <div
-      className='fixed bottom-6 right-6 z-[200] flex items-center gap-2.5 px-4.5 py-3 rounded-[10px] bg-slate-900/95 border backdrop-blur-xl shadow-2xl [animation:slideUp_0.25s_cubic-bezier(0.34,1.56,0.64,1)]'
-      style={{ borderColor }}
+      className={`fixed bottom-6 right-6 z-[200] flex items-center gap-2.5 px-4.5 py-3 rounded-[10px] bg-slate-900/95 border backdrop-blur-xl shadow-2xl [animation:slideUp_0.25s_cubic-bezier(0.34,1.56,0.64,1)] ${borderClass}`}
     >
-      <span className='text-[13px] font-semibold' style={{ color: textColor }}>
+      <span className={`text-[13px] font-semibold ${colorClass}`}>
         {tipo === 'ok' ? '✓' : '✕'}
       </span>
-      <span className='text-[13px] font-sans' style={{ color: textColor }}>
-        {mensaje}
-      </span>
+      <span className={`text-[13px] font-sans ${colorClass}`}>{mensaje}</span>
     </div>
   );
 }
@@ -371,7 +364,7 @@ function FilaVacia({ tieneFilros }: { tieneFilros: boolean }) {
     <tr>
       <td colSpan={9} className='px-6 py-12 text-center'>
         <div className='flex flex-col items-center gap-2.5'>
-          <span className='text-[28px] opacity-40'>📄</span>
+          <FileText className='w-8 h-8 opacity-40 text-slate-600' />
           <span className='text-[13px] text-slate-700'>
             {tieneFilros
               ? 'Sin resultados para los filtros aplicados'
@@ -402,19 +395,24 @@ function FilaVacia({ tieneFilros }: { tieneFilros: boolean }) {
 // --- Componente principal -----------------------------------------------------
 
 export default function PresupuestosListado() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
   const [rows, setRows] = useState<PresupuestoRow[]>([]);
   const [total, setTotal] = useState(0);
   const [totalPags, setTotalPags] = useState(1);
   const [loading, setLoading] = useState(true);
   const [isPending, startTransition] = useTransition();
 
-  const [busqueda, setBusqueda] = useState('');
-  const [estado, setEstado] = useState<EstadoPresupuesto | ''>('');
-  const [tipoOp, setTipoOp] = useState<TipoOperacion | ''>('');
-  const [fechaDesde, setFechaDesde] = useState('');
-  const [fechaHasta, setFechaHasta] = useState('');
-  const [pagina, setPagina] = useState(1);
+  const [busqueda, setBusqueda] = useState(() => searchParams.get('q') ?? '');
+  const [estado, setEstado] = useState<EstadoPresupuesto | ''>(() => (searchParams.get('estado') as EstadoPresupuesto) ?? '');
+  const [tipoOp, setTipoOp] = useState<TipoOperacion | ''>(() => (searchParams.get('tipo') as TipoOperacion) ?? '');
+  const [fechaDesde, setFechaDesde] = useState(() => searchParams.get('desde') ?? '');
+  const [fechaHasta, setFechaHasta] = useState(() => searchParams.get('hasta') ?? '');
+  const [pagina, setPagina] = useState(() => Number(searchParams.get('pag') ?? 1));
   const [porPagina, setPorPagina] = useState(20);
+  const [ordenPor, setOrdenPor] = useState<'numero' | 'creado_en' | 'total' | 'fecha_validez'>(() => (searchParams.get('ob') as any) ?? 'creado_en');
+  const [ordenDir, setOrdenDir] = useState<'asc' | 'desc'>(() => (searchParams.get('od') as any) ?? 'desc');
   const [filtrosAbiertos, setFiltrosAbiertos] = useState(false);
 
   const [loadingIds, setLoadingIds] = useState<Set<string>>(new Set());
@@ -424,6 +422,20 @@ export default function PresupuestosListado() {
   } | null>(null);
 
   const busquedaTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const actualizarUrl = useCallback((params: Record<string, string>) => {
+    const sp = new URLSearchParams(searchParams.toString());
+    Object.entries(params).forEach(([k, v]) => v ? sp.set(k, v) : sp.delete(k));
+    router.replace(`?${sp.toString()}`, { scroll: false });
+  }, [searchParams, router]);
+
+  const handleSort = (col: typeof ordenPor) => {
+    const dir = ordenPor === col && ordenDir === 'desc' ? 'asc' : 'desc';
+    setOrdenPor(col);
+    setOrdenDir(dir);
+    setPagina(1);
+    actualizarUrl({ ob: col, od: dir, pag: '' });
+  };
 
   const cargar = useCallback(() => {
     startTransition(async () => {
@@ -452,6 +464,8 @@ export default function PresupuestosListado() {
         fecha_hasta: fechaHasta || undefined,
         pagina,
         por_pagina: porPagina,
+        orden_por: ordenPor,
+        orden_dir: ordenDir,
       });
       setLoading(false);
       if (res.data) {
@@ -460,7 +474,7 @@ export default function PresupuestosListado() {
         setTotalPags(res.data.total_paginas);
       }
     });
-  }, [busqueda, estado, tipoOp, fechaDesde, fechaHasta, pagina, porPagina]);
+  }, [busqueda, estado, tipoOp, fechaDesde, fechaHasta, pagina, porPagina, ordenPor, ordenDir]);
 
   useEffect(() => {
     cargar();
@@ -469,7 +483,10 @@ export default function PresupuestosListado() {
   const handleBusqueda = (v: string) => {
     setBusqueda(v);
     if (busquedaTimer.current) clearTimeout(busquedaTimer.current);
-    busquedaTimer.current = setTimeout(() => setPagina(1), 350);
+    busquedaTimer.current = setTimeout(() => {
+      setPagina(1);
+      actualizarUrl({ q: v, pag: '' });
+    }, 350);
   };
 
   const hayFiltros = !!(estado || tipoOp || fechaDesde || fechaHasta);
@@ -480,6 +497,14 @@ export default function PresupuestosListado() {
     setFechaDesde('');
     setFechaHasta('');
     setPagina(1);
+    actualizarUrl({ estado: '', tipo: '', desde: '', hasta: '', pag: '' });
+  };
+
+  const SortIcon = ({ col }: { col: typeof ordenPor }) => {
+    if (ordenPor !== col) return <ArrowUpDown className='w-3 h-3 text-slate-600' />;
+    return ordenDir === 'asc'
+      ? <ArrowUp className='w-3 h-3 text-amber-400' />
+      : <ArrowDown className='w-3 h-3 text-amber-400' />;
   };
 
   const setLoadingId = (id: string, on: boolean) => {
@@ -563,28 +588,15 @@ export default function PresupuestosListado() {
 
   return (
     <>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@300;400;500&display=swap');
-        *{box-sizing:border-box}body{margin:0;background:#060d1a;font-family:'DM Sans',sans-serif;-webkit-font-smoothing:antialiased}
-        option{background:#0f172a;color:#e2e8f0}input:focus,select:focus{outline:none!important}
-        ::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:rgba(148,163,184,0.15);border-radius:2px}
-        @keyframes shimmer{0%,100%{opacity:.4}50%{opacity:.8}}@keyframes slideUp{from{transform:translateY(8px);opacity:0}to{transform:translateY(0);opacity:1}}
-        @keyframes fadeIn{from{opacity:0}to{opacity:1}}@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
-        @keyframes scaleIn{from{transform:scale(0.96);opacity:0}to{transform:scale(1);opacity:1}}
-        table{border-collapse:collapse;width:100%}
-        tr:hover td{background:rgba(148,163,184,0.025)!important}
-        .table-wrapper{overflow-x:auto}
-      `}</style>
-
-      <div className='min-h-screen bg-slate-950 px-3 py-5 pb-20 sm:px-5 sm:py-8 lg:px-6 [background:radial-gradient(ellipse_100%_50%_at_5%_0%,rgba(245,158,11,0.03),transparent_55%),#060d1a]'>
+      <div className='min-h-screen bg-slate-950 bg-gradient-to-b from-amber-950/5 to-slate-950 px-3 py-5 pb-20 sm:px-5 sm:py-8 lg:px-6'>
         <div className='mx-auto max-w-7xl min-w-0'>
           <div className='mb-6 flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between'>
             <div className='min-w-0'>
-              <div className='mb-1 flex items-center gap-2 overflow-x-auto whitespace-nowrap'>
-                <span className='text-[11px] text-slate-700 tracking-widest uppercase'>
-                  Hexa Gestion
+              <div className='mb-1 flex items-center gap-2'>
+                <span className='text-[11px] text-slate-500 tracking-widest uppercase'>
+                  Hexa Gestión
                 </span>
-                <span className='text-slate-800'>›</span>
+                <span className='text-slate-500'>›</span>
                 <span className='text-[11px] text-slate-600 tracking-widest uppercase'>
                   Presupuestos
                 </span>
@@ -594,7 +606,7 @@ export default function PresupuestosListado() {
                   Presupuestos
                 </h1>
                 {!loading && (
-                  <span className='rounded-2xl border border-slate-400/10 bg-slate-400/10 px-2.25 py-0.5 font-mono text-[11px] text-slate-700'>
+                  <span className='rounded-2xl border border-slate-400/10 bg-slate-400/10 px-2.5 py-0.5 font-mono text-[11px] text-slate-400'>
                     {total}
                   </span>
                 )}
@@ -602,16 +614,9 @@ export default function PresupuestosListado() {
             </div>
             <a
               href='/presupuestos/nuevo'
-              className='inline-flex w-full items-center justify-center gap-1.75 rounded-[9px] bg-gradient-to-br from-amber-500/90 to-amber-600/90 px-4 py-2.5 text-[13px] font-bold text-slate-900 no-underline shadow-[0_4px_12px_rgba(245,158,11,0.2)] sm:w-auto'
+              className='inline-flex w-full items-center justify-center gap-2 rounded-[9px] bg-gradient-to-br from-emerald-600/80 to-emerald-700/80 hover:from-emerald-600 hover:to-emerald-700 px-4 py-2.5 text-[13px] font-bold text-slate-950 no-underline shadow-sm shadow-emerald-600/15 transition-all sm:w-auto'
             >
-              <svg width='11' height='11' viewBox='0 0 11 11'>
-                <path
-                  d='M5.5 1V10M1 5.5H10'
-                  stroke='currentColor'
-                  strokeWidth='1.8'
-                  strokeLinecap='round'
-                />
-              </svg>
+              <Plus className='w-4 h-4' />
               Nuevo presupuesto
             </a>
           </div>
@@ -647,7 +652,7 @@ export default function PresupuestosListado() {
                   value={busqueda}
                   onChange={(e) => handleBusqueda(e.target.value)}
                   placeholder='Buscar por numero, titulo, cliente...'
-                  className={`${inputClass} w-full pl-8 ${busqueda ? 'pr-7.5' : 'pr-3'} focus:border-amber-500/35`}
+                  className={`${inputClass} w-full pl-8 ${busqueda ? 'pr-7.5' : 'pr-3'} focus:border-emerald-500/40`}
                 />
                 {busqueda && (
                   <button
@@ -672,32 +677,18 @@ export default function PresupuestosListado() {
               <div className='flex w-full flex-wrap gap-1 sm:w-auto'>
                 {ESTADOS_FILTRO.map((f) => {
                   const selected = estado === f.value;
-                  const color = f.value
-                    ? ESTADO_CFG[f.value as EstadoPresupuesto]?.color
-                    : '#f59e0b';
-                  const bg = f.value
-                    ? ESTADO_CFG[f.value as EstadoPresupuesto]?.bg
-                    : 'rgba(245,158,11,0.07)';
-                  const border = f.value
-                    ? ESTADO_CFG[f.value as EstadoPresupuesto]?.border
-                    : 'rgba(245,158,11,0.3)';
+                  const selectedCls = f.value
+                    ? ESTADO_CFG[f.value as EstadoPresupuesto]?.badge
+                    : 'text-amber-500 bg-amber-500/[0.07] border-amber-500/30';
                   return (
                     <button
                       key={f.value}
                       onClick={() => {
                         setEstado(f.value as EstadoPresupuesto | '');
                         setPagina(1);
+                        actualizarUrl({ estado: f.value, pag: '' });
                       }}
-                      className='px-2.75 py-1.5 rounded-[7px] cursor-pointer text-[11px] font-semibold font-sans whitespace-nowrap border transition-all'
-                      style={
-                        selected
-                          ? { color, background: bg, borderColor: border }
-                          : {
-                              color: '#475569',
-                              background: 'transparent',
-                              borderColor: 'rgba(148,163,184,0.1)',
-                            }
-                      }
+                      className={`px-2.75 py-1.5 rounded-[7px] cursor-pointer text-[11px] font-semibold font-sans whitespace-nowrap border transition-all ${selected ? selectedCls : 'text-slate-500 bg-transparent border-slate-400/10'}`}
                     >
                       {f.label}
                     </button>
@@ -745,6 +736,7 @@ export default function PresupuestosListado() {
                       onChange={(e) => {
                         setTipoOp(e.target.value as TipoOperacion | '');
                         setPagina(1);
+                        actualizarUrl({ tipo: e.target.value, pag: '' });
                       }}
                       className={`${inputClass} appearance-none pr-6.5 cursor-pointer w-full`}
                     >
@@ -783,6 +775,7 @@ export default function PresupuestosListado() {
                     onChange={(e) => {
                       setFechaDesde(e.target.value);
                       setPagina(1);
+                      actualizarUrl({ desde: e.target.value, pag: '' });
                     }}
                     className={`${inputClass} [color-scheme:dark]`}
                   />
@@ -798,6 +791,7 @@ export default function PresupuestosListado() {
                     onChange={(e) => {
                       setFechaHasta(e.target.value);
                       setPagina(1);
+                      actualizarUrl({ hasta: e.target.value, pag: '' });
                     }}
                     className={`${inputClass} [color-scheme:dark]`}
                   />
@@ -807,24 +801,25 @@ export default function PresupuestosListado() {
           </div>
 
           <div className={`${cardClass} overflow-hidden`}>
-            <div className='table-wrapper overflow-x-auto'>
+            <div className='overflow-x-auto'>
               <table className='min-w-full'>
                 <thead>
                   <tr className='border-b border-slate-400/10'>
                     {[
-                      { label: 'Numero', w: 'w-[90px]', col: 'numero' },
-                      { label: 'Cliente', w: 'w-auto', col: 'cliente' },
-                      { label: 'Titulo', w: 'w-auto', col: 'titulo' },
-                      { label: 'Tipo', w: 'w-[100px]', col: 'tipo' },
-                      { label: 'Emision', w: 'w-[80px]', col: 'emision' },
-                      { label: 'Vence', w: 'w-[80px]', col: 'vence' },
-                      { label: 'Total', w: 'w-[110px]', col: 'total' },
-                      { label: 'Estado', w: 'w-[120px]', col: 'estado' },
-                      { label: '', w: 'w-[36px]', col: 'acciones' },
+                      { label: 'Numero',  w: 'w-[90px]',  col: 'numero',       sort: 'numero'       as const },
+                      { label: 'Cliente', w: 'w-auto',    col: 'cliente',      sort: null },
+                      { label: 'Titulo',  w: 'w-auto',    col: 'titulo',       sort: null },
+                      { label: 'Tipo',    w: 'w-[100px]', col: 'tipo',         sort: null },
+                      { label: 'Emision', w: 'w-[80px]',  col: 'emision',      sort: 'creado_en'    as const },
+                      { label: 'Vence',   w: 'w-[80px]',  col: 'vence',        sort: 'fecha_validez' as const },
+                      { label: 'Total',   w: 'w-[110px]', col: 'total',        sort: 'total'        as const },
+                      { label: 'Estado',  w: 'w-[120px]', col: 'estado',       sort: null },
+                      { label: '',        w: 'w-[36px]',  col: 'acciones',     sort: null },
                     ].map((col) => (
                       <th
-                        key={col.label}
+                        key={col.label || col.col}
                         data-col={col.col}
+                        onClick={col.sort ? () => handleSort(col.sort!) : undefined}
                         className={[
                           'px-3.5 py-2.75 text-[10px] font-bold tracking-widest uppercase text-slate-700 whitespace-nowrap bg-slate-950/30',
                           col.w,
@@ -840,9 +835,15 @@ export default function PresupuestosListado() {
                             ? 'max-[780px]:max-w-[55px] max-[780px]:text-[9px]'
                             : '',
                           col.col === 'acciones' ? 'max-[780px]:px-[2px]' : '',
+                          col.sort ? 'cursor-pointer select-none hover:text-slate-400 transition-colors' : '',
                         ].join(' ')}
                       >
-                        {col.label}
+                        {col.sort ? (
+                          <span className='inline-flex items-center gap-1'>
+                            {col.label}
+                            <SortIcon col={col.sort} />
+                          </span>
+                        ) : col.label}
                       </th>
                     ))}
                   </tr>
@@ -853,7 +854,7 @@ export default function PresupuestosListado() {
                       <tr key={i} className='border-b border-slate-400/10'>
                         {[90, 160, 200, 80, 65, 65, 90, 100, 28].map((w, j) => (
                           <td key={j} className='px-3.5 py-3'>
-                            <Skeleton w={`${w}px`} />
+                            <Skeleton w={`w-[${w}px]`} />
                           </td>
                         ))}
                       </tr>
@@ -929,12 +930,11 @@ export default function PresupuestosListado() {
                             className='px-3.5 py-3 max-[780px]:hidden max-[780px]:px-1 max-[780px]:py-1'
                           >
                             <span
-                              className='text-[11px] max-[780px]:text-[9px] font-mono'
-                              style={{ color: vencido ? '#f59e0b' : '#334155' }}
+                              className={`text-[11px] max-[780px]:text-[9px] font-mono ${vencido ? 'text-amber-500' : 'text-slate-700'}`}
                             >
                               {fmtFecha(row.fecha_vencimiento)}
                               {vencido && (
-                                <span className='text-[9px] ml-1'>⚠</span>
+                                <AlertTriangle className='w-3 h-3 inline ml-1' />
                               )}
                             </span>
                           </td>
@@ -943,7 +943,7 @@ export default function PresupuestosListado() {
                             data-col='total'
                             className='px-3.5 py-3 text-right max-[780px]:px-1 max-[780px]:py-1'
                           >
-                            <span className='text-[13px] max-[780px]:text-[10px] font-semibold text-slate-400 font-mono whitespace-nowrap'>
+                            <span className='text-[13px] max-[780px]:text-[10px] font-semibold text-slate-400 font-mono tabular-nums whitespace-nowrap'>
                               {formatearMonto(row.total)}
                             </span>
                           </td>
@@ -985,11 +985,11 @@ export default function PresupuestosListado() {
                 </span>
 
                 <div className='flex items-center gap-1'>
-                  <BtnPag onClick={() => setPagina(1)} disabled={pagina === 1}>
+                  <BtnPag onClick={() => { setPagina(1); actualizarUrl({ pag: '1' }); }} disabled={pagina === 1}>
                     «
                   </BtnPag>
                   <BtnPag
-                    onClick={() => setPagina((p) => p - 1)}
+                    onClick={() => { setPagina((p) => { const n = p - 1; actualizarUrl({ pag: String(n) }); return n; }); }}
                     disabled={pagina === 1}
                   >
                     ‹
@@ -997,20 +997,20 @@ export default function PresupuestosListado() {
                   {ventanaPags().map((p) => (
                     <BtnPag
                       key={p}
-                      onClick={() => setPagina(p)}
+                      onClick={() => { setPagina(p); actualizarUrl({ pag: String(p) }); }}
                       active={p === pagina}
                     >
                       {String(p)}
                     </BtnPag>
                   ))}
                   <BtnPag
-                    onClick={() => setPagina((p) => p + 1)}
+                    onClick={() => { setPagina((p) => { const n = p + 1; actualizarUrl({ pag: String(n) }); return n; }); }}
                     disabled={pagina === totalPags}
                   >
                     ›
                   </BtnPag>
                   <BtnPag
-                    onClick={() => setPagina(totalPags)}
+                    onClick={() => { setPagina(totalPags); actualizarUrl({ pag: String(totalPags) }); }}
                     disabled={pagina === totalPags}
                   >
                     »
@@ -1084,19 +1084,17 @@ function BtnPag({
 }) {
   const borderClass = active ? 'border-amber-500/40' : 'border-slate-400/10';
   const bgClass = active ? 'bg-amber-500/10' : 'bg-transparent';
-  const textColor = active ? '#f59e0b' : disabled ? '#1e293b' : '#475569';
-  const fontWeight = active ? 700 : 400;
+  const textClass = active
+    ? 'text-amber-500 font-bold'
+    : disabled
+      ? 'text-slate-800 font-normal'
+      : 'text-slate-600 font-normal';
 
   return (
     <button
       onClick={onClick}
       disabled={disabled}
-      className={`min-w-7 h-7 px-1.5 rounded-md border text-[11px] font-mono transition-all ${borderClass} ${bgClass}`}
-      style={{
-        color: textColor,
-        fontWeight,
-        cursor: disabled ? 'not-allowed' : 'pointer',
-      }}
+      className={`min-w-7 h-7 px-1.5 rounded-md border text-[11px] font-mono transition-all ${borderClass} ${bgClass} ${textClass} ${disabled ? 'cursor-not-allowed' : 'cursor-pointer'}`}
     >
       {children}
     </button>

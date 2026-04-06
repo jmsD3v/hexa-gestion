@@ -33,7 +33,7 @@ import {
   getMockEventos,
   shouldUsePlatformMocks,
 } from '@/app/actions/platform-mocks';
-import { COLORES_TIPO } from '@/lib/calendario-utils';
+import { COLORES_TIPO, COLORES_TIPO_CLS } from '@/lib/calendario-utils';
 import type { EventoCalendario, CrearEventoDTO } from '@/types/calendario';
 
 // ── Constantes ────────────────────────────────────────────────
@@ -109,12 +109,11 @@ function PuntoEvento({
         onClick();
       }}
       title={evento.titulo}
-      className='w-full text-left px-1 py-0.5 rounded text-[10px] font-medium leading-tight truncate hover:opacity-80 transition-opacity'
+      className='w-full text-left px-1 py-0.5 rounded text-[10px] font-medium leading-tight truncate hover:opacity-80 transition-opacity border-l-2 bg-[var(--ev-bg)] text-[var(--ev-color)] border-l-[var(--ev-color)]'
       style={{
-        backgroundColor: evento.color + '22',
-        color: evento.color,
-        borderLeft: `2px solid ${evento.color}`,
-      }}
+        '--ev-bg': evento.color + '22',
+        '--ev-color': evento.color,
+      } as React.CSSProperties}
     >
       {evento.completado && (
         <span className='line-through opacity-60'>{evento.titulo}</span>
@@ -151,25 +150,25 @@ function ModalEvento({
     });
 
   return (
-    <div className='fixed inset-0 z-50 flex items-center justify-center p-4'>
+    <div className='fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in'>
       <div
-        className='absolute inset-0 bg-black/30 backdrop-blur-sm'
+        className='absolute inset-0 bg-black/50 backdrop-blur-sm'
         onClick={onClose}
       />
-      <div className='relative bg-slate-800 rounded-2xl shadow-xl border border-slate-700 w-full max-w-md overflow-hidden'>
+      <div className='relative bg-slate-950 rounded-[12px] shadow-2xl border border-slate-400/15 w-full max-w-md overflow-hidden animate-modal-in'>
         {/* Header coloreado */}
         <div
-          className='px-5 py-4'
+          className='px-5 py-4 border-b-[3px] bg-[var(--ev-header-bg)] border-b-[var(--ev-color)]'
           style={{
-            backgroundColor: evento.color + '15',
-            borderBottom: `3px solid ${evento.color}`,
-          }}
+            '--ev-header-bg': evento.color + '15',
+            '--ev-color': evento.color,
+          } as React.CSSProperties}
         >
           <div className='flex items-start justify-between gap-3'>
             <div>
               <p
-                className='text-[10px] font-semibold uppercase tracking-wider mb-1'
-                style={{ color: evento.color }}
+                className='text-[10px] font-semibold uppercase tracking-wider mb-1 text-[var(--ev-color)]'
+                style={{ '--ev-color': evento.color } as React.CSSProperties}
               >
                 {TIPO_OPTS.find((t) => t.value === evento.tipo)?.label ??
                   evento.tipo}
@@ -228,7 +227,7 @@ function ModalEvento({
           <div className='flex items-center gap-2'>
             <button
               onClick={onToggle}
-              className='flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-slate-600 hover:bg-slate-700 bg-slate-800 text-slate-200 transition-colors'
+              className='flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-slate-400/10 hover:bg-slate-400/5 bg-transparent text-slate-400 transition-colors'
             >
               {evento.completado ? (
                 <>
@@ -320,13 +319,13 @@ function ModalNuevoEvento({
   };
 
   return (
-    <div className='fixed inset-0 z-50 flex items-center justify-center p-4'>
+    <div className='fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in'>
       <div
-        className='absolute inset-0 bg-black/30 backdrop-blur-sm'
+        className='absolute inset-0 bg-black/50 backdrop-blur-sm'
         onClick={onClose}
       />
-      <div className='relative bg-slate-800 rounded-2xl shadow-xl border border-slate-700 w-full max-w-md overflow-hidden'>
-        <div className='px-5 py-4 border-b border-slate-700 flex items-center justify-between'>
+      <div className='relative bg-slate-950 rounded-[12px] shadow-2xl border border-slate-400/15 w-full max-w-md overflow-hidden animate-modal-in'>
+        <div className='px-5 py-4 border-b border-slate-400/10 flex items-center justify-between'>
           <h3 className='font-semibold text-slate-100'>Nuevo evento</h3>
           <button
             onClick={onClose}
@@ -343,7 +342,7 @@ function ModalNuevoEvento({
             <select
               value={tipo}
               onChange={(e) => setTipo(e.target.value as TipoEvento)}
-              className='w-full text-sm px-3 py-2 border border-slate-600 bg-slate-700 text-slate-100 placeholder-slate-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500'
+              className='w-full text-sm px-3 py-2 border border-slate-400/10 bg-slate-800/50 text-slate-100 placeholder-slate-500 rounded-lg focus:outline-none focus:border-emerald-500/40 focus:bg-slate-800/70 transition-colors'
             >
               {TIPO_OPTS.map((o) => (
                 <option key={o.value} value={o.value}>
@@ -361,7 +360,7 @@ function ModalNuevoEvento({
               value={titulo}
               onChange={(e) => setTitulo(e.target.value)}
               placeholder='Descripción del evento…'
-              className='w-full text-sm px-3 py-2 border border-slate-600 bg-slate-700 text-slate-100 placeholder-slate-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500'
+              className='w-full text-sm px-3 py-2 border border-slate-400/10 bg-slate-800/50 text-slate-100 placeholder-slate-500 rounded-lg focus:outline-none focus:border-emerald-500/40 focus:bg-slate-800/70 transition-colors'
             />
           </div>
           <div className='grid grid-cols-2 gap-3'>
@@ -373,7 +372,7 @@ function ModalNuevoEvento({
                 type='date'
                 value={fecha}
                 onChange={(e) => setFecha(e.target.value)}
-                className='w-full text-sm px-3 py-2 border border-slate-600 bg-slate-700 text-slate-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500'
+                className='w-full text-sm px-3 py-2 border border-slate-400/10 bg-slate-800/50 text-slate-100 rounded-lg focus:outline-none focus:border-emerald-500/40 focus:bg-slate-800/70 transition-colors'
               />
             </div>
             <div className='flex items-end pb-2'>
@@ -397,17 +396,17 @@ function ModalNuevoEvento({
               onChange={(e) => setDesc(e.target.value)}
               rows={2}
               placeholder='Notas adicionales…'
-              className='w-full text-sm px-3 py-2 border border-slate-600 bg-slate-700 text-slate-100 placeholder-slate-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none'
+              className='w-full text-sm px-3 py-2 border border-slate-400/10 bg-slate-800/50 text-slate-100 placeholder-slate-500 rounded-lg focus:outline-none focus:border-emerald-500/40 focus:bg-slate-800/70 transition-colors resize-none'
             />
           </div>
           {error && (
-            <div className='flex items-center gap-2 text-sm text-red-600 bg-red-50 px-3 py-2 rounded-xl border border-red-200'>
+            <div className='flex items-center gap-2 text-xs text-red-400 bg-red-400/10 px-3 py-2 rounded-lg border border-red-400/15'>
               <AlertCircle className='w-4 h-4 flex-shrink-0' />
               {error}
             </div>
           )}
         </div>
-        <div className='px-5 py-3 border-t border-slate-700 flex justify-end gap-2'>
+        <div className='px-5 py-3 border-t border-slate-400/10 flex justify-end gap-2'>
           <button
             onClick={onClose}
             className='px-4 py-2 text-sm text-slate-300 hover:text-slate-100'
@@ -417,7 +416,7 @@ function ModalNuevoEvento({
           <button
             onClick={handleGuardar}
             disabled={guardando}
-            className='px-5 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white text-sm font-semibold rounded-xl transition-colors'
+            className='flex items-center gap-1.5 px-4 py-2 bg-gradient-to-br from-emerald-600/80 to-emerald-700/80 hover:from-emerald-600 hover:to-emerald-700 text-slate-950 text-sm font-semibold rounded-[7px] transition-all disabled:opacity-50 border-0 cursor-pointer shadow-sm shadow-emerald-600/15'
           >
             {guardando ? 'Guardando…' : 'Crear evento'}
           </button>
@@ -548,22 +547,12 @@ export default function Calendario() {
 
   return (
     <>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700;800&family=DM+Mono:wght@300;400;500;700&display=swap');
-        .calendario-ui { font-family: 'DM Sans', sans-serif; }
-        .calendario-ui .font-mono, .calendario-ui .tabular-nums { font-family: 'DM Mono', monospace !important; }
-        ::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:rgba(148,163,184,0.15);border-radius:2px}
-      `}</style>
       <div
-        className='calendario-ui min-h-screen bg-slate-900'
-        style={{
-          background:
-            'radial-gradient(ellipse 100% 50% at 5% 0%, rgba(74,222,128,0.03), transparent 55%), #060d1a',
-        }}
+        className='min-h-screen bg-slate-950 bg-gradient-to-b from-emerald-950/5 to-slate-950'
       >
         {/* Toast */}
         {toast && (
-          <div className='fixed bottom-5 right-5 z-50 bg-slate-800 text-white text-sm px-4 py-3 rounded-xl shadow-lg'>
+          <div className='fixed bottom-6 right-6 z-50 bg-emerald-600 text-white text-xs font-semibold px-4 py-3 rounded-[10px] shadow-2xl animate-in slide-in-from-bottom-2 duration-200'>
             {toast}
           </div>
         )}
@@ -592,13 +581,13 @@ export default function Calendario() {
         )}
 
         {/* Header */}
-        <div className='bg-slate-800/70 backdrop-blur-sm border-b border-slate-700/80 px-6 py-4'>
+        <div className='bg-slate-900/80 backdrop-blur-sm border-b border-slate-400/10 px-6 py-4'>
           <div className='max-w-7xl mx-auto flex items-center justify-between flex-wrap gap-3'>
             <div className='flex items-center gap-4'>
               <div className='flex items-center gap-1'>
                 <button
                   onClick={mesAnterior}
-                  className='p-2 rounded-xl hover:bg-slate-700 text-slate-400 transition-colors'
+                  className='p-2 rounded-xl hover:bg-slate-400/5 text-slate-500 transition-colors'
                 >
                   <ChevronLeft className='w-4 h-4' />
                 </button>
@@ -607,14 +596,14 @@ export default function Calendario() {
                 </h1>
                 <button
                   onClick={mesSiguiente}
-                  className='p-2 rounded-xl hover:bg-slate-700 text-slate-400 transition-colors'
+                  className='p-2 rounded-xl hover:bg-slate-400/5 text-slate-500 transition-colors'
                 >
                   <ChevronRight className='w-4 h-4' />
                 </button>
               </div>
               <button
                 onClick={irHoy}
-                className='px-3 py-1.5 text-xs font-medium border border-slate-600 rounded-lg hover:bg-slate-700 bg-slate-800 text-slate-200 transition-colors'
+                className='px-3 py-1.5 text-xs font-medium border border-slate-400/10 rounded-lg hover:bg-slate-400/5 bg-transparent text-slate-400 transition-colors'
               >
                 Hoy
               </button>
@@ -624,7 +613,7 @@ export default function Calendario() {
               <button
                 onClick={handleSincronizar}
                 disabled={sincronizando}
-                className='flex items-center gap-1.5 px-3 py-2 text-sm text-slate-300 border border-slate-600 rounded-xl hover:bg-slate-700 bg-slate-800 transition-colors disabled:opacity-50'
+                className='flex items-center gap-1.5 px-3 py-2 text-sm text-slate-400 border border-slate-400/10 rounded-xl hover:bg-slate-400/5 bg-transparent transition-colors disabled:opacity-50'
               >
                 <RefreshCw
                   className={`w-3.5 h-3.5 ${sincronizando ? 'animate-spin' : ''}`}
@@ -651,8 +640,7 @@ export default function Calendario() {
                   className='inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-slate-700 border border-slate-600 text-slate-300'
                 >
                   <span
-                    className='w-2 h-2 rounded-full flex-shrink-0'
-                    style={{ backgroundColor: COLORES_TIPO[tipo] ?? '#64748b' }}
+                    className={`w-2 h-2 rounded-full flex-shrink-0 ${COLORES_TIPO_CLS[tipo] ?? 'bg-slate-500'}`}
                   />
                   {TIPO_OPTS.find((t) => t.value === tipo)?.label ?? tipo}
                 </span>
@@ -769,8 +757,8 @@ export default function Calendario() {
                       className='w-full flex items-center gap-3 px-5 py-3 hover:bg-slate-800 transition-colors text-left group text-slate-200'
                     >
                       <div
-                        className='w-2 h-2 rounded-full flex-shrink-0 mt-0.5'
-                        style={{ backgroundColor: ev.color ?? '#64748b' }}
+                        className='w-2 h-2 rounded-full flex-shrink-0 mt-0.5 bg-[var(--ev-dot)]'
+                        style={{ '--ev-dot': ev.color ?? '#64748b' } as React.CSSProperties}
                       />
                       <div className='flex-1 min-w-0'>
                         <p className='text-sm font-medium text-slate-100 truncate'>

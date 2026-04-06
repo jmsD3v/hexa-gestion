@@ -16,3 +16,15 @@ export const COLORES_TIPO: Record<TipoEvento, string> = {
   PAGO_CLIENTE: '#06b6d4', // cyan
   VENCIMIENTO_SERVICIO_CONTINUO: '#84cc16', // lima
 };
+
+export const COLORES_TIPO_CLS: Record<TipoEvento, string> = {
+  SERVICIO_PROGRAMADO: 'bg-blue-500',
+  SERVICIO_EJECUTADO: 'bg-emerald-500',
+  VENCIMIENTO_FACTURA: 'bg-red-500',
+  COBRO_CHEQUE: 'bg-violet-500',
+  PAGO_CHEQUE: 'bg-amber-500',
+  VENCIMIENTO_PLAN_PAGO: 'bg-pink-500',
+  VENCIMIENTO_POLIZA: 'bg-orange-500',
+  PAGO_CLIENTE: 'bg-cyan-500',
+  VENCIMIENTO_SERVICIO_CONTINUO: 'bg-lime-500',
+};

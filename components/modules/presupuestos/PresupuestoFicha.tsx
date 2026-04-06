@@ -6,13 +6,24 @@
 // económico, OS vinculada, acciones de estado y PDF.
 // ============================================================
 
+import { useState, useEffect, useCallback, type ReactNode } from 'react';
 import {
-  useState,
-  useEffect,
-  useCallback,
-  type CSSProperties,
-  type ReactNode,
-} from 'react';
+  ArrowLeft,
+  PenLine,
+  Send,
+  CheckCircle2,
+  XCircle,
+  Clock,
+  User,
+  ClipboardList,
+  BarChart3,
+  FileText,
+  Settings,
+  AlertTriangle,
+  Briefcase,
+  Loader2,
+} from 'lucide-react';
+import { descargarPDF } from '@/lib/pdf-client';
 import type {
   PresupuestoCompleto,
   PresupuestoItem,
@@ -45,42 +56,32 @@ type PCompleto = PresupuestoCompleto & { razon_social?: string };
 
 const ESTADO_CFG: Record<
   EstadoPresupuesto,
-  { label: string; color: string; bg: string; border: string; icon: string }
+  { label: string; badge: string; icon: ReactNode }
 > = {
   BORRADOR: {
     label: 'Borrador',
-    color: '#94a3b8',
-    bg: 'rgba(148,163,184,0.08)',
-    border: 'rgba(148,163,184,0.15)',
-    icon: '📝',
+    badge: 'text-slate-400 bg-slate-400/[0.08] border-slate-400/15',
+    icon: <PenLine className='w-3 h-3' />,
   },
   ENVIADO: {
     label: 'Enviado',
-    color: '#60a5fa',
-    bg: 'rgba(96,165,250,0.08)',
-    border: 'rgba(96,165,250,0.2)',
-    icon: '📤',
+    badge: 'text-blue-400 bg-blue-400/[0.08] border-blue-400/20',
+    icon: <Send className='w-3 h-3' />,
   },
   APROBADO: {
     label: 'Aprobado',
-    color: '#4ade80',
-    bg: 'rgba(74,222,128,0.08)',
-    border: 'rgba(74,222,128,0.2)',
-    icon: '✅',
+    badge: 'text-green-400 bg-green-400/[0.08] border-green-400/20',
+    icon: <CheckCircle2 className='w-3 h-3' />,
   },
   RECHAZADO: {
     label: 'Rechazado',
-    color: '#f87171',
-    bg: 'rgba(248,113,113,0.08)',
-    border: 'rgba(248,113,113,0.2)',
-    icon: '❌',
+    badge: 'text-red-400 bg-red-400/[0.08] border-red-400/20',
+    icon: <XCircle className='w-3 h-3' />,
   },
   VENCIDO: {
     label: 'Vencido',
-    color: '#f59e0b',
-    bg: 'rgba(245,158,11,0.08)',
-    border: 'rgba(245,158,11,0.2)',
-    icon: '⏰',
+    badge: 'text-amber-500 bg-amber-500/[0.08] border-amber-500/20',
+    icon: <Clock className='w-3 h-3' />,
   },
 };
 
@@ -92,32 +93,74 @@ const TIPO_LABEL: Record<TipoOperacion, string> = {
 
 const INCIDENCIA_CFG: Record<
   TipoIncidencia,
-  { label: string; icon: string; color: string }
+  { label: string; icon: ReactNode; textCls: string; badgeCls: string }
 > = {
-  traslado: { label: 'Traslado', icon: '🚗', color: '#60a5fa' },
-  viatico: { label: 'Viático', icon: '💼', color: '#f59e0b' },
-  hospedaje: { label: 'Hospedaje', icon: '🏨', color: '#a78bfa' },
-  combustible: { label: 'Combustible', icon: '⛽', color: '#f97316' },
-  vianda: { label: 'Vianda', icon: '🍱', color: '#34d399' },
-  equipamiento: { label: 'Equipamiento', icon: '🛠', color: '#94a3b8' },
-  sanidad: { label: 'Sanidad / Seguros', icon: '🏥', color: '#f87171' },
+  traslado: {
+    label: 'Traslado',
+    icon: '🚗',
+    textCls: 'text-blue-400',
+    badgeCls: 'bg-blue-400/[0.06] border-blue-400/[0.12]',
+  },
+  viatico: {
+    label: 'Viático',
+    icon: <Briefcase className='w-3.5 h-3.5' />,
+    textCls: 'text-amber-500',
+    badgeCls: 'bg-amber-500/[0.06] border-amber-500/[0.12]',
+  },
+  hospedaje: {
+    label: 'Hospedaje',
+    icon: '🏨',
+    textCls: 'text-violet-400',
+    badgeCls: 'bg-violet-400/[0.06] border-violet-400/[0.12]',
+  },
+  combustible: {
+    label: 'Combustible',
+    icon: '⛽',
+    textCls: 'text-orange-500',
+    badgeCls: 'bg-orange-500/[0.06] border-orange-500/[0.12]',
+  },
+  vianda: {
+    label: 'Vianda',
+    icon: '🍱',
+    textCls: 'text-emerald-400',
+    badgeCls: 'bg-emerald-400/[0.06] border-emerald-400/[0.12]',
+  },
+  equipamiento: {
+    label: 'Equipamiento',
+    icon: '🛠',
+    textCls: 'text-slate-400',
+    badgeCls: 'bg-slate-400/[0.06] border-slate-400/[0.12]',
+  },
+  sanidad: {
+    label: 'Sanidad / Seguros',
+    icon: '🏥',
+    textCls: 'text-red-400',
+    badgeCls: 'bg-red-400/[0.06] border-red-400/[0.12]',
+  },
   honorario_externo: {
     label: 'Honorario Externo',
-    icon: '👤',
-    color: '#e879f9',
+    icon: <User className='w-3.5 h-3.5' />,
+    textCls: 'text-fuchsia-400',
+    badgeCls: 'bg-fuchsia-400/[0.06] border-fuchsia-400/[0.12]',
   },
-  pago_tercero: { label: 'Pago a Tercero', icon: '💸', color: '#fbbf24' },
-  otro: { label: 'Otro', icon: '📎', color: '#64748b' },
+  pago_tercero: {
+    label: 'Pago a Tercero',
+    icon: '💸',
+    textCls: 'text-yellow-400',
+    badgeCls: 'bg-yellow-400/[0.06] border-yellow-400/[0.12]',
+  },
+  otro: {
+    label: 'Otro',
+    icon: '📎',
+    textCls: 'text-slate-500',
+    badgeCls: 'bg-slate-500/[0.06] border-slate-500/[0.12]',
+  },
 };
 
 // ─── Estilos ──────────────────────────────────────────────────────────────────
 
-const card: CSSProperties = {
-  background: 'rgba(15,23,42,0.7)',
-  border: '1px solid rgba(148,163,184,0.08)',
-  borderRadius: '12px',
-  backdropFilter: 'blur(12px)',
-};
+const cardClass =
+  'bg-slate-900/70 border border-slate-400/10 rounded-xl backdrop-blur-sm';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -138,9 +181,9 @@ const isVencido = (p: PCompleto) =>
 // ─── Subcomponentes ───────────────────────────────────────────────────────────
 
 function Skeleton({
-  w = '100%',
-  h = '14px',
-  r = '4px',
+  w = 'w-full',
+  h = 'h-[14px]',
+  r = 'rounded',
 }: {
   w?: string;
   h?: string;
@@ -148,13 +191,7 @@ function Skeleton({
 }) {
   return (
     <div
-      style={{
-        width: w,
-        height: h,
-        borderRadius: r,
-        background: 'rgba(148,163,184,0.07)',
-        animation: 'shimmer 1.4s ease infinite',
-      }}
+      className={`animate-pulse bg-slate-400/[0.07] ${w} ${h} ${r}`}
     />
   );
 }
@@ -163,28 +200,9 @@ function BadgeEstado({ estado }: { estado: EstadoPresupuesto }) {
   const cfg = ESTADO_CFG[estado];
   return (
     <span
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: '5px',
-        padding: '3px 11px',
-        borderRadius: '20px',
-        fontSize: '11px',
-        fontWeight: '600',
-        background: cfg.bg,
-        border: `1px solid ${cfg.border}`,
-        color: cfg.color,
-      }}
+      className={`inline-flex items-center gap-[5px] text-xs font-semibold rounded-full px-[11px] py-[3px] border ${cfg.badge}`}
     >
-      <span
-        style={{
-          width: '5px',
-          height: '5px',
-          borderRadius: '50%',
-          background: 'currentColor',
-          display: 'inline-block',
-        }}
-      />
+      <span className='inline-block rounded-full w-[5px] h-[5px] bg-current' />
       {cfg.label}
     </span>
   );
@@ -202,28 +220,12 @@ function InfoPar({
   children?: ReactNode;
 }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-      <span
-        style={{
-          fontSize: '10px',
-          fontWeight: '600',
-          letterSpacing: '0.08em',
-          textTransform: 'uppercase',
-          color: '#334155',
-        }}
-      >
+    <div className='flex flex-col gap-[3px]'>
+      <span className='text-xs font-semibold tracking-widest uppercase text-slate-700'>
         {label}
       </span>
       {children ?? (
-        <span
-          style={{
-            fontSize: '13px',
-            color: value ? '#94a3b8' : '#1e293b',
-            fontFamily: mono ? "'DM Mono',monospace" : "'DM Sans',sans-serif",
-          }}
-        >
-          {value || '—'}
-        </span>
+        <span className='text-[13px] text-slate-400'>{value || '—'}</span>
       )}
     </div>
   );
@@ -234,44 +236,18 @@ function SectionTitle({
   title,
   count,
 }: {
-  icon: string;
+  icon: ReactNode;
   title: string;
   count?: number;
 }) {
   return (
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: '8px',
-        marginBottom: '16px',
-      }}
-    >
-      <span style={{ fontSize: '14px' }}>{icon}</span>
-      <span
-        style={{
-          fontSize: '11px',
-          fontWeight: '700',
-          letterSpacing: '0.08em',
-          textTransform: 'uppercase',
-          color: '#475569',
-        }}
-      >
+    <div className='flex items-center gap-2 mb-4'>
+      <span className='flex items-center text-slate-600'>{icon}</span>
+      <span className='text-xs font-bold tracking-widest uppercase text-slate-600'>
         {title}
       </span>
       {count !== undefined && count > 0 && (
-        <span
-          style={{
-            fontSize: '9px',
-            fontWeight: '700',
-            color: '#475569',
-            background: 'rgba(148,163,184,0.08)',
-            border: '1px solid rgba(148,163,184,0.12)',
-            borderRadius: '10px',
-            padding: '1px 6px',
-            fontFamily: "'DM Mono',monospace",
-          }}
-        >
+        <span className='text-[9px] font-bold text-slate-600 bg-slate-400/[0.08] border border-slate-400/[0.12] rounded-[10px] px-1.5 py-px'>
           {count}
         </span>
       )}
@@ -281,14 +257,7 @@ function SectionTitle({
 
 function Divider() {
   return (
-    <div
-      style={{
-        height: '1px',
-        background:
-          'linear-gradient(to right,transparent,rgba(148,163,184,0.08),transparent)',
-        margin: '2px 0',
-      }}
-    />
+    <div className='h-px bg-gradient-to-r from-transparent via-slate-400/[0.08] to-transparent my-0.5' />
   );
 }
 
@@ -307,38 +276,19 @@ function Toast({
   }, [onClose]);
   return (
     <div
-      style={{
-        position: 'fixed',
-        bottom: '24px',
-        right: '24px',
-        zIndex: 200,
-        display: 'flex',
-        alignItems: 'center',
-        gap: '10px',
-        padding: '12px 18px',
-        borderRadius: '10px',
-        background: 'rgba(15,23,42,0.97)',
-        border: `1px solid ${tipo === 'ok' ? 'rgba(74,222,128,0.3)' : 'rgba(248,113,113,0.3)'}`,
-        backdropFilter: 'blur(12px)',
-        boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
-        animation: 'slideUp 0.25s cubic-bezier(0.34,1.56,0.64,1)',
-      }}
+      className={`fixed bottom-6 right-6 z-[200] flex items-center gap-2.5 px-[18px] py-3 rounded-[10px] bg-slate-900/[0.97] backdrop-blur-sm shadow-xl animate-modal-in ${
+        tipo === 'ok'
+          ? 'border border-emerald-400/30'
+          : 'border border-red-400/30'
+      }`}
     >
       <span
-        style={{
-          fontSize: '13px',
-          color: tipo === 'ok' ? '#4ade80' : '#f87171',
-          fontWeight: '600',
-        }}
+        className={`text-[13px] font-semibold ${tipo === 'ok' ? 'text-emerald-400' : 'text-red-400'}`}
       >
         {tipo === 'ok' ? '✓' : '✕'}
       </span>
       <span
-        style={{
-          fontSize: '13px',
-          color: tipo === 'ok' ? '#4ade80' : '#f87171',
-          fontFamily: "'DM Sans',sans-serif",
-        }}
+        className={`text-[13px] ${tipo === 'ok' ? 'text-emerald-400' : 'text-red-400'}`}
       >
         {mensaje}
       </span>
@@ -353,40 +303,16 @@ function TablaItems({ items }: { items: PresupuestoItem[] }) {
 
   if (items.length === 0) {
     return (
-      <div
-        style={{
-          padding: '24px',
-          textAlign: 'center',
-          border: '1px dashed rgba(148,163,184,0.1)',
-          borderRadius: '8px',
-        }}
-      >
-        <p style={{ margin: 0, fontSize: '12px', color: '#334155' }}>
-          Sin ítems
-        </p>
+      <div className='p-6 text-center rounded-lg border border-dashed border-slate-400/10'>
+        <p className='m-0 text-xs text-slate-700'>Sin ítems</p>
       </div>
     );
   }
 
   return (
-    <div
-      style={{
-        border: '1px solid rgba(148,163,184,0.08)',
-        borderRadius: '10px',
-        overflow: 'hidden',
-      }}
-    >
+    <div className='rounded-[10px] overflow-hidden border border-slate-400/[0.08]'>
       {/* Encabezado */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: '32px 1fr 70px 80px 90px 70px 100px',
-          gap: '8px',
-          padding: '9px 14px',
-          background: 'rgba(8,16,35,0.4)',
-          borderBottom: '1px solid rgba(148,163,184,0.07)',
-        }}
-      >
+      <div className='grid grid-cols-[32px_1fr_70px_80px_90px_70px_100px] gap-2 px-3.5 py-[9px] bg-slate-950/40 border-b border-slate-400/[0.07]'>
         {[
           '#',
           'Descripción',
@@ -398,14 +324,7 @@ function TablaItems({ items }: { items: PresupuestoItem[] }) {
         ].map((h, i) => (
           <span
             key={h}
-            style={{
-              fontSize: '10px',
-              fontWeight: '700',
-              letterSpacing: '0.06em',
-              textTransform: 'uppercase',
-              color: '#334155',
-              textAlign: i >= 4 ? 'right' : 'left',
-            }}
+            className={`text-xs font-bold tracking-wide uppercase text-slate-700 ${i >= 4 ? 'text-right' : 'text-left'}`}
           >
             {h}
           </span>
@@ -417,12 +336,9 @@ function TablaItems({ items }: { items: PresupuestoItem[] }) {
         .map((item, idx) => (
           <div
             key={item.id}
-            style={{
-              borderBottom:
-                idx < items.length - 1
-                  ? '1px solid rgba(148,163,184,0.05)'
-                  : 'none',
-            }}
+            className={
+              idx < items.length - 1 ? 'border-b border-slate-400/[0.05]' : ''
+            }
           >
             {/* Fila principal */}
             <div
@@ -431,61 +347,16 @@ function TablaItems({ items }: { items: PresupuestoItem[] }) {
                   ? setExpandido(expandido === item.id ? null : item.id)
                   : undefined
               }
-              style={{
-                display: 'grid',
-                gridTemplateColumns: '32px 1fr 70px 80px 90px 70px 100px',
-                gap: '8px',
-                padding: '11px 14px',
-                alignItems: 'center',
-                cursor: item.detalle ? 'pointer' : 'default',
-                transition: 'background 0.1s',
-              }}
-              onMouseEnter={(e) => {
-                if (item.detalle)
-                  e.currentTarget.style.background = 'rgba(148,163,184,0.02)';
-              }}
-              onMouseLeave={(e) =>
-                (e.currentTarget.style.background = 'transparent')
-              }
+              className={`grid grid-cols-[32px_1fr_70px_80px_90px_70px_100px] gap-2 px-3.5 py-[11px] items-center transition-colors duration-150 hover:bg-slate-400/[0.02] ${item.detalle ? 'cursor-pointer' : 'cursor-default'}`}
             >
               {/* Número */}
-              <div
-                style={{
-                  width: '22px',
-                  height: '22px',
-                  borderRadius: '5px',
-                  background: 'rgba(245,158,11,0.07)',
-                  border: '1px solid rgba(245,158,11,0.12)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '10px',
-                  fontWeight: '700',
-                  color: '#f59e0b',
-                  fontFamily: "'DM Mono',monospace",
-                }}
-              >
+              <div className='w-[22px] h-[22px] rounded flex items-center justify-center text-xs font-bold text-amber-500 bg-amber-500/[0.07] border border-amber-500/[0.12]'>
                 {idx + 1}
               </div>
 
               {/* Descripción */}
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '7px',
-                  minWidth: 0,
-                }}
-              >
-                <span
-                  style={{
-                    fontSize: '13px',
-                    color: '#94a3b8',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
+              <div className='flex items-center gap-[7px] min-w-0'>
+                <span className='text-[13px] text-slate-400 overflow-hidden text-ellipsis whitespace-nowrap'>
                   {item.descripcion}
                 </span>
                 {item.detalle && (
@@ -494,13 +365,7 @@ function TablaItems({ items }: { items: PresupuestoItem[] }) {
                     height='10'
                     viewBox='0 0 10 10'
                     fill='none'
-                    style={{
-                      color: '#334155',
-                      flexShrink: 0,
-                      transition: 'transform 0.15s',
-                      transform:
-                        expandido === item.id ? 'rotate(180deg)' : 'none',
-                    }}
+                    className={`shrink-0 text-slate-700 transition-transform duration-150 ${expandido === item.id ? 'rotate-180' : ''}`}
                   >
                     <path
                       d='M2 4L5 7L8 4'
@@ -514,86 +379,37 @@ function TablaItems({ items }: { items: PresupuestoItem[] }) {
               </div>
 
               {/* Cantidad */}
-              <span
-                style={{
-                  fontSize: '12px',
-                  color: '#64748b',
-                  fontFamily: "'DM Mono',monospace",
-                  textAlign: 'right',
-                }}
-              >
+              <span className='text-xs text-slate-500 text-right'>
                 {item.cantidad}
               </span>
 
               {/* Unidad */}
-              <span
-                style={{
-                  fontSize: '11px',
-                  color: '#475569',
-                  fontFamily: "'DM Mono',monospace",
-                  textAlign: 'right',
-                }}
-              >
+              <span className='text-xs text-slate-600 text-right'>
                 {item.unidad_medida}
               </span>
 
               {/* Precio unitario */}
-              <span
-                style={{
-                  fontSize: '12px',
-                  color: '#64748b',
-                  fontFamily: "'DM Mono',monospace",
-                  textAlign: 'right',
-                }}
-              >
+              <span className='text-xs text-slate-500 text-right'>
                 {formatearMonto(item.precio_unitario)}
               </span>
 
               {/* Descuento */}
               <span
-                style={{
-                  fontSize: '11px',
-                  color: item.descuento_pct > 0 ? '#f59e0b' : '#334155',
-                  fontFamily: "'DM Mono',monospace",
-                  textAlign: 'right',
-                }}
+                className={`text-xs text-right ${item.descuento_pct > 0 ? 'text-amber-500' : 'text-slate-700'}`}
               >
                 {item.descuento_pct > 0 ? `${item.descuento_pct}%` : '—'}
               </span>
 
               {/* Subtotal */}
-              <span
-                style={{
-                  fontSize: '13px',
-                  fontWeight: '600',
-                  color: '#94a3b8',
-                  fontFamily: "'DM Mono',monospace",
-                  textAlign: 'right',
-                }}
-              >
+              <span className='text-[13px] font-semibold text-slate-400 text-right'>
                 {formatearMonto(item.subtotal)}
               </span>
             </div>
 
             {/* Detalle expandido */}
             {expandido === item.id && item.detalle && (
-              <div
-                style={{
-                  padding: '0 14px 12px 52px',
-                  animation: 'fadeIn 0.15s ease',
-                }}
-              >
-                <p
-                  style={{
-                    margin: 0,
-                    fontSize: '12px',
-                    color: '#475569',
-                    lineHeight: '1.7',
-                    fontStyle: 'italic',
-                    borderLeft: '2px solid rgba(245,158,11,0.2)',
-                    paddingLeft: '10px',
-                  }}
-                >
+              <div className='pt-0 px-[14px] pb-3 pl-[52px] animate-fade-in'>
+                <p className='m-0 text-xs text-slate-600 italic leading-[1.7] border-l-2 border-amber-500/20 pl-[10px]'>
                   {item.detalle}
                 </p>
               </div>
@@ -616,15 +432,8 @@ function TablaIncidencias({
 
   if (incidencias.length === 0) {
     return (
-      <div
-        style={{
-          padding: '24px',
-          textAlign: 'center',
-          border: '1px dashed rgba(148,163,184,0.1)',
-          borderRadius: '8px',
-        }}
-      >
-        <p style={{ margin: 0, fontSize: '12px', color: '#334155' }}>
+      <div className='p-6 text-center rounded-lg border border-dashed border-slate-400/10'>
+        <p className='m-0 text-xs text-slate-700'>
           Sin incidencias registradas
         </p>
       </div>
@@ -640,101 +449,35 @@ function TablaIncidencias({
   }) => {
     const cfg = INCIDENCIA_CFG[inc.tipo];
     return (
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'auto 1fr 60px 50px 60px 90px 100px',
-          gap: '8px',
-          padding: '10px 14px',
-          borderBottom: '1px solid rgba(148,163,184,0.04)',
-          alignItems: 'center',
-        }}
-      >
+      <div className='grid grid-cols-[auto_1fr_60px_50px_60px_90px_100px] gap-2 px-3.5 py-2.5 items-center border-b border-slate-400/[0.04]'>
         {/* Badge tipo */}
         <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '5px',
-            padding: '2px 8px',
-            borderRadius: '5px',
-            background: `${cfg.color}10`,
-            border: `1px solid ${cfg.color}20`,
-            whiteSpace: 'nowrap',
-          }}
+          className={`flex items-center gap-[5px] px-2 py-0.5 rounded whitespace-nowrap border ${cfg.badgeCls}`}
         >
-          <span style={{ fontSize: '10px' }}>{cfg.icon}</span>
+          <span className={`flex items-center ${cfg.textCls}`}>{cfg.icon}</span>
           <span
-            style={{
-              fontSize: '9px',
-              fontWeight: '700',
-              color: cfg.color,
-              letterSpacing: '0.05em',
-              textTransform: 'uppercase',
-            }}
+            className={`text-[9px] font-bold tracking-wide uppercase ${cfg.textCls}`}
           >
             {cfg.label}
           </span>
         </div>
-        <span
-          style={{
-            fontSize: '12px',
-            color: '#94a3b8',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-          }}
-        >
+        <span className='text-xs text-slate-400 overflow-hidden text-ellipsis whitespace-nowrap'>
           {inc.descripcion}
         </span>
-        <span
-          style={{
-            fontSize: '11px',
-            color: '#64748b',
-            fontFamily: "'DM Mono',monospace",
-            textAlign: 'right',
-          }}
-        >
+        <span className='text-xs text-slate-500 text-right'>
           {inc.cantidad}
         </span>
-        <span
-          style={{
-            fontSize: '11px',
-            color: '#64748b',
-            fontFamily: "'DM Mono',monospace",
-            textAlign: 'right',
-          }}
-        >
+        <span className='text-xs text-slate-500 text-right'>
           {inc.dias > 1 ? `${inc.dias}d` : '—'}
         </span>
-        <span
-          style={{
-            fontSize: '11px',
-            color: '#64748b',
-            fontFamily: "'DM Mono',monospace",
-            textAlign: 'right',
-          }}
-        >
+        <span className='text-xs text-slate-500 text-right'>
           {inc.distancia_km ? `${inc.distancia_km}km` : '—'}
         </span>
-        <span
-          style={{
-            fontSize: '12px',
-            color: '#64748b',
-            fontFamily: "'DM Mono',monospace",
-            textAlign: 'right',
-          }}
-        >
+        <span className='text-xs text-slate-500 text-right'>
           {formatearMonto(inc.monto_unitario)}
         </span>
         <span
-          style={{
-            fontSize: '13px',
-            fontWeight: '600',
-            color: interna ? '#475569' : '#94a3b8',
-            fontFamily: "'DM Mono',monospace",
-            textAlign: 'right',
-          }}
+          className={`text-[13px] font-semibold text-right ${interna ? 'text-slate-600' : 'text-slate-400'}`}
         >
           {formatearMonto(inc.subtotal)}
         </span>
@@ -743,24 +486,9 @@ function TablaIncidencias({
   };
 
   return (
-    <div
-      style={{
-        border: '1px solid rgba(148,163,184,0.08)',
-        borderRadius: '10px',
-        overflow: 'hidden',
-      }}
-    >
+    <div className='rounded-[10px] overflow-hidden border border-slate-400/[0.08]'>
       {/* Header */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'auto 1fr 60px 50px 60px 90px 100px',
-          gap: '8px',
-          padding: '9px 14px',
-          background: 'rgba(8,16,35,0.4)',
-          borderBottom: '1px solid rgba(148,163,184,0.07)',
-        }}
-      >
+      <div className='grid grid-cols-[auto_1fr_60px_50px_60px_90px_100px] gap-2 px-3.5 py-[9px] bg-slate-950/40 border-b border-slate-400/[0.07]'>
         {[
           'Tipo',
           'Descripción',
@@ -772,14 +500,7 @@ function TablaIncidencias({
         ].map((h, i) => (
           <span
             key={h}
-            style={{
-              fontSize: '10px',
-              fontWeight: '700',
-              letterSpacing: '0.06em',
-              textTransform: 'uppercase',
-              color: '#334155',
-              textAlign: i >= 5 ? 'right' : 'left',
-            }}
+            className={`text-xs font-bold tracking-wide uppercase text-slate-700 ${i >= 5 ? 'text-right' : 'text-left'}`}
           >
             {h}
           </span>
@@ -789,21 +510,8 @@ function TablaIncidencias({
       {/* Externas */}
       {externas.length > 0 && (
         <>
-          <div
-            style={{
-              padding: '6px 14px 4px',
-              background: 'rgba(96,165,250,0.03)',
-            }}
-          >
-            <span
-              style={{
-                fontSize: '9px',
-                fontWeight: '700',
-                letterSpacing: '0.1em',
-                textTransform: 'uppercase',
-                color: '#60a5fa',
-              }}
-            >
+          <div className='px-3.5 pt-1.5 pb-1 bg-blue-400/[0.03]'>
+            <span className='text-[9px] font-bold tracking-widest uppercase text-blue-400'>
               Visibles al cliente ({externas.length})
             </span>
           </div>
@@ -817,24 +525,9 @@ function TablaIncidencias({
       {internas.length > 0 && (
         <>
           <div
-            style={{
-              padding: '6px 14px 4px',
-              background: 'rgba(148,163,184,0.02)',
-              borderTop:
-                externas.length > 0
-                  ? '1px solid rgba(148,163,184,0.05)'
-                  : 'none',
-            }}
+            className={`px-3.5 pt-1.5 pb-1 bg-slate-400/[0.02] ${externas.length > 0 ? 'border-t border-slate-400/[0.05]' : ''}`}
           >
-            <span
-              style={{
-                fontSize: '9px',
-                fontWeight: '700',
-                letterSpacing: '0.1em',
-                textTransform: 'uppercase',
-                color: '#334155',
-              }}
-            >
+            <span className='text-[9px] font-bold tracking-widest uppercase text-slate-700'>
               Solo costo interno ({internas.length})
             </span>
           </div>
@@ -850,19 +543,26 @@ function TablaIncidencias({
 // ─── Panel de totales ─────────────────────────────────────────────────────────
 
 function PanelTotales({ p }: { p: PCompleto }) {
-  const margenColor = !p.margen_pct
-    ? '#334155'
+  const margenCls = !p.margen_pct
+    ? 'text-slate-700'
     : p.margen_pct >= 30
-      ? '#4ade80'
+      ? 'text-green-400'
       : p.margen_pct >= 10
-        ? '#f59e0b'
-        : '#f87171';
+        ? 'text-amber-500'
+        : 'text-red-400';
+  const margenBgCls = !p.margen_pct
+    ? 'bg-slate-700'
+    : p.margen_pct >= 30
+      ? 'bg-green-400'
+      : p.margen_pct >= 10
+        ? 'bg-amber-500'
+        : 'bg-red-400';
 
   return (
-    <div style={{ ...card, padding: '20px' }}>
+    <div className={`${cardClass} p-5`}>
       <SectionTitle icon='🧮' title='Desglose económico' />
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
+      <div className='flex flex-col gap-px'>
         {/* Ítems */}
         <Row label={`Ítems (${p.items.length})`} value={p.subtotal_items} />
 
@@ -896,27 +596,10 @@ function PanelTotales({ p }: { p: PCompleto }) {
         <Divider />
 
         {/* TOTAL */}
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            padding: '12px 0 4px',
-          }}
-        >
+        <div className='flex justify-between items-center py-3 pb-1'>
+          <span className='text-[13px] font-bold text-slate-400'>TOTAL</span>
           <span
-            style={{ fontSize: '13px', fontWeight: '700', color: '#94a3b8' }}
-          >
-            TOTAL
-          </span>
-          <span
-            style={{
-              fontSize: '22px',
-              fontWeight: '800',
-              color: '#f59e0b',
-              fontFamily: "'DM Mono',monospace",
-              letterSpacing: '-0.02em',
-            }}
+            className='text-[22px] font-extrabold text-amber-500 tracking-[-0.02em]'
           >
             {formatearMonto(p.total)}
           </span>
@@ -925,66 +608,21 @@ function PanelTotales({ p }: { p: PCompleto }) {
 
       {/* Análisis interno */}
       {p.costo_total !== null && p.costo_total > 0 && (
-        <div
-          style={{
-            marginTop: '16px',
-            padding: '14px',
-            background: 'rgba(8,16,35,0.5)',
-            border: '1px solid rgba(148,163,184,0.07)',
-            borderRadius: '9px',
-          }}
-        >
-          <div
-            style={{
-              fontSize: '10px',
-              fontWeight: '600',
-              letterSpacing: '0.08em',
-              textTransform: 'uppercase',
-              color: '#334155',
-              marginBottom: '10px',
-            }}
-          >
+        <div className='mt-4 p-3.5 rounded-[9px] bg-slate-950/60 border border-slate-400/[0.07]'>
+          <div className='text-xs font-semibold tracking-widest uppercase text-slate-700 mb-2.5'>
             Análisis interno
           </div>
 
           {/* Incidencias internas */}
           {p.incidencias.filter((i) => i.es_interno).length > 0 && (
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                marginBottom: '6px',
-              }}
-            >
-              <span
-                style={{
-                  fontSize: '11px',
-                  color: '#334155',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '5px',
-                }}
-              >
+            <div className='flex justify-between mb-1.5'>
+              <span className='text-xs text-slate-700 flex items-center gap-[5px]'>
                 Incidencias internas
-                <span
-                  style={{
-                    fontSize: '9px',
-                    background: 'rgba(148,163,184,0.07)',
-                    border: '1px solid rgba(148,163,184,0.1)',
-                    borderRadius: '3px',
-                    padding: '0 4px',
-                  }}
-                >
+                <span className='text-[9px] bg-slate-400/[0.07] border border-slate-400/[0.1] rounded px-1'>
                   costo
                 </span>
               </span>
-              <span
-                style={{
-                  fontSize: '11px',
-                  color: '#334155',
-                  fontFamily: "'DM Mono',monospace",
-                }}
-              >
+              <span className='text-xs text-slate-700'>
                 {formatearMonto(
                   p.incidencias
                     .filter((i) => i.es_interno)
@@ -994,67 +632,24 @@ function PanelTotales({ p }: { p: PCompleto }) {
             </div>
           )}
 
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              marginBottom: '6px',
-            }}
-          >
-            <span style={{ fontSize: '11px', color: '#475569' }}>
-              Costo estimado total
-            </span>
-            <span
-              style={{
-                fontSize: '11px',
-                color: '#475569',
-                fontFamily: "'DM Mono',monospace",
-              }}
-            >
+          <div className='flex justify-between mb-1.5'>
+            <span className='text-xs text-slate-600'>Costo estimado total</span>
+            <span className='text-xs text-slate-600'>
               {formatearMonto(p.costo_total)}
             </span>
           </div>
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              marginBottom: '8px',
-            }}
-          >
-            <span style={{ fontSize: '11px', color: '#64748b' }}>
-              Margen bruto
-            </span>
-            <span
-              style={{
-                fontSize: '12px',
-                fontWeight: '700',
-                color: margenColor,
-                fontFamily: "'DM Mono',monospace",
-              }}
-            >
+          <div className='flex justify-between items-center mb-2'>
+            <span className='text-xs text-slate-500'>Margen bruto</span>
+            <span className={`text-xs font-bold ${margenCls}`}>
               {formatearMonto(p.margen_monto ?? 0)} (
               {(p.margen_pct ?? 0).toFixed(1)}%)
             </span>
           </div>
 
           {/* Barra de margen */}
-          <div
-            style={{
-              height: '4px',
-              background: 'rgba(148,163,184,0.08)',
-              borderRadius: '2px',
-              overflow: 'hidden',
-            }}
-          >
+          <div className='h-1 rounded overflow-hidden bg-slate-400/[0.08]'>
             <div
-              style={{
-                height: '100%',
-                width: `${Math.min(100, Math.max(0, p.margen_pct ?? 0))}%`,
-                background: margenColor,
-                borderRadius: '2px',
-                transition: 'width 0.5s ease',
-              }}
+              className={`h-full rounded-sm transition-[width] duration-500 ${margenBgCls} w-[${Math.min(100, Math.max(0, p.margen_pct ?? 0))}%]`}
             />
           </div>
         </div>
@@ -1073,22 +668,10 @@ function Row({
   accent?: 'amber';
 }) {
   return (
-    <div
-      style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        padding: '6px 0',
-      }}
-    >
-      <span style={{ fontSize: '12px', color: '#475569' }}>{label}</span>
+    <div className='flex justify-between items-center py-1.5'>
+      <span className='text-xs text-slate-600'>{label}</span>
       <span
-        style={{
-          fontSize: '13px',
-          fontWeight: '500',
-          color: accent === 'amber' ? '#f59e0b' : '#64748b',
-          fontFamily: "'DM Mono',monospace",
-        }}
+        className={`text-[13px] font-medium ${accent === 'amber' ? 'text-amber-500' : 'text-slate-500'}`}
       >
         {value < 0
           ? `−${formatearMonto(Math.abs(value))}`
@@ -1104,7 +687,7 @@ function ModalAccion({
   titulo,
   descripcion,
   emoji,
-  colorBtn,
+  btnCls,
   labelBtn,
   onConfirmar,
   onCancelar,
@@ -1113,8 +696,8 @@ function ModalAccion({
 }: {
   titulo: string;
   descripcion: string;
-  emoji: string;
-  colorBtn: string;
+  emoji: ReactNode;
+  btnCls: string;
   labelBtn: string;
   onConfirmar: (texto?: string) => void;
   onCancelar: () => void;
@@ -1123,50 +706,13 @@ function ModalAccion({
 }) {
   const [texto, setTexto] = useState('');
   return (
-    <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        background: 'rgba(0,0,0,0.7)',
-        backdropFilter: 'blur(4px)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 100,
-        animation: 'fadeIn 0.15s ease',
-      }}
-    >
-      <div
-        style={{
-          background: '#0f172a',
-          border: '1px solid rgba(148,163,184,0.12)',
-          borderRadius: '16px',
-          padding: '28px',
-          maxWidth: '400px',
-          width: '90%',
-          animation: 'scaleIn 0.2s cubic-bezier(0.34,1.56,0.64,1)',
-        }}
-      >
-        <div style={{ fontSize: '32px', marginBottom: '10px' }}>{emoji}</div>
-        <h3
-          style={{
-            margin: '0 0 6px',
-            fontSize: '15px',
-            fontWeight: '700',
-            color: '#e2e8f0',
-            fontFamily: "'DM Sans',sans-serif",
-          }}
-        >
+    <div className='fixed inset-0 flex items-center justify-center z-[100] bg-black/70 backdrop-blur-sm animate-fade-in'>
+      <div className='bg-slate-900 border border-slate-400/[0.12] rounded-2xl p-7 w-[90%] max-w-[400px] animate-modal-in'>
+        <div className='flex items-center mb-2.5'>{emoji}</div>
+        <h3 className='m-0 mb-1.5 text-[15px] font-bold text-slate-200'>
           {titulo}
         </h3>
-        <p
-          style={{
-            margin: '0 0 18px',
-            fontSize: '13px',
-            color: '#64748b',
-            lineHeight: '1.6',
-          }}
-        >
+        <p className='m-0 mb-[18px] text-[13px] text-slate-500 leading-[1.6]'>
           {descripcion}
         </p>
         {conTexto && (
@@ -1175,65 +721,27 @@ function ModalAccion({
             onChange={(e) => setTexto(e.target.value)}
             placeholder='Motivo (opcional)...'
             rows={3}
-            style={{
-              width: '100%',
-              padding: '9px 11px',
-              background: 'rgba(8,16,35,0.6)',
-              border: '1px solid rgba(148,163,184,0.1)',
-              borderRadius: '7px',
-              color: '#e2e8f0',
-              fontSize: '12px',
-              fontFamily: "'DM Sans',sans-serif",
-              outline: 'none',
-              resize: 'vertical',
-              boxSizing: 'border-box',
-              marginBottom: '16px',
-            }}
+            className='w-full px-[11px] py-[9px] bg-slate-950/60 border border-slate-400/[0.1] rounded-[7px] text-slate-200 text-xs outline-none resize-y mb-4'
           />
         )}
-        <div
-          style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}
-        >
+        <div className='flex justify-end gap-2.5'>
           <button
             onClick={onCancelar}
-            style={{
-              padding: '8px 16px',
-              borderRadius: '8px',
-              border: '1px solid rgba(148,163,184,0.12)',
-              background: 'transparent',
-              color: '#64748b',
-              fontSize: '13px',
-              cursor: 'pointer',
-              fontFamily: "'DM Sans',sans-serif",
-            }}
+            className='px-4 py-2 rounded-lg border border-slate-400/[0.12] bg-transparent text-slate-500 text-[13px] cursor-pointer'
           >
             Cancelar
           </button>
           <button
             onClick={() => onConfirmar(texto || undefined)}
             disabled={loading}
-            style={{
-              padding: '8px 20px',
-              borderRadius: '8px',
-              border: 'none',
-              background: colorBtn,
-              color: '#0f172a',
-              fontSize: '13px',
-              fontWeight: '700',
-              cursor: loading ? 'not-allowed' : 'pointer',
-              fontFamily: "'DM Sans',sans-serif",
-              opacity: loading ? 0.6 : 1,
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-            }}
+            className={`flex items-center gap-1.5 px-5 py-2 rounded-lg border-none text-[13px] font-bold ${btnCls} ${loading ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
           >
             {loading && (
               <svg
                 width='12'
                 height='12'
                 viewBox='0 0 12 12'
-                style={{ animation: 'spin 0.8s linear infinite' }}
+                className='animate-spin'
               >
                 <circle
                   cx='6'
@@ -1261,6 +769,7 @@ export default function PresupuestoFicha({ presupuestoId }: Props) {
   const [presupuesto, setPresupuesto] = useState<PCompleto | null>(null);
   const [loading, setLoading] = useState(true);
   const [accionLoading, setAccionLoading] = useState(false);
+  const [pdfLoading, setPdfLoading] = useState(false);
   const [toast, setToast] = useState<{
     mensaje: string;
     tipo: 'ok' | 'error';
@@ -1339,210 +848,105 @@ export default function PresupuestoFicha({ presupuestoId }: Props) {
       );
   };
 
+  const handlePDF = async () => {
+    if (!presupuesto) return;
+    setPdfLoading(true);
+    const err = await descargarPDF('presupuesto', presupuesto.id, `PST-${presupuesto.numero}.pdf`);
+    setPdfLoading(false);
+    if (err) showToast(`Error al generar PDF: ${err}`, 'error');
+  };
+
   const vencido = presupuesto ? isVencido(presupuesto) : false;
   const p = presupuesto;
 
-  const TABS = [
+  const TABS: {
+    id: 'items' | 'incidencias' | 'condiciones';
+    label: string;
+    icon: ReactNode;
+    badge?: number;
+  }[] = [
     {
       id: 'items' as const,
       label: 'Ítems',
-      icon: '📋',
+      icon: <ClipboardList className='w-3.5 h-3.5' />,
       badge: p?.items.length,
     },
     {
       id: 'incidencias' as const,
       label: 'Incidencias',
-      icon: '📊',
+      icon: <BarChart3 className='w-3.5 h-3.5' />,
       badge: p?.incidencias.length,
     },
-    { id: 'condiciones' as const, label: 'Condiciones', icon: '📄' },
+    { id: 'condiciones' as const, label: 'Condiciones', icon: <FileText className='w-3.5 h-3.5' /> },
   ];
 
   return (
     <>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@300;400;500&display=swap');
-        *{box-sizing:border-box}body{margin:0;background:#060d1a;font-family:'DM Sans',sans-serif;-webkit-font-smoothing:antialiased}
-        option{background:#0f172a;color:#e2e8f0}input:focus,select:focus,textarea:focus{outline:none!important}
-        ::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:rgba(148,163,184,0.15);border-radius:2px}
-        @keyframes shimmer{0%,100%{opacity:.4}50%{opacity:.8}}@keyframes slideUp{from{transform:translateY(8px);opacity:0}to{transform:translateY(0);opacity:1}}
-        @keyframes fadeIn{from{opacity:0}to{opacity:1}}@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
-        @keyframes scaleIn{from{transform:scale(0.96);opacity:0}to{transform:scale(1);opacity:1}}
-        ::placeholder{color:#1e293b!important}
-      `}</style>
-
-      <div style={{ padding: '14px 20px 40px' }}>
-        <div style={{ width: '100%', margin: '0 auto' }}>
+      <div className='px-5 pt-3.5 pb-10'>
+        <div className='w-full'>
           {/* Breadcrumb */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              marginBottom: '20px',
-            }}
-          >
+          <div className='flex items-center gap-2 mb-5'>
             <a
               href='/presupuestos'
-              style={{
-                fontSize: '11px',
-                color: '#334155',
-                textDecoration: 'none',
-                letterSpacing: '0.08em',
-                textTransform: 'uppercase',
-              }}
+              className='flex items-center gap-1 text-xs text-slate-700 no-underline tracking-widest uppercase hover:text-slate-400 transition-colors'
             >
+              <ArrowLeft className='w-3 h-3' />
               Presupuestos
             </a>
-            <span style={{ color: '#1e293b' }}>›</span>
-            <span
-              style={{
-                fontSize: '11px',
-                color: '#475569',
-                letterSpacing: '0.08em',
-                textTransform: 'uppercase',
-              }}
-            >
+            <span className='text-slate-800'>›</span>
+            <span className='text-xs text-slate-600 tracking-widest uppercase'>
               {loading ? '...' : p?.numero}
             </span>
           </div>
 
           {/* ── Header ── */}
-          <div style={{ ...card, padding: '24px', marginBottom: '20px' }}>
+          <div className={`${cardClass} p-6 mb-5`}>
             {loading ? (
-              <div
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '10px',
-                }}
-              >
-                <Skeleton w='120px' h='13px' />
-                <Skeleton w='320px' h='22px' />
-                <Skeleton w='200px' h='13px' />
+              <div className='flex flex-col gap-2.5'>
+                <Skeleton w='w-[120px]' h='h-[13px]' />
+                <Skeleton w='w-[320px]' h='h-[22px]' />
+                <Skeleton w='w-[200px]' h='h-[13px]' />
               </div>
             ) : p ? (
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'flex-start',
-                  justifyContent: 'space-between',
-                  gap: '16px',
-                  flexWrap: 'wrap',
-                }}
-              >
-                <div>
+              <div className='flex items-start justify-start gap-4'>
+                <div className='flex-1'>
                   {/* Número + estado + tipo */}
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '10px',
-                      marginBottom: '8px',
-                      flexWrap: 'wrap',
-                    }}
-                  >
-                    <span
-                      style={{
-                        fontSize: '14px',
-                        fontWeight: '700',
-                        color: '#f59e0b',
-                        fontFamily: "'DM Mono',monospace",
-                        letterSpacing: '0.02em',
-                      }}
-                    >
+                  <div className='flex items-center gap-2.5 mb-2 flex-wrap'>
+                    <span className='text-sm font-bold text-amber-500 tracking-[0.02em]'>
                       {p.numero}
                     </span>
                     <BadgeEstado estado={p.estado} />
-                    <span
-                      style={{
-                        fontSize: '11px',
-                        color: '#475569',
-                        background: 'rgba(148,163,184,0.07)',
-                        border: '1px solid rgba(148,163,184,0.1)',
-                        borderRadius: '5px',
-                        padding: '2px 8px',
-                      }}
-                    >
+                    <span className='text-xs text-slate-600 bg-slate-400/[0.07] border border-slate-400/[0.1] rounded px-2 py-0.5'>
                       {TIPO_LABEL[p.tipo_operacion]}
                     </span>
                     {vencido && (
-                      <span
-                        style={{
-                          fontSize: '10px',
-                          color: '#f59e0b',
-                          background: 'rgba(245,158,11,0.08)',
-                          border: '1px solid rgba(245,158,11,0.2)',
-                          borderRadius: '4px',
-                          padding: '2px 8px',
-                          fontWeight: '600',
-                        }}
-                      >
-                        ⏰ Vencido
+                      <span className='flex items-center gap-1 text-xs text-amber-500 bg-amber-500/[0.08] border border-amber-500/[0.2] rounded px-2 py-0.5 font-semibold'>
+                        <Clock className='w-3 h-3' /> Vencido
                       </span>
                     )}
                   </div>
 
                   {/* Título */}
-                  <h1
-                    style={{
-                      margin: '0 0 6px',
-                      fontSize: '20px',
-                      fontWeight: '700',
-                      color: '#e2e8f0',
-                      letterSpacing: '-0.02em',
-                      lineHeight: '1.3',
-                    }}
-                  >
+                  <h1 className='m-0 mb-1.5 text-xl font-bold text-slate-200 leading-[1.3] tracking-[-0.02em]'>
                     {p.titulo}
                   </h1>
 
                   {/* Cliente */}
                   <a
                     href={`/clientes/${p.cliente_id}`}
-                    style={{
-                      fontSize: '13px',
-                      color: '#64748b',
-                      textDecoration: 'none',
-                    }}
-                    onMouseEnter={(e) =>
-                      (e.currentTarget.style.color = '#94a3b8')
-                    }
-                    onMouseLeave={(e) =>
-                      (e.currentTarget.style.color = '#64748b')
-                    }
+                    className='text-[13px] text-slate-500 no-underline hover:text-slate-400 transition-colors duration-150'
                   >
-                    👤 {(p as any).razon_social ?? p.cliente_id}
+                    <User className='w-3.5 h-3.5 inline mr-1' />{(p as any).razon_social ?? p.cliente_id}
                   </a>
                 </div>
 
                 {/* Acciones */}
-                <div
-                  style={{
-                    display: 'flex',
-                    gap: '8px',
-                    flexWrap: 'wrap',
-                    flexShrink: 0,
-                  }}
-                >
+                <div className='flex gap-2 flex-wrap shrink-0 items-center'>
                   {/* Editar (solo en borrador) */}
                   {p.estado === 'BORRADOR' && (
                     <a
                       href={`/presupuestos/${p.id}/editar`}
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        padding: '8px 14px',
-                        borderRadius: '8px',
-                        border: '1px solid rgba(148,163,184,0.15)',
-                        background: 'rgba(15,23,42,0.6)',
-                        color: '#64748b',
-                        fontSize: '12px',
-                        fontWeight: '600',
-                        textDecoration: 'none',
-                        fontFamily: "'DM Sans',sans-serif",
-                      }}
+                      className='inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-slate-400/[0.15] bg-slate-900/60 text-slate-500 text-xs font-semibold no-underline'
                     >
                       <svg width='11' height='11' viewBox='0 0 11 11'>
                         <path
@@ -1558,60 +962,26 @@ export default function PresupuestoFicha({ presupuestoId }: Props) {
                   )}
 
                   {/* PDF */}
-                  <a
-                    href={`/presupuestos/${p.id}/pdf`}
-                    target='_blank'
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      padding: '8px 14px',
-                      borderRadius: '8px',
-                      border: '1px solid rgba(148,163,184,0.15)',
-                      background: 'rgba(15,23,42,0.6)',
-                      color: '#64748b',
-                      fontSize: '12px',
-                      fontWeight: '600',
-                      textDecoration: 'none',
-                      fontFamily: "'DM Sans',sans-serif",
-                    }}
+                  <button
+                    onClick={handlePDF}
+                    disabled={pdfLoading}
+                    className='inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-slate-400/[0.15] bg-slate-900/60 text-slate-500 text-xs font-semibold cursor-pointer disabled:opacity-50'
                   >
-                    <svg width='12' height='12' viewBox='0 0 12 12' fill='none'>
-                      <path
-                        d='M2 1H7L10 4V11H2V1Z'
-                        stroke='currentColor'
-                        strokeWidth='1.2'
-                        strokeLinejoin='round'
-                      />
-                      <path
-                        d='M7 1V4H10'
-                        stroke='currentColor'
-                        strokeWidth='1.2'
-                        strokeLinejoin='round'
-                      />
-                    </svg>
+                    {pdfLoading
+                      ? <Loader2 className='w-3 h-3 animate-spin' />
+                      : <svg width='12' height='12' viewBox='0 0 12 12' fill='none'>
+                          <path d='M2 1H7L10 4V11H2V1Z' stroke='currentColor' strokeWidth='1.2' strokeLinejoin='round' />
+                          <path d='M7 1V4H10' stroke='currentColor' strokeWidth='1.2' strokeLinejoin='round' />
+                        </svg>
+                    }
                     PDF
-                  </a>
+                  </button>
 
                   {/* Duplicar */}
                   <button
                     onClick={handleDuplicar}
                     disabled={accionLoading}
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      padding: '8px 14px',
-                      borderRadius: '8px',
-                      border: '1px solid rgba(148,163,184,0.15)',
-                      background: 'rgba(15,23,42,0.6)',
-                      color: '#64748b',
-                      fontSize: '12px',
-                      fontWeight: '600',
-                      cursor: 'pointer',
-                      fontFamily: "'DM Sans',sans-serif",
-                      opacity: accionLoading ? 0.6 : 1,
-                    }}
+                    className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-slate-400/[0.15] bg-slate-900/60 text-slate-500 text-xs font-semibold cursor-pointer ${accionLoading ? 'opacity-60' : ''}`}
                   >
                     <svg width='12' height='12' viewBox='0 0 12 12' fill='none'>
                       <rect
@@ -1638,22 +1008,9 @@ export default function PresupuestoFicha({ presupuestoId }: Props) {
                     <button
                       onClick={() => setModal('enviar')}
                       disabled={accionLoading}
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        padding: '8px 16px',
-                        borderRadius: '8px',
-                        border: '1px solid rgba(96,165,250,0.3)',
-                        background: 'rgba(96,165,250,0.08)',
-                        color: '#60a5fa',
-                        fontSize: '12px',
-                        fontWeight: '700',
-                        cursor: 'pointer',
-                        fontFamily: "'DM Sans',sans-serif",
-                      }}
+                      className='inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-blue-400/30 bg-blue-400/[0.08] text-blue-400 text-xs font-bold cursor-pointer'
                     >
-                      📤 Enviar al cliente
+                      <Send className='w-4 h-4' /> Enviar al cliente
                     </button>
                   )}
 
@@ -1662,24 +1019,9 @@ export default function PresupuestoFicha({ presupuestoId }: Props) {
                     <button
                       onClick={() => setModal('aprobar')}
                       disabled={accionLoading}
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        padding: '8px 18px',
-                        borderRadius: '8px',
-                        border: 'none',
-                        background:
-                          'linear-gradient(135deg,rgba(74,222,128,0.85),rgba(34,197,94,0.85))',
-                        color: '#0f172a',
-                        fontSize: '12px',
-                        fontWeight: '700',
-                        cursor: 'pointer',
-                        fontFamily: "'DM Sans',sans-serif",
-                        boxShadow: '0 4px 12px rgba(74,222,128,0.15)',
-                      }}
+                      className='inline-flex items-center gap-1.5 px-[18px] py-2 rounded-lg border-none text-slate-900 text-xs font-bold cursor-pointer bg-gradient-to-br from-emerald-400/85 to-emerald-500/85 shadow-[0_4px_12px_rgba(74,222,128,0.15)]'
                     >
-                      ✅ Aprobar → OS
+                      <CheckCircle2 className='w-4 h-4' /> Aprobar → OS
                     </button>
                   )}
 
@@ -1688,98 +1030,36 @@ export default function PresupuestoFicha({ presupuestoId }: Props) {
                     <button
                       onClick={() => setModal('rechazar')}
                       disabled={accionLoading}
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        padding: '8px 14px',
-                        borderRadius: '8px',
-                        border: '1px solid rgba(248,113,113,0.25)',
-                        background: 'rgba(248,113,113,0.06)',
-                        color: '#f87171',
-                        fontSize: '12px',
-                        fontWeight: '600',
-                        cursor: 'pointer',
-                        fontFamily: "'DM Sans',sans-serif",
-                      }}
+                      className='inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-red-400/25 bg-red-400/[0.06] text-red-400 text-xs font-semibold cursor-pointer'
                     >
-                      ❌ Rechazar
+                      <XCircle className='w-4 h-4' /> Rechazar
                     </button>
                   )}
                 </div>
               </div>
             ) : (
-              <div
-                style={{
-                  textAlign: 'center',
-                  padding: '20px',
-                  color: '#475569',
-                }}
-              >
+              <div className='text-center p-5 text-slate-600'>
                 Presupuesto no encontrado
               </div>
             )}
           </div>
 
           {p && (
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: '1fr 300px',
-                gap: '16px',
-                alignItems: 'start',
-              }}
-            >
+            <div className='grid grid-cols-[1fr_300px] gap-4 items-start'>
               {/* ── Columna principal ── */}
-              <div
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '16px',
-                }}
-              >
+              <div className='flex flex-col gap-4'>
                 {/* Objetivo */}
-                <div style={{ ...card, padding: '20px' }}>
+                <div className={`${cardClass} p-5`}>
                   <SectionTitle icon='🎯' title='Objetivo del servicio' />
-                  <p
-                    style={{
-                      margin: '0 0 14px',
-                      fontSize: '13px',
-                      color: '#94a3b8',
-                      lineHeight: '1.8',
-                    }}
-                  >
+                  <p className='m-0 mb-3.5 text-[13px] text-slate-400 leading-[1.8]'>
                     {p.objetivo_servicio}
                   </p>
                   {p.descripcion && (
-                    <div
-                      style={{
-                        paddingTop: '14px',
-                        borderTop: '1px solid rgba(148,163,184,0.06)',
-                      }}
-                    >
-                      <span
-                        style={{
-                          fontSize: '10px',
-                          fontWeight: '600',
-                          letterSpacing: '0.08em',
-                          textTransform: 'uppercase',
-                          color: '#334155',
-                          display: 'block',
-                          marginBottom: '6px',
-                        }}
-                      >
+                    <div className='pt-3.5 border-t border-slate-400/[0.06]'>
+                      <span className='text-xs font-semibold tracking-widest uppercase text-slate-700 block mb-1.5'>
                         Descripción / Alcance
                       </span>
-                      <p
-                        style={{
-                          margin: 0,
-                          fontSize: '13px',
-                          color: '#64748b',
-                          lineHeight: '1.8',
-                          whiteSpace: 'pre-wrap',
-                        }}
-                      >
+                      <p className='m-0 text-[13px] text-slate-500 leading-[1.8] whitespace-pre-wrap'>
                         {p.descripcion}
                       </p>
                     </div>
@@ -1787,56 +1067,20 @@ export default function PresupuestoFicha({ presupuestoId }: Props) {
                 </div>
 
                 {/* Tabs: ítems / incidencias / condiciones */}
-                <div style={{ ...card, overflow: 'hidden' }}>
+                <div className={`${cardClass} overflow-hidden`}>
                   {/* Tab bar */}
-                  <div
-                    style={{
-                      display: 'flex',
-                      borderBottom: '1px solid rgba(148,163,184,0.07)',
-                      background: 'rgba(8,16,35,0.3)',
-                    }}
-                  >
+                  <div className='flex border-b border-slate-400/[0.07] bg-slate-950/30'>
                     {TABS.map((tab) => (
                       <button
                         key={tab.id}
                         onClick={() => setTabActiva(tab.id)}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '6px',
-                          padding: '13px 20px',
-                          border: 'none',
-                          cursor: 'pointer',
-                          background: 'transparent',
-                          fontSize: '12px',
-                          fontWeight: '600',
-                          fontFamily: "'DM Sans',sans-serif",
-                          color: tabActiva === tab.id ? '#e2e8f0' : '#334155',
-                          borderBottom:
-                            tabActiva === tab.id
-                              ? '2px solid #f59e0b'
-                              : '2px solid transparent',
-                          transition: 'all 0.15s',
-                          whiteSpace: 'nowrap',
-                        }}
+                        className={`flex items-center gap-1.5 px-5 py-[13px] border-none cursor-pointer bg-transparent text-xs font-semibold whitespace-nowrap transition-all duration-150 border-b-2 ${tabActiva === tab.id ? 'text-slate-200 border-amber-500' : 'text-slate-700 border-transparent'}`}
                       >
-                        <span style={{ fontSize: '13px' }}>{tab.icon}</span>
+                        {tab.icon}
                         {tab.label}
                         {tab.badge !== undefined && tab.badge > 0 && (
                           <span
-                            style={{
-                              fontSize: '9px',
-                              fontWeight: '700',
-                              padding: '1px 5px',
-                              borderRadius: '10px',
-                              background:
-                                tabActiva === tab.id
-                                  ? 'rgba(245,158,11,0.15)'
-                                  : 'rgba(148,163,184,0.08)',
-                              color:
-                                tabActiva === tab.id ? '#f59e0b' : '#475569',
-                              fontFamily: "'DM Mono',monospace",
-                            }}
+                            className={`text-[9px] font-bold px-[5px] py-px rounded-[10px] ${tabActiva === tab.id ? 'bg-amber-500/15 text-amber-500' : 'bg-slate-400/[0.08] text-slate-600'}`}
                           >
                             {tab.badge}
                           </span>
@@ -1847,7 +1091,7 @@ export default function PresupuestoFicha({ presupuestoId }: Props) {
 
                   {/* Contenido */}
                   <div
-                    style={{ padding: '20px', animation: 'fadeIn 0.15s ease' }}
+                    className='p-5 animate-fade-in'
                     key={tabActiva}
                   >
                     {tabActiva === 'items' && <TablaItems items={p.items} />}
@@ -1855,13 +1099,7 @@ export default function PresupuestoFicha({ presupuestoId }: Props) {
                       <TablaIncidencias incidencias={p.incidencias} />
                     )}
                     {tabActiva === 'condiciones' && (
-                      <div
-                        style={{
-                          display: 'grid',
-                          gridTemplateColumns: '1fr 1fr',
-                          gap: '20px',
-                        }}
-                      >
+                      <div className='grid grid-cols-2 gap-5'>
                         <InfoPar
                           label='Condiciones de pago'
                           value={p.condiciones_pago}
@@ -1873,88 +1111,31 @@ export default function PresupuestoFicha({ presupuestoId }: Props) {
                         <InfoPar label='Garantía' value={p.garantia} />
                         <InfoPar label='Fecha de vencimiento'>
                           <span
-                            style={{
-                              fontSize: '13px',
-                              color: vencido ? '#f59e0b' : '#94a3b8',
-                              fontFamily: "'DM Mono',monospace",
-                            }}
+                            className={`text-[13px] ${vencido ? 'text-amber-500' : 'text-slate-400'}`}
                           >
                             {fmtFecha(p.fecha_vencimiento)}
-                            {vencido && ' ⚠'}
+                            {vencido && <AlertTriangle className='w-3 h-3 inline ml-1' />}
                           </span>
                         </InfoPar>
                         {p.notas_cliente && (
-                          <div style={{ gridColumn: '1/-1' }}>
-                            <span
-                              style={{
-                                fontSize: '10px',
-                                fontWeight: '600',
-                                letterSpacing: '0.08em',
-                                textTransform: 'uppercase',
-                                color: '#334155',
-                                display: 'block',
-                                marginBottom: '6px',
-                              }}
-                            >
+                          <div className='col-span-full'>
+                            <span className='text-xs font-semibold tracking-widest uppercase text-slate-700 block mb-1.5'>
                               Notas al cliente
                             </span>
-                            <p
-                              style={{
-                                margin: 0,
-                                fontSize: '13px',
-                                color: '#64748b',
-                                lineHeight: '1.7',
-                                whiteSpace: 'pre-wrap',
-                                padding: '12px',
-                                background: 'rgba(8,16,35,0.4)',
-                                borderRadius: '8px',
-                                border: '1px solid rgba(148,163,184,0.07)',
-                              }}
-                            >
+                            <p className='m-0 text-[13px] text-slate-500 p-3 rounded-lg border border-slate-400/[0.07] bg-slate-950/40 leading-[1.7] whitespace-pre-wrap'>
                               {p.notas_cliente}
                             </p>
                           </div>
                         )}
                         {p.notas_internas && (
-                          <div style={{ gridColumn: '1/-1' }}>
-                            <span
-                              style={{
-                                fontSize: '10px',
-                                fontWeight: '600',
-                                letterSpacing: '0.08em',
-                                textTransform: 'uppercase',
-                                color: '#334155',
-                                display: 'block',
-                                marginBottom: '6px',
-                              }}
-                            >
+                          <div className='col-span-full'>
+                            <span className='text-xs font-semibold tracking-widest uppercase text-slate-700 block mb-1.5'>
                               Notas internas{' '}
-                              <span
-                                style={{
-                                  fontSize: '9px',
-                                  background: 'rgba(148,163,184,0.07)',
-                                  border: '1px solid rgba(148,163,184,0.1)',
-                                  borderRadius: '3px',
-                                  padding: '0 5px',
-                                  marginLeft: '4px',
-                                }}
-                              >
+                              <span className='text-[9px] bg-slate-400/[0.07] border border-slate-400/[0.1] rounded px-[5px] ml-1'>
                                 solo interno
                               </span>
                             </span>
-                            <p
-                              style={{
-                                margin: 0,
-                                fontSize: '13px',
-                                color: '#475569',
-                                lineHeight: '1.7',
-                                whiteSpace: 'pre-wrap',
-                                padding: '12px',
-                                background: 'rgba(8,16,35,0.4)',
-                                borderRadius: '8px',
-                                border: '1px solid rgba(148,163,184,0.07)',
-                              }}
-                            >
+                            <p className='m-0 text-[13px] text-slate-600 p-3 rounded-lg border border-slate-400/[0.07] bg-slate-950/40 leading-[1.7] whitespace-pre-wrap'>
                               {p.notas_internas}
                             </p>
                           </div>
@@ -1967,42 +1148,20 @@ export default function PresupuestoFicha({ presupuestoId }: Props) {
                 {/* Aprobación */}
                 {p.estado === 'APROBADO' && p.aprobado_en && (
                   <div
-                    style={{
-                      ...card,
-                      padding: '16px 20px',
-                      border: '1px solid rgba(74,222,128,0.15)',
-                    }}
+                    className={`${cardClass} px-5 py-4 border-emerald-400/[0.15]`}
                   >
-                    <div
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '10px',
-                      }}
-                    >
-                      <span style={{ fontSize: '18px' }}>✅</span>
+                    <div className='flex items-center gap-2.5'>
+                      <CheckCircle2 className='w-5 h-5 text-emerald-400' />
                       <div>
-                        <div
-                          style={{
-                            fontSize: '12px',
-                            fontWeight: '600',
-                            color: '#4ade80',
-                          }}
-                        >
+                        <div className='text-xs font-semibold text-emerald-400'>
                           Presupuesto aprobado
                         </div>
-                        <div
-                          style={{
-                            fontSize: '11px',
-                            color: '#475569',
-                            marginTop: '2px',
-                          }}
-                        >
+                        <div className='text-xs text-slate-600 mt-0.5'>
                           {fmtFecha(p.aprobado_en)}
                           {' · '}
                           <a
                             href='/ordenes'
-                            style={{ color: '#60a5fa', textDecoration: 'none' }}
+                            className='text-blue-400 no-underline'
                           >
                             Ver orden de servicio generada →
                           </a>
@@ -2014,37 +1173,16 @@ export default function PresupuestoFicha({ presupuestoId }: Props) {
               </div>
 
               {/* ── Panel lateral ── */}
-              <div
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '16px',
-                }}
-              >
+              <div className='flex flex-col gap-4'>
                 {/* Totales */}
                 <PanelTotales p={p} />
 
                 {/* Datos del documento */}
-                <div style={{ ...card, padding: '18px' }}>
-                  <div
-                    style={{
-                      fontSize: '10px',
-                      fontWeight: '700',
-                      letterSpacing: '0.08em',
-                      textTransform: 'uppercase',
-                      color: '#334155',
-                      marginBottom: '14px',
-                    }}
-                  >
+                <div className={`${cardClass} p-[18px]`}>
+                  <div className='text-xs font-bold tracking-widest uppercase text-slate-700 mb-3.5'>
                     Documento
                   </div>
-                  <div
-                    style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '10px',
-                    }}
-                  >
+                  <div className='flex flex-col gap-2.5'>
                     {[
                       { label: 'Número', value: p.numero, mono: true },
                       {
@@ -2075,25 +1213,11 @@ export default function PresupuestoFicha({ presupuestoId }: Props) {
                     ].map(({ label, value, mono }) => (
                       <div
                         key={label}
-                        style={{
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'center',
-                          paddingBottom: '8px',
-                          borderBottom: '1px solid rgba(148,163,184,0.05)',
-                        }}
+                        className='flex justify-between items-center pb-2 border-b border-slate-400/[0.05]'
                       >
-                        <span style={{ fontSize: '11px', color: '#334155' }}>
-                          {label}
-                        </span>
+                        <span className='text-xs text-slate-700'>{label}</span>
                         <span
-                          style={{
-                            fontSize: '12px',
-                            color: '#64748b',
-                            fontFamily: mono
-                              ? "'DM Mono',monospace"
-                              : "'DM Sans',sans-serif",
-                          }}
+                          className={`text-xs text-slate-500 ${mono ? 'font-mono' : ''}`}
                         >
                           {value || '—'}
                         </span>
@@ -2103,145 +1227,69 @@ export default function PresupuestoFicha({ presupuestoId }: Props) {
                 </div>
 
                 {/* Accesos rápidos */}
-                <div style={{ ...card, padding: '18px' }}>
-                  <div
-                    style={{
-                      fontSize: '10px',
-                      fontWeight: '700',
-                      letterSpacing: '0.08em',
-                      textTransform: 'uppercase',
-                      color: '#334155',
-                      marginBottom: '12px',
-                    }}
-                  >
+                <div className={`${cardClass} p-[18px]`}>
+                  <div className='text-xs font-bold tracking-widest uppercase text-slate-700 mb-3'>
                     Accesos rápidos
                   </div>
-                  <div
-                    style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '6px',
-                    }}
-                  >
-                    {[
-                      {
-                        href: `/clientes/${p.cliente_id}`,
-                        label: 'Ver ficha del cliente',
-                        icon: '👤',
-                      },
-                      {
-                        href: `/presupuestos/${p.id}/pdf`,
-                        label: 'Descargar PDF',
-                        icon: '📄',
-                        target: '_blank',
-                      },
-                      {
-                        href: `/ordenes?presupuesto=${p.id}`,
-                        label: 'Ver órdenes vinculadas',
-                        icon: '⚙️',
-                      },
-                      {
-                        href: `/facturas/nueva?presupuesto=${p.id}&cliente=${p.cliente_id}`,
-                        label: 'Generar factura',
-                        icon: '🧾',
-                      },
-                    ].map(({ href, label, icon, target }) => (
+                  <div className='flex flex-col gap-1.5'>
+                    {(
+                      [
+                        {
+                          href: `/clientes/${p.cliente_id}`,
+                          label: 'Ver ficha del cliente',
+                          icon: <User className='w-3.5 h-3.5' />,
+                        },
+                        {
+                          href: `/ordenes?presupuesto=${p.id}`,
+                          label: 'Ver órdenes vinculadas',
+                          icon: <Settings className='w-3.5 h-3.5' />,
+                        },
+                        {
+                          href: `/facturas/nueva?presupuesto=${p.id}&cliente=${p.cliente_id}`,
+                          label: 'Generar factura',
+                          icon: <FileText className='w-3.5 h-3.5' />,
+                        },
+                      ] as { href: string; label: string; icon: ReactNode }[]
+                    ).map(({ href, label, icon }) => (
                       <a
                         key={href}
                         href={href}
-                        target={target}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '8px',
-                          padding: '8px 10px',
-                          borderRadius: '7px',
-                          textDecoration: 'none',
-                          fontSize: '12px',
-                          color: '#64748b',
-                          border: '1px solid rgba(148,163,184,0.07)',
-                          background: 'rgba(8,16,35,0.3)',
-                          transition: 'all 0.12s',
-                          fontFamily: "'DM Sans',sans-serif",
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.background =
-                            'rgba(148,163,184,0.05)';
-                          e.currentTarget.style.color = '#94a3b8';
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.background =
-                            'rgba(8,16,35,0.3)';
-                          e.currentTarget.style.color = '#64748b';
-                        }}
+                        className='flex items-center gap-2 px-2.5 py-2 rounded-[7px] no-underline text-xs text-slate-500 border border-slate-400/[0.07] bg-slate-950/30 transition-all duration-150 hover:bg-slate-400/5 hover:text-slate-400'
                       >
-                        <span style={{ fontSize: '12px' }}>{icon}</span>
+                        <span className='flex items-center'>{icon}</span>
                         {label}
                       </a>
                     ))}
+                    <button
+                      onClick={handlePDF}
+                      disabled={pdfLoading}
+                      className='flex items-center gap-2 px-2.5 py-2 rounded-[7px] text-xs text-slate-500 border border-slate-400/[0.07] bg-slate-950/30 transition-all duration-150 hover:bg-slate-400/5 hover:text-slate-400 cursor-pointer disabled:opacity-50 w-full text-left'
+                    >
+                      {pdfLoading
+                        ? <Loader2 className='w-3.5 h-3.5 animate-spin' />
+                        : <FileText className='w-3.5 h-3.5' />
+                      }
+                      Descargar PDF
+                    </button>
                   </div>
                 </div>
 
                 {/* Metadatos */}
-                <div style={{ ...card, padding: '16px' }}>
-                  <div
-                    style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '8px',
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                      }}
-                    >
-                      <span
-                        style={{
-                          fontSize: '10px',
-                          color: '#1e293b',
-                          fontWeight: '600',
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.07em',
-                        }}
-                      >
+                <div className={`${cardClass} p-4`}>
+                  <div className='flex flex-col gap-2'>
+                    <div className='flex justify-between'>
+                      <span className='text-xs font-semibold uppercase tracking-[0.07em] text-slate-800'>
                         Creado
                       </span>
-                      <span
-                        style={{
-                          fontSize: '11px',
-                          color: '#334155',
-                          fontFamily: "'DM Mono',monospace",
-                        }}
-                      >
+                      <span className='text-xs text-slate-700 font-mono'>
                         {fmtFecha(p.creado_en)}
                       </span>
                     </div>
-                    <div
-                      style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                      }}
-                    >
-                      <span
-                        style={{
-                          fontSize: '10px',
-                          color: '#1e293b',
-                          fontWeight: '600',
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.07em',
-                        }}
-                      >
+                    <div className='flex justify-between'>
+                      <span className='text-xs font-semibold uppercase tracking-[0.07em] text-slate-800'>
                         Actualizado
                       </span>
-                      <span
-                        style={{
-                          fontSize: '11px',
-                          color: '#334155',
-                          fontFamily: "'DM Mono',monospace",
-                        }}
-                      >
+                      <span className='text-xs text-slate-700 font-mono'>
                         {fmtFecha(p.actualizado_en)}
                       </span>
                     </div>
@@ -2258,8 +1306,8 @@ export default function PresupuestoFicha({ presupuestoId }: Props) {
         <ModalAccion
           titulo='Enviar presupuesto al cliente'
           descripcion='El presupuesto pasará al estado Enviado. Podrás aprobarlo o rechazarlo una vez que el cliente responda.'
-          emoji='📤'
-          colorBtn='rgba(96,165,250,0.9)'
+          emoji={<Send className='w-8 h-8 text-blue-400' />}
+          btnCls='bg-blue-400/90 text-slate-900'
           labelBtn='Enviar'
           loading={accionLoading}
           onCancelar={() => setModal(null)}
@@ -2270,8 +1318,8 @@ export default function PresupuestoFicha({ presupuestoId }: Props) {
         <ModalAccion
           titulo='Aprobar presupuesto'
           descripcion='Se generará automáticamente una Orden de Servicio vinculada a este presupuesto.'
-          emoji='✅'
-          colorBtn='rgba(74,222,128,0.9)'
+          emoji={<CheckCircle2 className='w-8 h-8 text-green-400' />}
+          btnCls='bg-green-400/90 text-slate-900'
           labelBtn='Aprobar y generar OS'
           loading={accionLoading}
           onCancelar={() => setModal(null)}
@@ -2282,8 +1330,8 @@ export default function PresupuestoFicha({ presupuestoId }: Props) {
         <ModalAccion
           titulo='Rechazar presupuesto'
           descripcion='El presupuesto pasará al estado Rechazado. Podés volver a borrarlo si necesitás modificarlo.'
-          emoji='❌'
-          colorBtn='rgba(248,113,113,0.15)'
+          emoji={<XCircle className='w-8 h-8 text-red-400' />}
+          btnCls='bg-red-400/[0.15] text-red-400 border border-red-400/25'
           labelBtn='Rechazar'
           loading={accionLoading}
           conTexto

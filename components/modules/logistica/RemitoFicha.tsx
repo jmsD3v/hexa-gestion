@@ -11,10 +11,13 @@ import {
   useEffect,
   useCallback,
   useRef,
-  type CSSProperties,
+  type ReactNode,
 } from 'react';
+import { ArrowLeft, Settings, User, ClipboardList, FileText, Truck, Receipt, Loader2 } from 'lucide-react';
 import type { RemitoCompleto, RemitoItem } from '@/types';
 import { obtenerRemito, cambiarEstadoRemito } from '@/app/actions/logistica';
+import { descargarPDF } from '@/lib/pdf-client';
+import { generarFacturaDesdeRemito } from '@/app/actions/facturas';
 import {
   getMockRemitoDetalle,
   shouldUsePlatformMocks,
@@ -34,43 +37,19 @@ interface Props {
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
 
-const ESTADO_CFG: Record<
-  EstadoRemito,
-  { label: string; color: string; bg: string; border: string }
-> = {
-  BORRADOR: {
-    label: 'Borrador',
-    color: '#94a3b8',
-    bg: 'rgba(148,163,184,0.08)',
-    border: 'rgba(148,163,184,0.15)',
-  },
-  EMITIDO: {
-    label: 'En camino',
-    color: '#60a5fa',
-    bg: 'rgba(96,165,250,0.08)',
-    border: 'rgba(96,165,250,0.2)',
-  },
-  ENTREGADO: {
-    label: 'Entregado',
-    color: '#4ade80',
-    bg: 'rgba(74,222,128,0.08)',
-    border: 'rgba(74,222,128,0.2)',
-  },
-  ANULADO: {
-    label: 'Anulado',
-    color: '#f87171',
-    bg: 'rgba(248,113,113,0.08)',
-    border: 'rgba(248,113,113,0.2)',
-  },
+const ESTADO_CFG: Record<EstadoRemito, { label: string; badge: string; dot: string }> = {
+  BORRADOR:  { label: 'Borrador',    badge: 'text-slate-400 bg-slate-400/[0.08] border-slate-400/15',  dot: 'bg-slate-400'  },
+  EMITIDO:   { label: 'En camino',   badge: 'text-blue-400 bg-blue-400/[0.08] border-blue-400/20',     dot: 'bg-blue-400'   },
+  ENTREGADO: { label: 'Entregado',   badge: 'text-green-400 bg-green-400/[0.08] border-green-400/20',  dot: 'bg-green-400'  },
+  ANULADO:   { label: 'Anulado',     badge: 'text-red-400 bg-red-400/[0.08] border-red-400/20',        dot: 'bg-red-400'    },
 };
 
-const TIPO_CFG: Record<string, { label: string; icon: string; color: string }> =
-  {
-    INTERNO_ENTRADA: { label: 'Interno Entrada', icon: '📥', color: '#a78bfa' },
-    INTERNO_SALIDA: { label: 'Interno Salida', icon: '📤', color: '#60a5fa' },
-    LEGAL_ENTRADA: { label: 'Legal Entrada', icon: '📦', color: '#4ade80' },
-    LEGAL_SALIDA: { label: 'Legal Salida', icon: '🚚', color: '#f59e0b' },
-  };
+const TIPO_CFG: Record<string, { label: string; icon: ReactNode; cls: string }> = {
+  INTERNO_ENTRADA: { label: 'Interno Entrada', icon: <span className='text-xs'>📥</span>, cls: 'text-violet-400 bg-violet-400/10 border-violet-400/20' },
+  INTERNO_SALIDA:  { label: 'Interno Salida',  icon: <span className='text-xs'>📤</span>, cls: 'text-blue-400 bg-blue-400/10 border-blue-400/20'       },
+  LEGAL_ENTRADA:   { label: 'Legal Entrada',   icon: <span className='text-xs'>📦</span>, cls: 'text-green-400 bg-green-400/10 border-green-400/20'    },
+  LEGAL_SALIDA:    { label: 'Legal Salida',    icon: <Truck className='w-3 h-3' />,       cls: 'text-amber-500 bg-amber-500/10 border-amber-500/20'    },
+};
 
 const TRANSICIONES: Record<EstadoRemito, EstadoRemito[]> = {
   BORRADOR: ['EMITIDO', 'ANULADO'],
@@ -81,19 +60,8 @@ const TRANSICIONES: Record<EstadoRemito, EstadoRemito[]> = {
 
 // ─── Estilos ──────────────────────────────────────────────────────────────────
 
-const card: CSSProperties = {
-  background: 'rgba(15,23,42,0.7)',
-  border: '1px solid rgba(148,163,184,0.08)',
-  borderRadius: '12px',
-  backdropFilter: 'blur(12px)',
-};
-const labelSt: CSSProperties = {
-  fontSize: '10px',
-  fontWeight: '600',
-  letterSpacing: '0.08em',
-  textTransform: 'uppercase',
-  color: '#475569',
-};
+const cardClass = 'bg-slate-900/70 border border-slate-400/10 rounded-xl backdrop-blur-sm';
+const labelClass = 'text-xs font-semibold tracking-widest uppercase text-slate-600';
 
 const fmtFecha = (iso: string | null) =>
   iso
@@ -109,19 +77,8 @@ const fmtFecha = (iso: string | null) =>
 function TablaItems({ items }: { items: RemitoItem[] }) {
   const tienePrecios = items.some((i) => i.precio_unitario != null);
   return (
-    <div style={{ ...card, overflow: 'hidden' }}>
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: tienePrecios
-            ? '28px 1fr 80px 80px 90px 100px'
-            : '28px 1fr 80px 80px',
-          gap: '10px',
-          padding: '10px 16px',
-          background: 'rgba(8,16,35,0.4)',
-          borderBottom: '1px solid rgba(148,163,184,0.07)',
-        }}
-      >
+    <div className={`${cardClass} overflow-hidden`}>
+      <div className={`grid gap-2.5 px-4 py-2.5 bg-slate-950/40 border-b border-slate-400/[0.07] ${tienePrecios ? 'grid-cols-[28px_1fr_80px_80px_90px_100px]' : 'grid-cols-[28px_1fr_80px_80px]'}`}>
         {[
           '#',
           'Descripción',
@@ -131,7 +88,7 @@ function TablaItems({ items }: { items: RemitoItem[] }) {
         ].map((h, i) => (
           <span
             key={i}
-            style={{ ...labelSt, textAlign: i >= 4 ? 'right' : 'left' }}
+            className={`${labelClass} ${i >= 4 ? 'text-right' : 'text-left'}`}
           >
             {h}
           </span>
@@ -142,82 +99,28 @@ function TablaItems({ items }: { items: RemitoItem[] }) {
         .map((item, idx) => (
           <div
             key={item.id}
-            style={{
-              display: 'grid',
-              gridTemplateColumns: tienePrecios
-                ? '28px 1fr 80px 80px 90px 100px'
-                : '28px 1fr 80px 80px',
-              gap: '10px',
-              padding: '11px 16px',
-              alignItems: 'center',
-              borderBottom:
-                idx < items.length - 1
-                  ? '1px solid rgba(148,163,184,0.05)'
-                  : 'none',
-            }}
+            className={`grid gap-2.5 px-4 py-[11px] items-center ${tienePrecios ? 'grid-cols-[28px_1fr_80px_80px_90px_100px]' : 'grid-cols-[28px_1fr_80px_80px]'}${idx < items.length - 1 ? ' border-b border-slate-400/[0.05]' : ''}`}
           >
-            <div
-              style={{
-                width: '22px',
-                height: '22px',
-                borderRadius: '5px',
-                background: 'rgba(245,158,11,0.07)',
-                border: '1px solid rgba(245,158,11,0.15)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '10px',
-                fontWeight: '700',
-                color: '#f59e0b',
-                fontFamily: "'DM Mono',monospace",
-              }}
-            >
+            <div className='w-[22px] h-[22px] rounded flex items-center justify-center text-xs font-bold text-amber-500 bg-amber-500/[0.07] border border-amber-500/[0.15]'>
               {idx + 1}
             </div>
-            <span style={{ fontSize: '13px', color: '#94a3b8' }}>
+            <span className='text-[13px] text-slate-400'>
               {item.descripcion}
             </span>
-            <span
-              style={{
-                fontSize: '12px',
-                color: '#64748b',
-                fontFamily: "'DM Mono',monospace",
-              }}
-            >
+            <span className='text-xs text-slate-500 font-mono'>
               {item.cantidad}
             </span>
-            <span
-              style={{
-                fontSize: '11px',
-                color: '#475569',
-                fontFamily: "'DM Mono',monospace",
-              }}
-            >
+            <span className='text-xs text-slate-600 font-mono'>
               {item.unidad_medida}
             </span>
             {tienePrecios && (
               <>
-                <span
-                  style={{
-                    fontSize: '12px',
-                    color: '#64748b',
-                    fontFamily: "'DM Mono',monospace",
-                    textAlign: 'right',
-                  }}
-                >
+                <span className='text-xs text-slate-500 text-right font-mono'>
                   {item.precio_unitario != null
                     ? formatearMonto(item.precio_unitario)
                     : '—'}
                 </span>
-                <span
-                  style={{
-                    fontSize: '13px',
-                    fontWeight: '600',
-                    color: '#94a3b8',
-                    fontFamily: "'DM Mono',monospace",
-                    textAlign: 'right',
-                  }}
-                >
+                <span className='text-[13px] font-semibold text-slate-400 text-right font-mono'>
                   {item.subtotal != null ? formatearMonto(item.subtotal) : '—'}
                 </span>
               </>
@@ -225,22 +128,8 @@ function TablaItems({ items }: { items: RemitoItem[] }) {
           </div>
         ))}
       {tienePrecios && (
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'flex-end',
-            padding: '12px 16px',
-            borderTop: '1px solid rgba(148,163,184,0.07)',
-          }}
-        >
-          <span
-            style={{
-              fontSize: '15px',
-              fontWeight: '800',
-              color: '#f59e0b',
-              fontFamily: "'DM Mono',monospace",
-            }}
-          >
+        <div className='flex justify-end px-4 py-3 border-t border-slate-400/[0.07]'>
+          <span className='text-[15px] font-extrabold text-amber-500 font-mono'>
             {formatearMonto(items.reduce((a, i) => a + (i.subtotal ?? 0), 0))}
           </span>
         </div>
@@ -255,6 +144,8 @@ export default function RemitoFicha({ remitoId }: Props) {
   const [remito, setRemito] = useState<FullRemito | null>(null);
   const [loading, setLoading] = useState(true);
   const [accionLoad, setAccionLoad] = useState(false);
+  const [generandoFactura, setGenerandoFactura] = useState(false);
+  const [pdfLoading, setPdfLoading] = useState(false);
   const [toast, setToast] = useState<{
     msg: string;
     tipo: 'ok' | 'error';
@@ -275,7 +166,7 @@ export default function RemitoFicha({ remitoId }: Props) {
     }
     const res = await obtenerRemito(remitoId);
     setLoading(false);
-    if (res.data) setRemito(res.data as FullRemito);
+    if (res.data) setRemito(res.data as unknown as FullRemito);
   }, [remitoId]);
 
   useEffect(() => {
@@ -304,132 +195,74 @@ export default function RemitoFicha({ remitoId }: Props) {
     }
   };
 
+  const handleGenerarFactura = async () => {
+    if (!remito) return;
+    setGenerandoFactura(true);
+    const res = await generarFacturaDesdeRemito(remito.id);
+    setGenerandoFactura(false);
+    if (res.error) {
+      showToast(res.error, 'error');
+      return;
+    }
+    showToast(res.mensaje ?? 'Factura generada', 'ok');
+    window.location.href = `/facturas/${res.data!.id}`;
+  };
+
+  const handlePDF = async () => {
+    if (!remito) return;
+    setPdfLoading(true);
+    const err = await descargarPDF('remito', remito.id, `REM-${remito.numero}.pdf`);
+    setPdfLoading(false);
+    if (err) showToast(`Error al generar PDF: ${err}`, 'error');
+  };
+
   const r = remito;
   const tipoCfg = r
-    ? (TIPO_CFG[r.tipo] ?? { label: r.tipo, icon: '📄', color: '#94a3b8' })
+    ? (TIPO_CFG[r.tipo] ?? { label: r.tipo, icon: <FileText className='w-3 h-3' />, cls: 'text-slate-400 bg-slate-400/10 border-slate-400/20' })
     : null;
   const posibles = r ? TRANSICIONES[r.estado as EstadoRemito] : [];
 
   return (
     <>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@300;400;500&display=swap');
-        *{box-sizing:border-box}body{margin:0;background:#060d1a;font-family:'DM Sans',sans-serif;-webkit-font-smoothing:antialiased}
-        ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:rgba(148,163,184,0.15);border-radius:2px}
-        @keyframes shimmer{0%,100%{opacity:.4}50%{opacity:.8}}@keyframes fadeIn{from{opacity:0}to{opacity:1}}
-        @keyframes scaleIn{from{transform:scale(0.96);opacity:0}to{transform:scale(1);opacity:1}}
-        @keyframes slideUp{from{transform:translateY(8px);opacity:0}to{transform:translateY(0);opacity:1}}
-      `}</style>
-
       <div className='px-3 py-3 pb-10 sm:px-5 sm:py-4 sm:pb-12 lg:px-4 lg:py-2 lg:pb-3'>
-        <div style={{ width: '100%', margin: '0 auto', minWidth: 0 }}>
+        <div className='w-full min-w-0'>
           {/* Breadcrumb */}
           <div className='mb-3 flex items-center gap-2 lg:mb-2'>
             <a
               href='/logistica'
-              style={{
-                fontSize: '11px',
-                color: '#334155',
-                textDecoration: 'none',
-                letterSpacing: '0.08em',
-                textTransform: 'uppercase',
-              }}
+              className='flex items-center gap-1 text-xs text-slate-700 no-underline tracking-widest uppercase hover:text-slate-400 transition-colors'
             >
+              <ArrowLeft className='w-3 h-3' />
               Logística
             </a>
-            <span style={{ color: '#1e293b' }}>›</span>
-            <span
-              style={{
-                fontSize: '11px',
-                color: '#475569',
-                letterSpacing: '0.08em',
-                textTransform: 'uppercase',
-              }}
-            >
+            <span className='text-slate-800'>›</span>
+            <span className='text-xs text-slate-600 tracking-widest uppercase'>
               Remitos
             </span>
-            <span style={{ color: '#1e293b' }}>›</span>
-            <span style={{ fontSize: '11px', color: '#64748b' }}>
+            <span className='text-slate-800'>›</span>
+            <span className='text-xs text-slate-500'>
               {loading ? '...' : r?.numero}
             </span>
           </div>
 
           {/* Header */}
-          <div style={{ ...card, padding: '16px', marginBottom: '12px' }}>
+          <div className={`${cardClass} p-4 mb-3`}>
             {loading ? (
-              <div
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '10px',
-                }}
-              >
-                <div
-                  style={{
-                    height: '12px',
-                    borderRadius: '4px',
-                    background: 'rgba(148,163,184,0.07)',
-                    width: '120px',
-                    animation: 'shimmer 1.4s ease infinite',
-                  }}
-                />
-                <div
-                  style={{
-                    height: '22px',
-                    borderRadius: '4px',
-                    background: 'rgba(148,163,184,0.07)',
-                    width: '280px',
-                    animation: 'shimmer 1.4s ease infinite',
-                  }}
-                />
+              <div className='flex flex-col gap-2.5'>
+                <div className='h-3 rounded bg-slate-400/[0.07] w-[120px] animate-pulse' />
+                <div className='h-[22px] rounded bg-slate-400/[0.07] w-[280px] animate-pulse' />
               </div>
             ) : r ? (
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'flex-start',
-                  justifyContent: 'space-between',
-                  gap: '16px',
-                  flexWrap: 'wrap',
-                }}
-              >
+              <div className='flex items-start justify-between gap-4 flex-wrap'>
                 <div>
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '10px',
-                      marginBottom: '8px',
-                      flexWrap: 'wrap',
-                    }}
-                  >
-                    <span
-                      style={{
-                        fontSize: '15px',
-                        fontWeight: '700',
-                        color: '#f59e0b',
-                        fontFamily: "'DM Mono',monospace",
-                      }}
-                    >
+                  <div className='flex items-center gap-2.5 mb-2 flex-wrap'>
+                    <span className='text-[15px] font-bold text-amber-500'>
                       {r.numero}
                     </span>
 
                     {/* Tipo */}
                     {tipoCfg && (
-                      <span
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '5px',
-                          padding: '2px 9px',
-                          borderRadius: '6px',
-                          fontSize: '11px',
-                          fontWeight: '700',
-                          color: tipoCfg.color,
-                          background: `${tipoCfg.color}10`,
-                          border: `1px solid ${tipoCfg.color}20`,
-                        }}
-                      >
+                      <span className={`inline-flex items-center gap-[5px] px-[9px] py-0.5 rounded-md text-xs font-bold border ${tipoCfg.cls}`}>
                         {tipoCfg.icon} {tipoCfg.label}
                       </span>
                     )}
@@ -438,29 +271,8 @@ export default function RemitoFicha({ remitoId }: Props) {
                     {(() => {
                       const cfg = ESTADO_CFG[r.estado as EstadoRemito];
                       return (
-                        <span
-                          style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '5px',
-                            padding: '3px 11px',
-                            borderRadius: '20px',
-                            fontSize: '11px',
-                            fontWeight: '600',
-                            background: cfg.bg,
-                            border: `1px solid ${cfg.border}`,
-                            color: cfg.color,
-                          }}
-                        >
-                          <span
-                            style={{
-                              width: '5px',
-                              height: '5px',
-                              borderRadius: '50%',
-                              background: 'currentColor',
-                              display: 'inline-block',
-                            }}
-                          />
+                        <span className={`inline-flex items-center gap-[5px] px-[11px] py-[3px] rounded-full text-[11px] font-semibold border ${cfg.badge}`}>
+                          <span className='inline-block w-[5px] h-[5px] rounded-full bg-current' />
                           {cfg.label}
                         </span>
                       );
@@ -470,35 +282,17 @@ export default function RemitoFicha({ remitoId }: Props) {
                     {r.numero_orden && (
                       <a
                         href={`/ordenes/${r.orden_id}`}
-                        style={{
-                          fontSize: '11px',
-                          color: '#60a5fa',
-                          fontFamily: "'DM Mono',monospace",
-                          textDecoration: 'none',
-                          background: 'rgba(96,165,250,0.06)',
-                          border: '1px solid rgba(96,165,250,0.15)',
-                          borderRadius: '4px',
-                          padding: '1px 7px',
-                        }}
+                        className='inline-flex items-center gap-1 text-xs text-blue-400 no-underline bg-blue-400/[0.06] border border-blue-400/[0.15] rounded px-1.5 py-px'
                       >
-                        ⚙️ {r.numero_orden}
+                        <Settings className='w-3 h-3' /> {r.numero_orden}
                       </a>
                     )}
                     {r.factura_id && (
                       <a
                         href={`/facturas/${r.factura_id}`}
-                        style={{
-                          fontSize: '11px',
-                          color: '#4ade80',
-                          fontFamily: "'DM Mono',monospace",
-                          textDecoration: 'none',
-                          background: 'rgba(74,222,128,0.06)',
-                          border: '1px solid rgba(74,222,128,0.15)',
-                          borderRadius: '4px',
-                          padding: '1px 7px',
-                        }}
+                        className='inline-flex items-center gap-1 text-xs text-emerald-400 no-underline bg-emerald-400/[0.06] border border-emerald-400/[0.15] rounded px-1.5 py-px'
                       >
-                        🧾 Factura
+                        <span className='text-xs'>🧾</span> Factura
                       </a>
                     )}
                   </div>
@@ -506,79 +300,46 @@ export default function RemitoFicha({ remitoId }: Props) {
                   {r.razon_social && (
                     <a
                       href={`/clientes/${r.cliente_id}`}
-                      style={{
-                        fontSize: '15px',
-                        fontWeight: '600',
-                        color: '#94a3b8',
-                        textDecoration: 'none',
-                        display: 'block',
-                        marginBottom: '4px',
-                      }}
-                      onMouseEnter={(e) =>
-                        (e.currentTarget.style.color = '#e2e8f0')
-                      }
-                      onMouseLeave={(e) =>
-                        (e.currentTarget.style.color = '#94a3b8')
-                      }
+                      className='text-[15px] font-semibold text-slate-400 no-underline block mb-1 transition-colors duration-150 hover:text-slate-200'
                     >
                       {r.razon_social}
                     </a>
                   )}
                   {!r.razon_social && r.proveedor && (
-                    <div
-                      style={{
-                        fontSize: '14px',
-                        color: '#64748b',
-                        marginBottom: '4px',
-                      }}
-                    >
+                    <div className='text-sm text-slate-500 mb-1'>
                       {r.proveedor}
                     </div>
                   )}
                 </div>
 
                 {/* Acciones */}
-                <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
-                  <a
-                    href={`/logistica/remitos/${r.id}/pdf`}
-                    target='_blank'
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      padding: '8px 14px',
-                      borderRadius: '8px',
-                      border: '1px solid rgba(148,163,184,0.15)',
-                      background: 'rgba(15,23,42,0.6)',
-                      color: '#64748b',
-                      fontSize: '12px',
-                      fontWeight: '600',
-                      textDecoration: 'none',
-                      fontFamily: "'DM Sans',sans-serif",
-                    }}
+                <div className='flex gap-2 shrink-0 flex-wrap'>
+                  <button
+                    onClick={handlePDF}
+                    disabled={pdfLoading}
+                    className='inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-slate-400/[0.15] bg-slate-900/60 text-slate-500 text-xs font-semibold cursor-pointer disabled:opacity-50'
                   >
-                    📄 PDF
-                  </a>
+                    {pdfLoading ? <Loader2 className='w-3 h-3 animate-spin' /> : <FileText className='w-3 h-3' />}
+                    PDF
+                  </button>
+                  {['EMITIDO', 'ENTREGADO'].includes(r.estado) && !r.factura_id && (
+                    <button
+                      onClick={handleGenerarFactura}
+                      disabled={generandoFactura}
+                      className='inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border-0 text-slate-900 text-xs font-bold cursor-pointer bg-gradient-to-br from-emerald-400/80 to-teal-500/80 disabled:opacity-60'
+                    >
+                      {generandoFactura
+                        ? <Loader2 className='w-3 h-3 animate-spin' />
+                        : <Receipt className='w-3 h-3' />}
+                      Generar Factura
+                    </button>
+                  )}
                   {posibles.length > 0 && (
-                    <div ref={menuRef} style={{ position: 'relative' }}>
+                    <div ref={menuRef} className='relative'>
                       <button
                         onClick={() => setMenuEstado((p) => !p)}
                         disabled={accionLoad}
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '6px',
-                          padding: '8px 16px',
-                          borderRadius: '8px',
-                          border: 'none',
-                          background:
-                            'linear-gradient(135deg,rgba(245,158,11,0.8),rgba(234,179,8,0.8))',
-                          color: '#0f172a',
-                          fontSize: '12px',
-                          fontWeight: '700',
-                          cursor: 'pointer',
-                          fontFamily: "'DM Sans',sans-serif",
-                        }}
+                        className='inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border-none text-slate-900 text-xs font-bold cursor-pointer bg-gradient-to-br from-amber-500/80 to-yellow-500/80'
                       >
                         Actualizar estado
                         <svg
@@ -586,10 +347,7 @@ export default function RemitoFicha({ remitoId }: Props) {
                           height='8'
                           viewBox='0 0 8 8'
                           fill='none'
-                          style={{
-                            transition: 'transform 0.15s',
-                            transform: menuEstado ? 'rotate(180deg)' : 'none',
-                          }}
+                          className={`transition-transform duration-150 ${menuEstado ? 'rotate-180' : ''}`}
                         >
                           <path
                             d='M1 3L4 6L7 3'
@@ -601,62 +359,16 @@ export default function RemitoFicha({ remitoId }: Props) {
                         </svg>
                       </button>
                       {menuEstado && (
-                        <div
-                          style={{
-                            position: 'absolute',
-                            right: 0,
-                            top: 'calc(100% + 4px)',
-                            zIndex: 30,
-                            background: '#0f172a',
-                            border: '1px solid rgba(148,163,184,0.12)',
-                            borderRadius: '9px',
-                            padding: '4px',
-                            minWidth: '160px',
-                            boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
-                            animation: 'scaleIn 0.12s ease',
-                          }}
-                        >
+                        <div className='absolute right-0 top-[calc(100%+4px)] z-30 bg-slate-900 border border-slate-400/[0.12] rounded-[9px] p-1 min-w-[160px] shadow-[0_8px_24px_rgba(0,0,0,0.5)] animate-[scaleIn_0.12s_ease]'>
                           {posibles.map((e) => {
                             const cfg = ESTADO_CFG[e];
                             return (
                               <button
                                 key={e}
                                 onClick={() => handleCambiarEstado(e)}
-                                style={{
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  gap: '8px',
-                                  padding: '8px 11px',
-                                  borderRadius: '6px',
-                                  width: '100%',
-                                  border: 'none',
-                                  background: 'transparent',
-                                  cursor: 'pointer',
-                                  fontSize: '12px',
-                                  color: '#94a3b8',
-                                  fontFamily: "'DM Sans',sans-serif",
-                                  transition: 'background 0.1s',
-                                }}
-                                onMouseEnter={(el) => {
-                                  el.currentTarget.style.background =
-                                    'rgba(148,163,184,0.06)';
-                                  el.currentTarget.style.color = '#e2e8f0';
-                                }}
-                                onMouseLeave={(el) => {
-                                  el.currentTarget.style.background =
-                                    'transparent';
-                                  el.currentTarget.style.color = '#94a3b8';
-                                }}
+                                className='flex items-center gap-2 px-[11px] py-2 rounded-md w-full border-none bg-transparent cursor-pointer text-xs text-slate-400 transition-colors duration-100 hover:bg-slate-400/[0.06] hover:text-slate-200'
                               >
-                                <span
-                                  style={{
-                                    width: '6px',
-                                    height: '6px',
-                                    borderRadius: '50%',
-                                    background: cfg.color,
-                                    flexShrink: 0,
-                                  }}
-                                />
+                                <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${cfg.dot}`} />
                                 {cfg.label}
                               </button>
                             );
@@ -668,53 +380,23 @@ export default function RemitoFicha({ remitoId }: Props) {
                 </div>
               </div>
             ) : (
-              <div style={{ color: '#475569' }}>Remito no encontrado</div>
+              <div className='text-slate-600'>Remito no encontrado</div>
             )}
           </div>
 
           {r && (
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: '1fr 270px',
-                gap: '16px',
-                alignItems: 'start',
-              }}
-            >
+            <div className='grid grid-cols-[1fr_270px] gap-4 items-start'>
               {/* Ítems */}
-              <div
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '16px',
-                }}
-              >
+              <div className='flex flex-col gap-4'>
                 <TablaItems items={r.items} />
 
                 {/* Notas */}
                 {r.notas && (
-                  <div style={{ ...card, padding: '18px' }}>
-                    <div
-                      style={{
-                        fontSize: '10px',
-                        fontWeight: '700',
-                        letterSpacing: '0.08em',
-                        textTransform: 'uppercase',
-                        color: '#334155',
-                        marginBottom: '8px',
-                      }}
-                    >
+                  <div className={`${cardClass} p-[18px]`}>
+                    <div className='text-xs font-bold tracking-widest uppercase text-slate-700 mb-2'>
                       Notas
                     </div>
-                    <p
-                      style={{
-                        margin: 0,
-                        fontSize: '12px',
-                        color: '#64748b',
-                        lineHeight: '1.7',
-                        whiteSpace: 'pre-wrap',
-                      }}
-                    >
+                    <p className='m-0 text-xs text-slate-500 leading-[1.7] whitespace-pre-wrap'>
                       {r.notas}
                     </p>
                   </div>
@@ -722,25 +404,10 @@ export default function RemitoFicha({ remitoId }: Props) {
               </div>
 
               {/* Panel lateral */}
-              <div
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '12px',
-                }}
-              >
+              <div className='flex flex-col gap-3'>
                 {/* Datos del documento */}
-                <div style={{ ...card, padding: '18px' }}>
-                  <div
-                    style={{
-                      fontSize: '10px',
-                      fontWeight: '700',
-                      letterSpacing: '0.08em',
-                      textTransform: 'uppercase',
-                      color: '#334155',
-                      marginBottom: '12px',
-                    }}
-                  >
+                <div className={`${cardClass} p-[18px]`}>
+                  <div className='text-xs font-bold tracking-widest uppercase text-slate-700 mb-3'>
                     Documento
                   </div>
                   {[
@@ -754,11 +421,11 @@ export default function RemitoFicha({ remitoId }: Props) {
                     ...(r.cae
                       ? [{ label: 'CAE', value: r.cae, mono: true }]
                       : []),
-                    ...(r.cae_vencimiento
+                    ...(r.cai_vencimiento
                       ? [
                           {
                             label: 'Venc. CAE',
-                            value: fmtFecha(r.cae_vencimiento),
+                            value: fmtFecha(r.cai_vencimiento),
                             mono: true,
                           },
                         ]
@@ -766,31 +433,13 @@ export default function RemitoFicha({ remitoId }: Props) {
                   ].map(({ label, value, mono }) => (
                     <div
                       key={label}
-                      style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'flex-start',
-                        gap: '8px',
-                        paddingBottom: '7px',
-                        borderBottom: '1px solid rgba(148,163,184,0.05)',
-                      }}
+                      className='flex justify-between items-start gap-2 pb-[7px] border-b border-slate-400/[0.05]'
                     >
-                      <span
-                        style={{
-                          fontSize: '11px',
-                          color: '#334155',
-                          flexShrink: 0,
-                        }}
-                      >
+                      <span className='text-xs text-slate-700 shrink-0'>
                         {label}
                       </span>
                       <span
-                        style={{
-                          fontSize: '12px',
-                          color: '#64748b',
-                          fontFamily: mono ? "'DM Mono',monospace" : undefined,
-                          textAlign: 'right',
-                        }}
+                        className={`text-xs text-slate-500 text-right${mono ? ' font-mono' : ''}`}
                       >
                         {value || '—'}
                       </span>
@@ -803,18 +452,9 @@ export default function RemitoFicha({ remitoId }: Props) {
                   r.transportista ||
                   r.patente_vehiculo ||
                   r.chofer) && (
-                  <div style={{ ...card, padding: '18px' }}>
-                    <div
-                      style={{
-                        fontSize: '10px',
-                        fontWeight: '700',
-                        letterSpacing: '0.08em',
-                        textTransform: 'uppercase',
-                        color: '#334155',
-                        marginBottom: '12px',
-                      }}
-                    >
-                      🚚 Entrega
+                  <div className={`${cardClass} p-[18px]`}>
+                    <div className='flex items-center gap-1.5 text-xs font-bold tracking-widest uppercase text-slate-700 mb-3'>
+                      <Truck className='w-3 h-3' /> Entrega
                     </div>
                     {[
                       { label: 'Dirección', value: r.direccion_entrega },
@@ -830,38 +470,13 @@ export default function RemitoFicha({ remitoId }: Props) {
                       .map(({ label, value, mono }) => (
                         <div
                           key={label}
-                          style={{
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'flex-start',
-                            gap: '8px',
-                            paddingBottom: '7px',
-                            marginBottom: '7px',
-                            borderBottom: '1px solid rgba(148,163,184,0.05)',
-                          }}
+                          className='flex justify-between items-start gap-2 pb-[7px] mb-[7px] border-b border-slate-400/[0.05]'
                         >
-                          <span
-                            style={{
-                              fontSize: '11px',
-                              color: '#334155',
-                              flexShrink: 0,
-                            }}
-                          >
+                          <span className='text-xs text-slate-700 shrink-0'>
                             {label}
                           </span>
                           <span
-                            style={{
-                              fontSize: '12px',
-                              color: '#64748b',
-                              fontFamily: mono
-                                ? "'DM Mono',monospace"
-                                : undefined,
-                              textAlign: 'right',
-                              maxWidth: '150px',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              whiteSpace: 'nowrap',
-                            }}
+                            className={`text-xs text-slate-500 text-right max-w-[150px] overflow-hidden text-ellipsis whitespace-nowrap${mono ? ' font-mono' : ''}`}
                           >
                             {value}
                           </span>
@@ -871,33 +486,18 @@ export default function RemitoFicha({ remitoId }: Props) {
                 )}
 
                 {/* Accesos rápidos */}
-                <div style={{ ...card, padding: '14px' }}>
-                  <div
-                    style={{
-                      fontSize: '10px',
-                      fontWeight: '700',
-                      letterSpacing: '0.08em',
-                      textTransform: 'uppercase',
-                      color: '#334155',
-                      marginBottom: '8px',
-                    }}
-                  >
+                <div className={`${cardClass} p-3.5`}>
+                  <div className='text-xs font-bold tracking-widest uppercase text-slate-700 mb-2'>
                     Accesos
                   </div>
-                  <div
-                    style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '5px',
-                    }}
-                  >
-                    {[
+                  <div className='flex flex-col gap-[5px]'>
+                    {([
                       ...(r.cliente_id
                         ? [
                             {
                               href: `/clientes/${r.cliente_id}`,
                               label: 'Ver cliente',
-                              icon: '👤',
+                              icon: <User className='w-4 h-4' />,
                             },
                           ]
                         : []),
@@ -906,7 +506,7 @@ export default function RemitoFicha({ remitoId }: Props) {
                             {
                               href: `/ordenes/${r.orden_id}`,
                               label: 'Ver OS',
-                              icon: '⚙️',
+                              icon: <Settings className='w-4 h-4' />,
                             },
                           ]
                         : []),
@@ -915,7 +515,7 @@ export default function RemitoFicha({ remitoId }: Props) {
                             {
                               href: `/logistica/notas/${r.nota_pedido_id}`,
                               label: 'Ver nota de pedido',
-                              icon: '📋',
+                              icon: <ClipboardList className='w-4 h-4' />,
                             },
                           ]
                         : []),
@@ -924,39 +524,17 @@ export default function RemitoFicha({ remitoId }: Props) {
                             {
                               href: `/facturas/${r.factura_id}`,
                               label: 'Ver factura',
-                              icon: '🧾',
+                              icon: <span className='text-xs'>🧾</span>,
                             },
                           ]
                         : []),
-                    ].map(({ href, label, icon }) => (
+                    ] as { href: string; label: string; icon: ReactNode }[]).map(({ href, label, icon }) => (
                       <a
                         key={href}
                         href={href}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '7px',
-                          padding: '7px 9px',
-                          borderRadius: '6px',
-                          textDecoration: 'none',
-                          fontSize: '12px',
-                          color: '#64748b',
-                          border: '1px solid rgba(148,163,184,0.07)',
-                          background: 'rgba(8,16,35,0.3)',
-                          transition: 'all 0.12s',
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.background =
-                            'rgba(148,163,184,0.05)';
-                          e.currentTarget.style.color = '#94a3b8';
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.background =
-                            'rgba(8,16,35,0.3)';
-                          e.currentTarget.style.color = '#64748b';
-                        }}
+                        className='flex items-center gap-[7px] px-[9px] py-[7px] rounded-md no-underline text-xs text-slate-500 border border-slate-400/[0.07] bg-slate-950/30 transition-all duration-[120ms] hover:bg-slate-400/[0.05] hover:text-slate-400'
                       >
-                        <span>{icon}</span>
+                        {icon}
                         {label}
                       </a>
                     ))}
@@ -970,37 +548,15 @@ export default function RemitoFicha({ remitoId }: Props) {
 
       {toast && (
         <div
-          style={{
-            position: 'fixed',
-            bottom: '24px',
-            right: '24px',
-            zIndex: 200,
-            display: 'flex',
-            alignItems: 'center',
-            gap: '10px',
-            padding: '12px 18px',
-            borderRadius: '10px',
-            background: 'rgba(15,23,42,0.97)',
-            border: `1px solid ${toast.tipo === 'ok' ? 'rgba(74,222,128,0.3)' : 'rgba(248,113,113,0.3)'}`,
-            backdropFilter: 'blur(12px)',
-            boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
-            animation: 'slideUp 0.25s ease',
-          }}
+          className={`fixed bottom-6 right-6 z-[200] flex items-center gap-2.5 px-[18px] py-3 rounded-[10px] bg-slate-900/[0.97] backdrop-blur-sm shadow-[0_8px_32px_rgba(0,0,0,0.4)] animate-[slideUp_0.25s_ease] ${toast.tipo === 'ok' ? 'border border-emerald-400/30' : 'border border-red-400/30'}`}
         >
           <span
-            style={{
-              color: toast.tipo === 'ok' ? '#4ade80' : '#f87171',
-              fontWeight: '600',
-              fontSize: '13px',
-            }}
+            className={`font-semibold text-[13px] ${toast.tipo === 'ok' ? 'text-emerald-400' : 'text-red-400'}`}
           >
             {toast.tipo === 'ok' ? '✓' : '✕'}
           </span>
           <span
-            style={{
-              color: toast.tipo === 'ok' ? '#4ade80' : '#f87171',
-              fontSize: '13px',
-            }}
+            className={`text-[13px] ${toast.tipo === 'ok' ? 'text-emerald-400' : 'text-red-400'}`}
           >
             {toast.msg}
           </span>

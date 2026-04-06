@@ -184,6 +184,95 @@ export async function obtenerRankingClientes(
   return { data: ranking, error: null }
 }
 
+// ── Exportación detallada ─────────────────────────────────────
+
+export interface FilaExportFacturas {
+  numero:            string
+  fecha_emision:     string
+  tipo_comprobante:  string
+  cliente:           string
+  estado:            string
+  subtotal:          number
+  iva_monto:         number
+  total:             number
+  saldo_pendiente:   number
+  cobrado:           number
+}
+
+export interface FilaExportOrdenes {
+  numero:         string
+  titulo:         string
+  cliente:        string
+  estado:         string
+  fecha_inicio:   string
+  fecha_fin_real: string
+  presupuesto:    string
+}
+
+export async function exportarFacturasPeriodo(
+  desde: string,
+  hasta: string,
+): Promise<ApiResponse<FilaExportFacturas[]>> {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { data: null, error: 'No autenticado' }
+
+  const { data, error } = await supabase
+    .from('facturas')
+    .select('numero, fecha_emision, tipo_comprobante, estado, subtotal, iva_monto, total, saldo_pendiente, clientes(razon_social)')
+    .gte('fecha_emision', desde)
+    .lte('fecha_emision', hasta)
+    .neq('estado', 'ANULADA')
+    .order('fecha_emision', { ascending: false })
+
+  if (error) return { data: null, error: error.message }
+
+  const filas: FilaExportFacturas[] = (data ?? []).map((f: any) => ({
+    numero:           f.numero,
+    fecha_emision:    f.fecha_emision,
+    tipo_comprobante: f.tipo_comprobante?.replace(/_/g, ' ') ?? '',
+    cliente:          f.clientes?.razon_social ?? '',
+    estado:           f.estado,
+    subtotal:         f.subtotal ?? 0,
+    iva_monto:        f.iva_monto ?? 0,
+    total:            f.total ?? 0,
+    saldo_pendiente:  f.saldo_pendiente ?? 0,
+    cobrado:          Math.max(0, (f.total ?? 0) - (f.saldo_pendiente ?? 0)),
+  }))
+
+  return { data: filas, error: null }
+}
+
+export async function exportarOrdenesPeriodo(
+  desde: string,
+  hasta: string,
+): Promise<ApiResponse<FilaExportOrdenes[]>> {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { data: null, error: 'No autenticado' }
+
+  const { data, error } = await supabase
+    .from('ordenes_servicio')
+    .select('numero, titulo, estado, fecha_inicio, fecha_fin_real, clientes(razon_social), presupuestos(numero)')
+    .gte('creado_en', desde)
+    .lte('creado_en', hasta)
+    .order('creado_en', { ascending: false })
+
+  if (error) return { data: null, error: error.message }
+
+  const filas: FilaExportOrdenes[] = (data ?? []).map((o: any) => ({
+    numero:         o.numero,
+    titulo:         o.titulo ?? '',
+    cliente:        o.clientes?.razon_social ?? '',
+    estado:         o.estado,
+    fecha_inicio:   o.fecha_inicio ?? '',
+    fecha_fin_real: o.fecha_fin_real ?? '',
+    presupuesto:    o.presupuestos?.numero ?? '',
+  }))
+
+  return { data: filas, error: null }
+}
+
 // ── Resumen del período seleccionado ─────────────────────────
 
 export async function obtenerResumenPeriodo(

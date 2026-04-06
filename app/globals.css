@@ -19,19 +19,96 @@
     @apply bg-slate-950 text-slate-100;
   }
 
-  /* Scrollbar delgada para el Sidebar */
-  .scrollbar-thin {
-    scrollbar-width: thin;
-    scrollbar-color: #334155 transparent;
+  /* Focus ring global — visible para navegación por teclado */
+  :focus-visible {
+    outline: 2px solid #6366f1;
+    outline-offset: 2px;
+    border-radius: 4px;
   }
-  .scrollbar-thin::-webkit-scrollbar {
-    width: 4px;
+
+  /* Respeta la preferencia del sistema de reducir movimiento */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
   }
-  .scrollbar-thin::-webkit-scrollbar-track {
+
+  /* Placeholder color global para inputs en tema oscuro */
+  ::placeholder {
+    color: #334155 !important;
+  }
+
+  /* Fondo oscuro para opciones de <select> */
+  option {
+    background: #0f172a;
+    color: #e2e8f0;
+  }
+
+  /* Slider range sin estilo nativo — el thumb visual se maneja con un div overlay */
+  input[type='range'] {
+    -webkit-appearance: none;
+    appearance: none;
     background: transparent;
   }
-  .scrollbar-thin::-webkit-scrollbar-thumb {
-    background-color: #334155;
-    border-radius: 9999px;
+  input[type='range']::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 0;
+    height: 0;
+  }
+
+  /* Tabla de logística — responsive mobile */
+  @media (max-width: 640px) {
+    .logistica-scroll {
+      overflow-x: hidden !important;
+    }
+    .logistica-table {
+      font-size: 0.75rem !important;
+    }
+    .logistica-table th,
+    .logistica-table td {
+      padding: 0.375rem 0.5rem !important;
+      font-size: 0.75rem !important;
+    }
+    .logistica-table th {
+      font-size: 0.7rem !important;
+    }
+  }
+
+  /* Select con ícono de dropdown personalizado */
+  .select-dropdown {
+    background-image: url("data:image/svg+xml,%3Csvg%20width%3D'10'%20height%3D'10'%20viewBox%3D'0%200%2010%2010'%20fill%3D'none'%20xmlns%3D'http%3A//www.w3.org/2000/svg'%3E%3Cpath%20d%3D'M2%204L5%207L8%204'%20stroke%3D'%2364748b'%20stroke-width%3D'1.2'%20stroke-linecap%3D'round'%20stroke-linejoin%3D'round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+  }
+
+  /* Evita que Editar/Nuevo presupuesto se estiren en la ficha de cliente */
+  a[href^='/clientes/'][href$='/editar'],
+  a[href^='/presupuestos/nuevo?cliente='] {
+    flex: 0 0 auto !important;
+    flex-basis: auto !important;
+    min-width: max-content !important;
+    width: auto !important;
+  }
+
+  /* Ocultar todas las barras de scroll — el contenido sigue siendo desplazable */
+  * {
+    scrollbar-width: none; /* Firefox */
+  }
+  *::-webkit-scrollbar {
+    display: none; /* Chrome / Safari / Edge */
+  }
+
+  /* Spinners de inputs numéricos — se eliminan, el usuario ingresa manualmente */
+  input[type='number']::-webkit-inner-spin-button,
+  input[type='number']::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type='number'] {
+    -moz-appearance: textfield;
   }
 }
