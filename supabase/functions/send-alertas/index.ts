@@ -237,8 +237,12 @@ Deno.serve(async (_req) => {
     });
 
     if (!res.ok) {
-      const err = await res.text();
-      return new Response(JSON.stringify({ ok: false, error: err }), { status: 500 });
+      // El detalle queda en los logs de la función; al cliente, un mensaje genérico.
+      console.error('send-alertas: Resend respondió', res.status, await res.text());
+      return new Response(
+        JSON.stringify({ ok: false, error: 'No se pudo enviar el email de alertas' }),
+        { status: 502 },
+      );
     }
 
     return new Response(
@@ -246,6 +250,10 @@ Deno.serve(async (_req) => {
       { headers: { 'Content-Type': 'application/json' } },
     );
   } catch (e) {
-    return new Response(JSON.stringify({ ok: false, error: String(e) }), { status: 500 });
+    console.error('send-alertas: error inesperado', e);
+    return new Response(
+      JSON.stringify({ ok: false, error: 'Error interno al procesar las alertas' }),
+      { status: 500 },
+    );
   }
 });
